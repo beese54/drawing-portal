@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Connection stubs -->
+  <line x1="0" y1="32" x2="10" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <line x1="54" y1="32" x2="64" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Tank rectangle -->
+  <rect x="10" y="12" width="44" height="40" rx="2" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Two dashed internal dividers (three chambers) -->
+  <line x1="25" y1="12" x2="25" y2="52" stroke="#1a1a1a" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="39" y1="12" x2="39" y2="52" stroke="#1a1a1a" stroke-width="1.5" stroke-dasharray="4,3"/>
+</svg>

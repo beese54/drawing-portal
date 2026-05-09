@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Supply stub from top -->
+  <line x1="32" y1="0" x2="32" y2="8" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Urinal body with rounded bottom -->
+  <path d="M16,8 L16,44 Q16,56 32,56 Q48,56 48,44 L48,8 Z" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Mounting line -->
+  <line x1="16" y1="16" x2="48" y2="16" stroke="#1a1a1a" stroke-width="1.5"/>
+</svg>

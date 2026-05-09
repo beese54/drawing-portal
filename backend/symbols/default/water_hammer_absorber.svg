@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Supply stub from bottom -->
+  <line x1="32" y1="64" x2="32" y2="52" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Stem from pipe to dome base -->
+  <line x1="32" y1="52" x2="32" y2="44" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Base flange line -->
+  <line x1="16" y1="44" x2="48" y2="44" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Dome (half arch) -->
+  <path d="M16,44 Q16,16 32,16 Q48,16 48,44" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+</svg>

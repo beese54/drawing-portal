@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Supply stub from bottom -->
+  <line x1="32" y1="64" x2="32" y2="52" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Stem up to body -->
+  <line x1="32" y1="52" x2="32" y2="44" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Base flange -->
+  <line x1="18" y1="44" x2="46" y2="44" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Arch (inverted U / vent cowl shape) -->
+  <path d="M18,44 L18,32 Q18,18 32,18 Q46,18 46,32 L46,44" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Vent slots at arch top -->
+  <line x1="24" y1="22" x2="40" y2="22" stroke="#1a1a1a" stroke-width="1.5" stroke-dasharray="3,2" stroke-linecap="round"/>
+</svg>

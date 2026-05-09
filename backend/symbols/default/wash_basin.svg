@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Supply stub from bottom -->
+  <line x1="32" y1="64" x2="32" y2="56" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Basin outer rectangle -->
+  <rect x="10" y="8" width="44" height="48" rx="2" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Basin inner oval -->
+  <ellipse cx="32" cy="32" rx="16" ry="18" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+  <!-- Drain -->
+  <circle cx="32" cy="38" r="2.5" fill="#1a1a1a"/>
+</svg>

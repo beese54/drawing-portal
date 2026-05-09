@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Supply stub from bottom -->
+  <line x1="32" y1="64" x2="32" y2="54" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Vessel body rectangle -->
+  <rect x="18" y="20" width="28" height="34" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Dome cap on top (half ellipse) -->
+  <path d="M18,20 Q18,8 32,8 Q46,8 46,20" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- P label inside vessel -->
+  <text x="32" y="40" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#1a1a1a">P</text>
+</svg>

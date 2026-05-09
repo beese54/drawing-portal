@@ -1,0 +1,128 @@
+import { useState } from 'react';
+import { TEMPLATES } from '../../data/templates';
+import { useCanvasStore } from '../../store/canvasStore';
+
+interface TemplateModalProps {
+  onClose: () => void;
+}
+
+export function TemplateModal({ onClose }: TemplateModalProps) {
+  const loadTemplate = useCanvasStore((s) => s.loadTemplate);
+  const hasContent = useCanvasStore((s) => s.elements.length > 0 || s.pipes.length > 0);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const handleLoad = (templateId: string) => {
+    if (hasContent) {
+      setConfirmId(templateId);
+    } else {
+      applyTemplate(templateId);
+    }
+  };
+
+  const applyTemplate = (templateId: string) => {
+    const template = TEMPLATES.find((t) => t.id === templateId);
+    if (!template) return;
+    const { elements, pipes } = template.generate();
+    loadTemplate(elements, pipes);
+    onClose();
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1100,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#fff', borderRadius: 10, padding: 28,
+          width: 480, maxWidth: '90vw', maxHeight: '80vh',
+          boxShadow: '0 12px 48px rgba(0,0,0,0.25)',
+          display: 'flex', flexDirection: 'column',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#111' }}>Choose a Template</h2>
+          <button
+            onClick={onClose}
+            style={{
+              border: 'none', background: 'none', cursor: 'pointer',
+              fontSize: 20, color: '#6b7280', lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>
+          Loading a template will replace your current canvas. Remember to fill in pipe
+          sizes, materials, and MRL values for each component after loading.
+        </p>
+
+        {/* Template list */}
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {TEMPLATES.map((template) => (
+            <div
+              key={template.id}
+              style={{
+                border: '1px solid #e5e7eb', borderRadius: 8, padding: '14px 16px',
+                marginBottom: 10,
+              }}
+            >
+              <div style={{ fontWeight: 600, fontSize: 14, color: '#111', marginBottom: 4 }}>
+                {template.name}
+              </div>
+              <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.5, marginBottom: 12 }}>
+                {template.description}
+              </div>
+
+              {/* Confirmation row */}
+              {confirmId === template.id ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: '#b45309', flex: 1 }}>
+                    This will replace your current canvas. Continue?
+                  </span>
+                  <button
+                    onClick={() => setConfirmId(null)}
+                    style={{
+                      padding: '5px 12px', border: '1px solid #ccc', borderRadius: 5,
+                      background: '#fff', cursor: 'pointer', fontSize: 12,
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => applyTemplate(template.id)}
+                    style={{
+                      padding: '5px 12px', border: 'none', borderRadius: 5,
+                      background: '#b45309', color: '#fff', cursor: 'pointer',
+                      fontSize: 12, fontWeight: 600,
+                    }}
+                  >
+                    Replace & Load
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleLoad(template.id)}
+                  style={{
+                    padding: '6px 16px', border: 'none', borderRadius: 5,
+                    background: '#0066cc', color: '#fff', cursor: 'pointer',
+                    fontSize: 13, fontWeight: 600,
+                  }}
+                >
+                  Load Template
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

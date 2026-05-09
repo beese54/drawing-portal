@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Outer rectangle -->
+  <rect x="8" y="6" width="48" height="52" rx="2" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+  <!-- HW label -->
+  <text x="32" y="26" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#e63329">HW</text>
+  <!-- Heat wave lines -->
+  <path d="M14,36 Q19,31 24,36 Q29,41 34,36 Q39,31 44,36 Q49,41 50,38" stroke="#e63329" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <path d="M14,45 Q19,40 24,45 Q29,50 34,45 Q39,40 44,45 Q49,50 50,47" stroke="#e63329" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+</svg>

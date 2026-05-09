@@ -1,0 +1,376 @@
+{
+  "version": 1,
+  "symbols": [
+    {
+      "id": "cold_water_pipe",
+      "name": "Cold Water Pipe",
+      "category": "default",
+      "filename": "default/cold_water_pipe.svg",
+      "created_at": "2026-04-01T00:00:00+00:00"
+    },
+    {
+      "id": "hot_water_pipe",
+      "name": "Hot Water Pipe",
+      "category": "default",
+      "filename": "default/hot_water_pipe.svg",
+      "created_at": "2026-04-01T00:00:00+00:00"
+    },
+    {
+      "id": "gate_valve",
+      "name": "Gate Valve",
+      "category": "default",
+      "filename": "default/gate_valve.svg",
+      "created_at": "2026-04-01T00:00:00+00:00"
+    },
+    {
+      "id": "check_valve",
+      "name": "Check Valve",
+      "category": "default",
+      "filename": "default/check_valve.svg",
+      "created_at": "2026-04-01T00:00:00+00:00"
+    },
+    {
+      "id": "pump",
+      "name": "Pump",
+      "category": "default",
+      "filename": "default/pump.svg",
+      "created_at": "2026-04-01T00:00:00+00:00"
+    },
+    {
+      "id": "tee_junction",
+      "name": "Tee Junction",
+      "category": "default",
+      "filename": "default/tee_junction.svg",
+      "created_at": "2026-04-01T00:00:00+00:00"
+    },
+    {
+      "id": "water_tank",
+      "name": "Water Tank",
+      "category": "default",
+      "filename": "default/water_tank.svg",
+      "created_at": "2026-04-01T00:00:00+00:00"
+    },
+    {
+      "id": "water_heater",
+      "name": "Water Heater",
+      "category": "default",
+      "filename": "default/water_heater.svg",
+      "created_at": "2026-04-01T00:00:00+00:00"
+    },
+    {
+      "id": "elbow_bend",
+      "name": "Elbow Bend (90°)",
+      "category": "default",
+      "filename": "default/elbow_bend.svg",
+      "created_at": "2026-04-02T00:00:00+00:00"
+    },
+    {
+      "id": "water_meter",
+      "name": "Water Meter",
+      "category": "default",
+      "filename": "default/water_meter.svg",
+      "created_at": "2026-04-07T00:00:00+00:00"
+    },
+    {
+      "id": "water_fittings",
+      "name": "Water Fittings",
+      "category": "default",
+      "filename": "default/water_fittings.svg",
+      "created_at": "2026-04-07T00:00:00+00:00"
+    },
+    {
+      "id": "single_tap",
+      "name": "Single Tap",
+      "category": "fixtures",
+      "filename": "default/single_tap.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "single_tap_combined",
+      "name": "Single Tap Combined Outlet",
+      "category": "fixtures",
+      "filename": "default/single_tap_combined.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "twin_tap",
+      "name": "Twin Tap",
+      "category": "fixtures",
+      "filename": "default/twin_tap.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "shower_head",
+      "name": "Shower Head",
+      "category": "fixtures",
+      "filename": "default/shower_head.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "drinking_fountain_pedestal",
+      "name": "Drinking Fountain - Pedestal",
+      "category": "fixtures",
+      "filename": "default/drinking_fountain_pedestal.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "drinking_fountain_trough",
+      "name": "Drinking Fountain - Trough",
+      "category": "fixtures",
+      "filename": "default/drinking_fountain_trough.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "drinking_fountain_wall",
+      "name": "Drinking Fountain - Wall",
+      "category": "fixtures",
+      "filename": "default/drinking_fountain_wall.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "wash_basin",
+      "name": "Wash Basin",
+      "category": "fixtures",
+      "filename": "default/wash_basin.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "water_closet",
+      "name": "Water Closet (Pedestal)",
+      "category": "fixtures",
+      "filename": "default/water_closet.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "urinal_wall",
+      "name": "Urinal - Wall Hung",
+      "category": "fixtures",
+      "filename": "default/urinal_wall.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "long_bath",
+      "name": "Long Bath",
+      "category": "fixtures",
+      "filename": "default/long_bath.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "shower_bath",
+      "name": "Shower Bath",
+      "category": "fixtures",
+      "filename": "default/shower_bath.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "solenoid_valve",
+      "name": "Solenoid Valve",
+      "category": "valves",
+      "filename": "default/solenoid_valve.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "motorised_valve",
+      "name": "Motorised Valve",
+      "category": "valves",
+      "filename": "default/motorised_valve.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "cap_off_valve",
+      "name": "Cap-Off Valve",
+      "category": "valves",
+      "filename": "default/cap_off_valve.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "auto_air_relief_valve",
+      "name": "Automatic Air Relief Valve",
+      "category": "valves",
+      "filename": "default/auto_air_relief_valve.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "pressure_gauge_cock",
+      "name": "Pressure Gauge c/w Cock",
+      "category": "valves",
+      "filename": "default/pressure_gauge_cock.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "globe_valve",
+      "name": "Globe Valve",
+      "category": "valves",
+      "filename": "default/globe_valve.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "vortex_inhibitor",
+      "name": "Vortex Inhibitor",
+      "category": "equipment",
+      "filename": "default/vortex_inhibitor.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "vortex_inhibitor_schematic",
+      "name": "Vortex Inhibitor (Schematic)",
+      "category": "equipment",
+      "filename": "default/vortex_inhibitor_schematic.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "jockey_pump",
+      "name": "Jockey Pump",
+      "category": "equipment",
+      "filename": "default/jockey_pump.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "sub_meter",
+      "name": "Sub-Meter",
+      "category": "equipment",
+      "filename": "default/sub_meter.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "tap_point_schematic",
+      "name": "Tap Point (Schematic)",
+      "category": "equipment",
+      "filename": "default/tap_point_schematic.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "ball_float_valve",
+      "name": "Ball Float Valve",
+      "category": "valves",
+      "filename": "default/ball_float_valve.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "level_sensor_switch",
+      "name": "Level Sensor Switch",
+      "category": "equipment",
+      "filename": "default/level_sensor_switch.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "water_tank_air_vent",
+      "name": "Water Tank Air Vent",
+      "category": "equipment",
+      "filename": "default/water_tank_air_vent.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "pressure_reducing_valve",
+      "name": "Pressure Reducing Valve (PRV)",
+      "category": "valves",
+      "filename": "default/pressure_reducing_valve.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "prv_with_sensor",
+      "name": "PRV with Pressure Sensor",
+      "category": "valves",
+      "filename": "default/prv_with_sensor.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "water_hammer_absorber",
+      "name": "Water Hammer Absorber",
+      "category": "equipment",
+      "filename": "default/water_hammer_absorber.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "wc_ur_isolator",
+      "name": "WC/UR Auto Sensing Isolator",
+      "category": "equipment",
+      "filename": "default/wc_ur_isolator.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "pressure_vessel_schematic",
+      "name": "Pressure Vessel (Schematic)",
+      "category": "equipment",
+      "filename": "default/pressure_vessel_schematic.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "vent_cowl",
+      "name": "Vent Cowl",
+      "category": "equipment",
+      "filename": "default/vent_cowl.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "control_panel",
+      "name": "Control Panel (FMCP)",
+      "category": "equipment",
+      "filename": "default/control_panel.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "cold_water_tank",
+      "name": "Cold Water Tank (CWT)",
+      "category": "equipment",
+      "filename": "default/cold_water_tank.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "grease_interceptor",
+      "name": "Grease Interceptor",
+      "category": "equipment",
+      "filename": "default/grease_interceptor.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "dilution_tank",
+      "name": "Dilution Tank",
+      "category": "equipment",
+      "filename": "default/dilution_tank.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "strainer_basket",
+      "name": "Strainer Basket",
+      "category": "equipment",
+      "filename": "default/strainer_basket.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "multiport_valve",
+      "name": "Multiport Valve",
+      "category": "valves",
+      "filename": "default/multiport_valve.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "pressure_gauge_prv",
+      "name": "Pressure Gauge c/w PRV",
+      "category": "valves",
+      "filename": "default/pressure_gauge_prv.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "sampling_tap",
+      "name": "Sampling Tap",
+      "category": "valves",
+      "filename": "default/sampling_tap.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "sight_glass",
+      "name": "Sight Glass",
+      "category": "equipment",
+      "filename": "default/sight_glass.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    },
+    {
+      "id": "strainer",
+      "name": "Strainer",
+      "category": "equipment",
+      "filename": "default/strainer.svg",
+      "created_at": "2026-05-05T00:00:00+00:00"
+    }
+  ]
+}

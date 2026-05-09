@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Connection stubs -->
+  <line x1="0" y1="32" x2="12" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <line x1="52" y1="32" x2="64" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Circle body -->
+  <circle cx="32" cy="32" r="20" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Horizontal sight lines (indicate glass window) -->
+  <line x1="12" y1="24" x2="52" y2="24" stroke="#1a1a1a" stroke-width="1.5"/>
+  <line x1="12" y1="40" x2="52" y2="40" stroke="#1a1a1a" stroke-width="1.5"/>
+</svg>

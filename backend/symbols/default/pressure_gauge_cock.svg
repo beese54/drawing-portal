@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Supply stub from bottom -->
+  <line x1="32" y1="64" x2="32" y2="50" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Vertical cock valve (gate valve rotated 90°) -->
+  <!-- Bottom triangle pointing up -->
+  <polygon points="20,50 44,50 32,40" stroke="#1a1a1a" stroke-width="2" fill="white" stroke-linejoin="round"/>
+  <!-- Top triangle pointing down -->
+  <polygon points="20,24 44,24 32,34" stroke="#1a1a1a" stroke-width="2" fill="white" stroke-linejoin="round"/>
+  <!-- Horizontal bar through center -->
+  <line x1="20" y1="37" x2="44" y2="37" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Stem from valve to gauge -->
+  <line x1="32" y1="24" x2="32" y2="16" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Pressure gauge circle -->
+  <circle cx="32" cy="10" r="8" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+  <text x="32" y="13" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#1a1a1a">P</text>
+</svg>

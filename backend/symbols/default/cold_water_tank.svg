@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Connection stubs -->
+  <line x1="0" y1="32" x2="8" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <line x1="56" y1="32" x2="64" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Tank rectangle -->
+  <rect x="8" y="8" width="48" height="48" rx="2" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+  <!-- CWT label -->
+  <text x="32" y="28" text-anchor="middle" dominant-baseline="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#2563eb">CWT</text>
+  <!-- Water level dashed line -->
+  <line x1="8" y1="40" x2="56" y2="40" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4,3"/>
+</svg>

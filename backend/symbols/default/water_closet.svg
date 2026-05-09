@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Supply stub from top (into cistern) -->
+  <line x1="32" y1="0" x2="32" y2="8" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Cistern (small rectangle, back of toilet) -->
+  <rect x="22" y="8" width="20" height="14" rx="1" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Flush connector from cistern to bowl -->
+  <line x1="29" y1="22" x2="29" y2="28" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Bowl side-view profile (P-shape pan) -->
+  <path d="M16,28 L16,44 Q16,56 28,56 L38,56 Q46,54 46,46 L46,36 Q46,28 38,28 Z"
+        fill="none" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Seat line across top of bowl -->
+  <line x1="16" y1="34" x2="46" y2="34" stroke="#1a1a1a" stroke-width="1.5"/>
+  <!-- Base platform -->
+  <line x1="12" y1="56" x2="48" y2="56" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

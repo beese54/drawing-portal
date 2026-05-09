@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Supply stub from left -->
+  <line x1="0" y1="32" x2="14" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Concentric circles (target/bull's-eye) -->
+  <circle cx="36" cy="32" r="18" fill="none" stroke="#1a1a1a" stroke-width="2"/>
+  <circle cx="36" cy="32" r="11" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+  <!-- Center filled dot -->
+  <circle cx="36" cy="32" r="4" fill="#1a1a1a"/>
+  <!-- Inlet line from left stub to circle -->
+  <line x1="14" y1="32" x2="18" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+</svg>
