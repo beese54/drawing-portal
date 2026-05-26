@@ -6,7 +6,7 @@ from datetime import datetime
 class SymbolMeta(BaseModel):
     id: str
     name: str
-    category: Literal["default", "custom", "fixtures", "valves", "equipment"]
+    category: Literal["default", "custom", "water_supply", "backflow_prevention", "pumps", "tanks", "sanitary"]
     filename: str
     url: str
     created_at: datetime
@@ -23,5 +23,5 @@ class SymbolRenameRequest(BaseModel):
 class SymbolCreateResponse(BaseModel):
     id: str
     name: str
-    category: Literal["default", "custom", "fixtures", "valves", "equipment"]
+    category: Literal["default", "custom", "water_supply", "backflow_prevention", "pumps", "tanks", "sanitary"]
     url: str

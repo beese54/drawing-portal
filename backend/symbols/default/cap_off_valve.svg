@@ -1,10 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Supply stub from left only -->
-  <line x1="0" y1="32" x2="12" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Valve triangles -->
-  <polygon points="12,14 12,50 32,32" stroke="#1a1a1a" stroke-width="2" fill="white" stroke-linejoin="round"/>
-  <polygon points="52,14 52,50 32,32" stroke="#1a1a1a" stroke-width="2" fill="white" stroke-linejoin="round"/>
-  <line x1="32" y1="14" x2="32" y2="50" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
-  <!-- Cap (solid filled rectangle on right end) -->
-  <rect x="52" y="18" width="9" height="28" fill="#1a1a1a" rx="1"/>
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+ <g>
+  <title>Layer 1</title>
+  <line fill="none" stroke="#000" x1="251.99999" y1="100.99999" x2="253.99999" y2="100.99999" id="svg_1" stroke-linejoin="undefined" stroke-linecap="undefined"/>
+  <path fill="none" stroke="#000" opacity="NaN" d="m-235.54444,-389.18518c0.09259,6.11111 5.64815,9.62963 5.59259,9.53704c0.05555,0.09259 -5.68519,-15.64815 -5.59259,-9.53704z" id="svg_113"/>
+  <line stroke="#000" id="svg_7" y2="31.19139" x2="7.10642" y1="31.19139" x1="0.19154" fill="none"/>
+  <line stroke="#000" id="svg_8" y2="30.65948" x2="62.3191" y1="30.5531" x1="44.12764" fill="none"/>
+  <line stroke="#000" id="svg_9" y2="46.51052" x2="61.99995" y1="15.02121" x1="62.10634" fill="none"/>
+  <line stroke="#000" id="svg_10" y2="15.34035" x2="62.53187" y1="15.34035" x1="53.27656" fill="none"/>
+  <g stroke="null" id="svg_13">
+   <path stroke="#000" id="svg_2" d="m7.2344,18.93996l18.41419,12.12764l-18.41419,12.12764l0,-24.25528z" fill="#fff"/>
+   <path stroke="#000" id="svg_4" d="m44.14923,43.19524l-18.41419,-12.12764l18.41419,-12.12764l0,24.25528z" fill="#fff"/>
+  </g>
+  <line stroke="#000" id="svg_14" y2="45.97861" x2="61.99995" y1="45.97861" x1="52.74465" fill="none"/>
+ </g>
+
 </svg>

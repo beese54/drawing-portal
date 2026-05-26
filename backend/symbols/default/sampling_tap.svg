@@ -1,16 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Left stub (upstream) at y=32 -->
-  <line x1="0" y1="32" x2="14" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Right stub (downstream) at y=32 -->
-  <line x1="50" y1="32" x2="64" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Bottom stub (sample port) at x=32 -->
-  <line x1="32" y1="50" x2="32" y2="64" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Inline gate valve body centred at y=32 -->
-  <polygon points="14,18 14,46 32,32" stroke="#1a1a1a" stroke-width="2" fill="white" stroke-linejoin="round"/>
-  <polygon points="50,18 50,46 32,32" stroke="#1a1a1a" stroke-width="2" fill="white" stroke-linejoin="round"/>
-  <line x1="32" y1="18" x2="32" y2="50" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
-  <!-- Tap cross at bottom of sample branch -->
-  <line x1="22" y1="58" x2="42" y2="58" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="22" y1="54" x2="22" y2="62" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <line x1="42" y1="54" x2="42" y2="62" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+ <g>
+  <title>Layer 1</title>
+  <line stroke-linecap="undefined" stroke-linejoin="undefined" id="svg_1" y2="100.99999" x2="253.99999" y1="100.99999" x1="251.99999" stroke="#000" fill="none"/>
+  <path stroke="#000" id="svg_99" opacity="undefined" fill="none"/>
+  <path id="svg_106" opacity="undefined" stroke="#000" fill="none"/>
+  <path id="svg_113" d="m-235.54444,-389.18518c0.09259,6.11111 5.64815,9.62963 5.59259,9.53704c0.05555,0.09259 -5.68519,-15.64815 -5.59259,-9.53704z" opacity="NaN" stroke="#000" fill="none"/>
+  <path transform="rotate(89.9667 33.0032 29.8826)" stroke="#000000" id="svg_237" d="m24.65291,18.48757l16.7005,0l-8.35025,11.39499l8.35025,11.39499l-16.70052,0l8.35027,-11.39499l-8.35025,-11.39499z" fill="none"/>
+  <line id="svg_241" y2="29.74" x2="21.6" y1="29.74" x1="11.7" stroke="#000000" fill="none"/>
+  <line id="svg_242" y2="29.84" x2="53.2" y1="29.74" x1="44.6" stroke="#000000" fill="none"/>
+  <line stroke="#000000" id="svg_243" y2="29.64" x2="12.2" y1="53.04" x1="12" fill="none"/>
+ </g>
+
 </svg>

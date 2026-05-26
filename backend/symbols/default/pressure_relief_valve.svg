@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="12.0 0.0 40.0 64.0" width="64" height="64">
+  <!-- Top connection stub -->
+  <line x1="32" y1="0" x2="32" y2="14" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Top triangle (pointing down toward center) -->
+  <polygon points="14,14 50,14 32,32" stroke="#1a1a1a" stroke-width="2" fill="white" stroke-linejoin="round"/>
+  <!-- Bottom triangle (80% of top — pointing up toward center) -->
+  <polygon points="18,46 46,46 32,32" stroke="#1a1a1a" stroke-width="2" fill="white" stroke-linejoin="round"/>
+  <!-- Bottom connection stub -->
+  <line x1="32" y1="46" x2="32" y2="64" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- PRV label to the left -->
+  <text x="0" y="36" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#1a1a1a">PRV</text>
+</svg>

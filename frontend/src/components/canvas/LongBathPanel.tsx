@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useCanvasStore } from '../../store/canvasStore';
-
-const SYMBOL_SIZE = 48;
+import { SCHEMATIC_SYMBOL_PX } from '../../types';
 
 interface LongBathPanelProps {
   elementId: string;
   x: number;
   y: number;
   currentCapacityL?: number;
+  elementHalfWidthVp?: number;
 }
 
 const panelStyle: React.CSSProperties = {
@@ -34,7 +34,7 @@ const labelStyle: React.CSSProperties = {
   marginBottom: 2,
 };
 
-export function LongBathPanel({ elementId, x, y, currentCapacityL }: LongBathPanelProps) {
+export function LongBathPanel({ elementId, x, y, currentCapacityL, elementHalfWidthVp = SCHEMATIC_SYMBOL_PX / 2 }: LongBathPanelProps) {
   const updateLongBathCapacity = useCanvasStore((s) => s.updateLongBathCapacity);
   const [inputValue, setInputValue] = useState(currentCapacityL !== undefined ? String(currentCapacityL) : '');
 
@@ -49,8 +49,8 @@ export function LongBathPanel({ elementId, x, y, currentCapacityL }: LongBathPan
 
   const posStyle: React.CSSProperties = {
     ...panelStyle,
-    left: x + SYMBOL_SIZE / 2 + 22,
-    top: y - SYMBOL_SIZE / 2,
+    left: x + elementHalfWidthVp + 22,
+    top: y - elementHalfWidthVp,
   };
 
   return (
@@ -86,6 +86,22 @@ export function LongBathPanel({ elementId, x, y, currentCapacityL }: LongBathPan
           textAlign: 'center',
         }}>
           {currentCapacityL > 250 ? `⚠ ${currentCapacityL} L > 250 L limit` : `✓ ${currentCapacityL} L — within limit`}
+        </div>
+      )}
+      {currentCapacityL !== undefined && currentCapacityL > 250 && (
+        <div style={{
+          fontSize: 9,
+          color: '#92400e',
+          background: '#fef3c7',
+          border: '1px solid #fcd34d',
+          borderRadius: 4,
+          padding: '4px 6px',
+          lineHeight: 1.5,
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 2 }}>Capacity &gt;250 L requires:</div>
+          <div>· No direct discharge to drain</div>
+          <div>· Recirculation system provided</div>
+          <div>· Backwash connected to sewer</div>
         </div>
       )}
     </div>

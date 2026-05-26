@@ -1,14 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Supply stub from top -->
-  <line x1="32" y1="0" x2="32" y2="14" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Arm from supply down to showerhead disc -->
-  <line x1="32" y1="14" x2="32" y2="22" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Showerhead disc -->
-  <ellipse cx="32" cy="26" rx="14" ry="5" fill="none" stroke="#1a1a1a" stroke-width="2"/>
-  <!-- Spray lines going downward -->
-  <line x1="20" y1="34" x2="17" y2="46" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="26" y1="33" x2="24" y2="45" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="32" y1="32" x2="32" y2="44" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="38" y1="33" x2="40" y2="45" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="44" y1="34" x2="47" y2="46" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg" viewBox="8 0 48 52">
+  <line x1="32" y1="0" x2="32" y2="14" stroke="#1a1a1a" stroke-width="2"/>
+  <line x1="32" y1="14" x2="32" y2="26" stroke="#1a1a1a" stroke-width="2"/>
+  <rect x="14" y="26" width="36" height="8" rx="2" stroke="#1a1a1a" stroke-width="2" fill="white"/>
+  <circle cx="22" cy="40" r="2" fill="#1a1a1a"/>
+  <circle cx="32" cy="42" r="2" fill="#1a1a1a"/>
+  <circle cx="42" cy="40" r="2" fill="#1a1a1a"/>
+  <circle cx="17" cy="42" r="2" fill="#1a1a1a"/>
+  <circle cx="47" cy="42" r="2" fill="#1a1a1a"/>
 </svg>

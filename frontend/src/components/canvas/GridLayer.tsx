@@ -10,9 +10,10 @@ interface GridLayerProps {
   lowerMrl: number;
   axisWidth: number;
   floorLevels?: FloorLevel[];
+  floorLevelOpacity?: number;
 }
 
-export function GridLayer({ canvasWidth, canvasHeight, upperMrl, lowerMrl, axisWidth, floorLevels = [] }: GridLayerProps) {
+export function GridLayer({ canvasWidth, canvasHeight, upperMrl, lowerMrl, axisWidth, floorLevels = [], floorLevelOpacity = 1 }: GridLayerProps) {
   const gridValues = getGridMrlValues(upperMrl, lowerMrl);
 
   return (
@@ -48,16 +49,18 @@ export function GridLayer({ canvasWidth, canvasHeight, upperMrl, lowerMrl, axisW
         );
       })}
 
-      {/* Bottom label (lowerMrl) */}
-      <Text
-        x={2}
-        y={canvasHeight - 14}
-        width={axisWidth - 6}
-        text={`${lowerMrl}m AMSL`}
-        fontSize={10}
-        fill="#999"
-        align="right"
-      />
+      {/* Bottom label (lowerMrl) — only when lowerMrl is not already a grid line */}
+      {!gridValues.includes(lowerMrl) && (
+        <Text
+          x={2}
+          y={canvasHeight - 14}
+          width={axisWidth - 6}
+          text={`${lowerMrl}m AMSL`}
+          fontSize={10}
+          fill="#999"
+          align="right"
+        />
+      )}
 
       {/* FFL floor level lines */}
       {floorLevels.map((floor) => {
@@ -71,27 +74,27 @@ export function GridLayer({ canvasWidth, canvasHeight, upperMrl, lowerMrl, axisW
               points={[axisWidth, y, canvasWidth, y]}
               stroke="#1a1a1a"
               strokeWidth={1.5}
+              opacity={floorLevelOpacity}
             />
-            {/* Floor name label on axis */}
+            {/* Floor name + elevation — placed inside the canvas, above the floor line */}
             <Text
-              x={2}
-              y={y - 16}
-              width={axisWidth - 6}
+              x={axisWidth + 4}
+              y={y - 22}
               text={floor.name}
               fontSize={9}
               fontStyle="bold"
               fill="#1a1a1a"
-              align="right"
+              opacity={floorLevelOpacity}
+              listening={false}
             />
-            {/* FFL value below floor name */}
             <Text
-              x={2}
-              y={y - 5}
-              width={axisWidth - 6}
+              x={axisWidth + 4}
+              y={y - 12}
               text={`${floor.fflM}m AMSL`}
-              fontSize={9}
-              fill="#1a1a1a"
-              align="right"
+              fontSize={8}
+              fill="#555"
+              opacity={floorLevelOpacity}
+              listening={false}
             />
           </React.Fragment>
         );

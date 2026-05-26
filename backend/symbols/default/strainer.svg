@@ -1,9 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Connection stubs -->
-  <line x1="0" y1="32" x2="12" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <line x1="52" y1="32" x2="64" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Circle body -->
-  <circle cx="32" cy="32" r="20" fill="white" stroke="#1a1a1a" stroke-width="2"/>
-  <!-- Diagonal line (strainer/filter indicator) -->
-  <line x1="14" y1="50" x2="50" y2="14" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+ <g>
+  <title>Layer 1</title>
+  <line stroke-linecap="undefined" stroke-linejoin="undefined" id="svg_1" y2="100.99999" x2="253.99999" y1="100.99999" x1="251.99999" stroke="#000" fill="none"/>
+  <path stroke="#000" id="svg_99" opacity="undefined" fill="none"/>
+  <path id="svg_106" opacity="undefined" stroke="#000" fill="none"/>
+  <path id="svg_113" d="m-235.54444,-389.18518c0.09259,6.11111 5.64815,9.62963 5.59259,9.53704c0.05555,0.09259 -5.68519,-15.64815 -5.59259,-9.53704z" opacity="NaN" stroke="#000" fill="none"/>
+  <ellipse stroke="#000000" ry="22.55" rx="22.9" id="svg_245" cy="31.99" cx="32.5" fill="none"/>
+  <line id="svg_251" y2="48.34" x2="48.3" y1="13.94" x1="18.3" stroke="#000000" fill="none"/>
+ </g>
+
 </svg>

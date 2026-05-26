@@ -3,11 +3,14 @@ import { useCanvasStore } from '../../store/canvasStore';
 import { useMetadataExport } from '../../hooks/useMetadataExport';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { EvaluationModal } from '../common/EvaluationModal';
+import { AcknowledgmentModal } from '../common/AcknowledgmentModal';
 import { TemplateModal } from '../common/TemplateModal';
 import { useUiStore } from '../../store/uiStore';
 import { getUnconnectedPorts } from '../../utils/portConnectionStatus';
 import { evaluationApi } from '../../api/client';
 import type { EvaluationResponse } from '../../types/evaluation';
+import type { AcknowledgmentFlags } from '../../types';
+import { PAPER_SIZES_MM, SHEET_PX_PER_MM, AXIS_WIDTH } from '../../types';
 
 
 interface ActionPanelProps {
@@ -23,6 +26,8 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   const clearCanvas = useCanvasStore((s) => s.clearCanvas);
   const setActiveTool = useUiStore((s) => s.setActiveTool);
   const exportJpgFn = useUiStore((s) => s.exportJpgFn);
+  const openSheetSetup = useUiStore((s) => s.openSheetSetup);
+  const sheetConfig = useUiStore((s) => s.sheetConfig);
   const elements = useCanvasStore((s) => s.elements);
   const pipes = useCanvasStore((s) => s.pipes);
   const pdfBackground = useUiStore((s) => s.pdfBackground);
@@ -33,6 +38,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [connectionWarning, setConnectionWarning] = useState<ConnectionWarning | null>(null);
+  const [showAckModal, setShowAckModal] = useState(false);
   const [evalLoading, setEvalLoading] = useState(false);
   const [evalResult, setEvalResult] = useState<EvaluationResponse | null>(null);
   const [evalError, setEvalError] = useState<string | null>(null);
@@ -53,11 +59,16 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
     }
   };
 
-  const handleEvaluate = async () => {
+  const handleEvaluateClick = () => {
+    setShowAckModal(true);
+  };
+
+  const handleAckConfirm = async (acks: AcknowledgmentFlags) => {
+    setShowAckModal(false);
     setEvalError(null);
     setEvalLoading(true);
     try {
-      const metadata = getMetadata();
+      const metadata = getMetadata(acks);
       const formData = new FormData();
       formData.append('metadata_json', JSON.stringify(metadata));
       formData.append('skip_llm', 'true');
@@ -81,6 +92,24 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
 
   return (
     <div style={{ borderTop: '1px solid #e8e8e8', paddingTop: 12, marginTop: 12 }}>
+
+      {/* Sheet Setup */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>
+          Sheet
+        </div>
+        <button
+          onClick={openSheetSetup}
+          style={{
+            width: '100%', padding: '7px 12px', border: '1px solid #bbb',
+            borderRadius: 6, background: '#fff', color: '#374151',
+            cursor: 'pointer', fontSize: 13, textAlign: 'left',
+          }}
+        >
+          {sheetConfig.paperSize} · 1:{sheetConfig.drawingScale} · Sheet Setup
+        </button>
+      </div>
+      <div style={{ borderTop: '1px solid #e8e8e8', paddingTop: 12, marginBottom: 12 }} />
 
       {/* Templates section */}
       <div style={{ marginBottom: 12 }}>
@@ -116,41 +145,81 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
           {pdfBackground ? 'Replace PDF' : 'Import PDF'}
         </button>
         {pdfBackground && (
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              onClick={() => updatePdfBackground({ rotation: (pdfBackground.rotation + 90) % 360 })}
-              title="Rotate 90° clockwise"
-              style={{
-                flex: 1, padding: '6px 0', border: '1px solid #bbb',
-                borderRadius: 6, background: '#fff', color: '#374151',
-                cursor: 'pointer', fontSize: 12,
-              }}
-            >
-              Rotate 90°
-            </button>
-            <button
-              onClick={() => updatePdfBackground({ locked: !pdfBackground.locked })}
-              title={pdfBackground.locked ? 'Unlock to move/resize' : 'Lock in place'}
-              style={{
-                flex: 1, padding: '6px 0', border: '1px solid #bbb',
-                borderRadius: 6, background: pdfBackground.locked ? '#e0f2fe' : '#fff',
-                color: '#374151', cursor: 'pointer', fontSize: 12,
-              }}
-            >
-              {pdfBackground.locked ? 'Unlock' : 'Lock'}
-            </button>
-            <button
-              onClick={() => setPdfBackground(null)}
-              title="Remove PDF background"
-              style={{
-                flex: 1, padding: '6px 0', border: '1px solid #fca5a5',
-                borderRadius: 6, background: '#fff', color: '#dc2626',
-                cursor: 'pointer', fontSize: 12,
-              }}
-            >
-              Remove
-            </button>
-          </div>
+          <>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+              <button
+                onClick={() => {
+                  const vw = AXIS_WIDTH + PAPER_SIZES_MM[sheetConfig.paperSize].w * SHEET_PX_PER_MM;
+                  const vh = PAPER_SIZES_MM[sheetConfig.paperSize].h * SHEET_PX_PER_MM;
+                  const scale = Math.min(vw / pdfBackground.width, vh / pdfBackground.height);
+                  updatePdfBackground({
+                    x: vw / 2,
+                    y: vh / 2,
+                    width: pdfBackground.width * scale,
+                    height: pdfBackground.height * scale,
+                  });
+                }}
+                title="Scale PDF to fill the canvas (keeps aspect ratio)"
+                style={{
+                  flex: 1, padding: '6px 0', border: '1px solid #bbb',
+                  borderRadius: 6, background: '#fff', color: '#374151',
+                  cursor: 'pointer', fontSize: 12,
+                }}
+              >
+                Fit to canvas
+              </button>
+              <button
+                onClick={() => updatePdfBackground({ rotation: (pdfBackground.rotation + 90) % 360 })}
+                title="Rotate 90° clockwise"
+                style={{
+                  flex: 1, padding: '6px 0', border: '1px solid #bbb',
+                  borderRadius: 6, background: '#fff', color: '#374151',
+                  cursor: 'pointer', fontSize: 12,
+                }}
+              >
+                Rotate 90°
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+              <button
+                onClick={() => updatePdfBackground({ locked: !pdfBackground.locked })}
+                title={pdfBackground.locked ? 'Unlock to move/resize' : 'Lock in place'}
+                style={{
+                  flex: 1, padding: '6px 0', border: '1px solid #bbb',
+                  borderRadius: 6, background: pdfBackground.locked ? '#e0f2fe' : '#fff',
+                  color: '#374151', cursor: 'pointer', fontSize: 12,
+                }}
+              >
+                {pdfBackground.locked ? 'Unlock' : 'Lock'}
+              </button>
+              <button
+                onClick={() => setPdfBackground(null)}
+                title="Remove PDF background"
+                style={{
+                  flex: 1, padding: '6px 0', border: '1px solid #fca5a5',
+                  borderRadius: 6, background: '#fff', color: '#dc2626',
+                  cursor: 'pointer', fontSize: 12,
+                }}
+              >
+                Remove
+              </button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>Opacity</span>
+              <input
+                type="range"
+                min={0.05}
+                max={1}
+                step={0.05}
+                value={pdfBackground.opacity}
+                onChange={(e) => updatePdfBackground({ opacity: parseFloat(e.target.value) })}
+                style={{ flex: 1, accentColor: '#7c3aed' }}
+              />
+              <span style={{ fontSize: 11, color: '#6b7280', minWidth: 28, textAlign: 'right' }}>
+                {Math.round(pdfBackground.opacity * 100)}%
+              </span>
+            </div>
+          </>
         )}
         <input
           ref={pdfFileInputRef}
@@ -163,7 +232,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
       <div style={{ borderTop: '1px solid #e8e8e8', paddingTop: 12, marginBottom: 8 }} />
 
       <button
-        onClick={handleEvaluate}
+        onClick={handleEvaluateClick}
         disabled={!hasContent || evalLoading}
         style={{
           width: '100%', padding: '9px 12px', border: 'none', borderRadius: 6,
@@ -222,6 +291,13 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
         onConfirm={handleClear}
         onCancel={() => setConfirmClear(false)}
       />
+      {showAckModal && (
+        <AcknowledgmentModal
+          elements={elements}
+          onConfirm={handleAckConfirm}
+          onCancel={() => setShowAckModal(false)}
+        />
+      )}
       {evalResult && (
         <EvaluationModal result={evalResult} onClose={() => setEvalResult(null)} />
       )}
@@ -255,7 +331,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
             </div>
             <p style={{ margin: '0 0 10px', fontSize: 13, color: '#555' }}>
               The following ports have no pipe connection. This may cause compliance checks
-              and hydraulic analysis to produce incorrect results.
+              to produce incorrect results.
             </p>
             <div style={{
               background: '#fef9c3', border: '1px solid #fde68a',

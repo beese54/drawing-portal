@@ -1,0 +1,7 @@
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg" viewBox="0.0 18.0 50.6 26.0">
+  <!-- inlet stub left -->
+  <line x1="0" y1="31" x2="43" y2="31" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+  <!-- blank plate (double line) -->
+  <line x1="43" y1="20" x2="43.9" y2="42" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+  <line x1="48" y1="20" x2="48.65" y2="42" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+</svg>

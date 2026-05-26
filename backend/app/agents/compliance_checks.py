@@ -3,7 +3,7 @@ compliance_checks.py — Deterministic regulatory compliance checks for water sc
 
 Four checks:
     REG28      — Regulation 28: backflow prevention (check valve upstream of water heater)
-    SEC221     — Handbook 2.2.1: mode of supply based on height of highest fitting above MSL
+    SEC221     — Handbook 2.2.1: mode of supply based on height of highest fitting above AMSL
     SEC721     — Handbook 7.2.1: Mandatory Water Efficiency Labelling Scheme (MWELS) compliance
     TANK_PUMP  — Tank / pump installation requirements (PUB / SS 245 / SS 636)
 """
@@ -75,6 +75,24 @@ MWELS: dict[str, dict] = {
 # Flow-rate fittings (vs. flush-volume fittings) — used for demand summation
 FLOW_RATE_FITTING_IDS = {"shower_tap", "basin_tap", "sink_tap"}
 
+# Fittings that are not subject to MWELS (Section 6 appliances) — skipped in WELS check
+NON_MWELS_FITTING_IDS = {"dishwasher", "water_dispenser", "washing_machine", "landscape_tap"}
+
+# Dedicated fixture symbols that carry an MWELS rating.
+# Value is the fixed category string, or None when the user must pick basin_tap / sink_tap.
+FIXTURE_MWELS_SYMBOLS: dict[str, str | None] = {
+    "shower_head":            "shower_tap",
+    "multiple_shower_unit":   "shower_tap",
+    "shower_bath":            "shower_tap",
+    "wash_basin_rectangular": "basin_tap",
+    "sink":                   "sink_tap",
+    "water_closet":           "dual_flushing_cistern",
+    "urinal_wall_hung":       "urinal_flush",
+    "single_tap":             None,
+    "twin_tap":               None,
+    "single_tap_combined":    None,
+}
+
 # Design demand (L/s) for network solver — use 2-tick max converted to L/s
 MWELS_DEMAND_LPS: dict[str, float] = {
     "shower_tap":            7.0 / 60,
@@ -83,6 +101,11 @@ MWELS_DEMAND_LPS: dict[str, float] = {
     "dual_flushing_cistern": 4.0 / 60,   # flush volume / assumed 1 min flush cycle
     "urinal_flush":          1.0 / 60,
     "water_closet":          4.0 / 60,
+    # Section 6 appliance fittings — design demand estimates
+    "dishwasher":            12.0 / 60,
+    "water_dispenser":       3.0 / 60,
+    "washing_machine":       12.0 / 60,
+    "landscape_tap":         9.0 / 60,
 }
 DEFAULT_DEMAND_LPS = 0.1   # fallback if fitting type unknown
 
@@ -168,7 +191,7 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
     if not heaters:
         return CheckResult(
             check_id="REG28",
-            title="Reg 28 — Backflow Prevention (Water Heater)",
+            title="Backflow Prevention (Water Heater)",
             status="SKIP",
             summary="No water heater found in schematic.",
             detail=["Add a water heater symbol to the schematic to enable this check."],
@@ -255,7 +278,7 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
 
     return CheckResult(
         check_id="REG28",
-        title="Reg 28 — Backflow Prevention (Water Heater)",
+        title="Backflow Prevention (Water Heater)",
         status=status,
         summary=summary,
         detail=details,
@@ -268,19 +291,19 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
 # ---------------------------------------------------------------------------
 
 _SUPPLY_MODE_TABLE = [
-    (125.0, "direct",        "Direct supply from PUB mains (≤ 125 m MRL)."),
-    (137.0, "indirect_tank", "Indirect supply via high-level water storage tank (> 125 m, ≤ 137 m MRL)."),
-    (float("inf"), "mode_c", "Indirect supply — Mode C: low-level transfer tank + pump to high-level tank (> 137 m MRL)."),
+    (25.0, "direct",        "Direct supply from PUB mains (≤ 25 m AMSL)."),
+    (37.0, "indirect_tank", "Indirect supply via high-level water storage tank (> 25 m, ≤ 37 m AMSL)."),
+    (float("inf"), "mode_c", "Indirect supply — Mode C: low-level transfer tank + pump to high-level tank (> 37 m AMSL)."),
 ]
 
 
 def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
     """
-    Handbook 2.2.1: Mode of supply based on the absolute MRL elevation of the
+    Handbook 2.2.1: Mode of supply based on the absolute AMSL elevation of the
     highest fitting.  Thresholds applied directly to the elevation_m values:
-        ≤ 125 m  → direct supply from PUB mains
-        > 125 m and ≤ 137 m → indirect via high-level water storage tank
-        > 137 m  → Mode C (low-level transfer tank + pump)
+        ≤ 25 m  → direct supply from PUB mains
+        > 25 m and ≤ 37 m → indirect via high-level water storage tank
+        > 37 m  → Mode C (low-level transfer tank + pump)
     """
     elements: list[dict] = metadata.get("elements", [])
 
@@ -296,7 +319,7 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
     if not all_elevations:
         return CheckResult(
             check_id="SEC221",
-            title="Handbook 2.2.1 — Mode of Supply",
+            title="Mode of Supply",
             status="SKIP",
             summary="No elevation data found in schematic.",
             detail=["Set the MRL bounds on the canvas to enable elevation-based checks."],
@@ -323,8 +346,8 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
     has_indirect = any(e.get("supply_mode") == "indirect_supply" for e in elements)
 
     details: list[str] = [
-        f"Highest fitting elevation: {highest_m:.1f} m MRL (from {elevation_source}).",
-        f"Lowest fitting elevation: {lowest_m:.1f} m MRL.",
+        f"Highest fitting elevation: {highest_m:.1f} m AMSL (from {elevation_source}).",
+        f"Lowest fitting elevation: {lowest_m:.1f} m AMSL.",
         f"Required supply mode: {required_description}",
         "",
         "Schematic configuration:",
@@ -355,6 +378,33 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
             status = "PASS"
             summary = f"Indirect supply via water storage tank is correctly configured for {highest_m:.1f} m AMSL."
 
+        # Additional check: tank inlet must be at or below 37 m AMSL (PUB requirement).
+        # A waiver is required if the inlet exceeds 37 m — this must be handled administratively.
+        tanks = [e for e in elements if e.get("symbol_id") == "water_tank"]
+        for tank in tanks:
+            tp = tank.get("tank_properties") or {}
+            inlet_amsl = tp.get("inlet_pipe_m_amsl")
+            tank_name = tank.get("symbol_name", "Water Tank")
+            if inlet_amsl is None:
+                details.append(
+                    f"– [{tank_name}] Tank inlet level not set — cannot verify ≤ 37 m AMSL requirement. "
+                    "Enter the inlet pipe level in Advanced Details."
+                )
+            elif inlet_amsl > 37.0:
+                details.append(
+                    f"✗ [{tank_name}] Tank inlet at {inlet_amsl:.1f} m AMSL exceeds the 37 m AMSL limit. "
+                    "A PUB waiver is required for inlets above 37 m AMSL."
+                )
+                status = "FAIL"
+                summary = (
+                    f"[{tank_name}] Tank inlet at {inlet_amsl:.1f} m AMSL exceeds the 37 m AMSL maximum — "
+                    "a PUB waiver is required."
+                )
+            else:
+                details.append(
+                    f"✓ [{tank_name}] Tank inlet at {inlet_amsl:.1f} m AMSL is at or below 37 m AMSL — compliant."
+                )
+
     else:  # mode_c
         missing = []
         if not has_tank:
@@ -371,7 +421,7 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
 
     return CheckResult(
         check_id="SEC221",
-        title="Handbook 2.2.1 — Mode of Supply",
+        title="Mode of Supply",
         status=status,
         summary=summary,
         detail=details,
@@ -387,18 +437,25 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
     Handbook 7.2.1: All water fittings must be labelled under PUB's
     Mandatory Water Efficiency Labelling Scheme (MWELS).
     Minimum 2-tick rating required (from 1 April 2019).
+
+    Covers both the generic water_fittings symbol and dedicated fixture
+    symbols (shower_head, wash_basin_rectangular, water_closet, etc.).
     """
     elements: list[dict] = metadata.get("elements", [])
 
-    fittings_els = [e for e in elements if e.get("symbol_id") == "water_fittings"]
+    mwels_els = [
+        e for e in elements
+        if e.get("symbol_id") == "water_fittings"
+        or e.get("symbol_id") in FIXTURE_MWELS_SYMBOLS
+    ]
 
-    if not fittings_els:
+    if not mwels_els:
         return CheckResult(
             check_id="SEC721",
-            title="Handbook 7.2.1 — Water Efficiency (MWELS)",
+            title="Water Efficiency (MWELS)",
             status="SKIP",
             summary="No water fittings found in schematic.",
-            detail=["Add water fittings (taps, WC, etc.) to the schematic to enable this check."],
+            detail=["Add water fittings (taps, WC, showers, etc.) to the schematic to enable this check."],
         )
 
     rows: list[dict] = []
@@ -406,22 +463,60 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
     any_missing_data = False
     total_flow_lpm = 0.0
 
-    for el in fittings_els:
-        el_id = el["id"]
-        fitting_type = el.get("fitting_type")
-        ticks = el.get("efficiency_rating")
-        position = el.get("position", {})
+    for el in mwels_els:
+        el_id   = el["id"]
+        sym_id  = el.get("symbol_id", "")
+        is_fixture = sym_id in FIXTURE_MWELS_SYMBOLS
 
-        if fitting_type is None or ticks is None:
-            any_missing_data = True
+        # Resolve fitting_type: fixtures have a fixed category (or user-chosen for ambiguous ones)
+        if is_fixture:
+            fixed_category = FIXTURE_MWELS_SYMBOLS[sym_id]
+            fitting_type = fixed_category or el.get("fitting_type")
+        else:
+            fitting_type = el.get("fitting_type")
+
+        ticks = el.get("efficiency_rating")
+
+        # Appliance fittings (Section 6) are not MWELS-rated — skip
+        if fitting_type in NON_MWELS_FITTING_IDS:
             rows.append({
                 "element_id": el_id,
-                "name": "Water Fitting (unconfigured)",
+                "name": fitting_type.replace("_", " ").title() if fitting_type else "Appliance",
                 "ticks": None,
                 "design_flow": None,
                 "unit": "—",
                 "compliant": None,
-                "note": "Click the water fitting symbol on the canvas to set its type and tick rating, then re-export the JSON.",
+                "note": "Not subject to MWELS — appliance fitting (Section 6 check valve required instead).",
+            })
+            continue
+
+        symbol_name = el.get("symbol_name", sym_id.replace("_", " ").title())
+
+        # Missing fitting type (ambiguous fixture with no user selection yet)
+        if fitting_type is None:
+            any_missing_data = True
+            rows.append({
+                "element_id": el_id,
+                "name": symbol_name,
+                "ticks": None,
+                "design_flow": None,
+                "unit": "—",
+                "compliant": None,
+                "note": f"Click [{symbol_name}] on the canvas to select its fitting type, then re-export.",
+            })
+            continue
+
+        # Missing tick rating
+        if ticks is None:
+            any_missing_data = True
+            rows.append({
+                "element_id": el_id,
+                "name": symbol_name,
+                "ticks": None,
+                "design_flow": None,
+                "unit": "—",
+                "compliant": None,
+                "note": f"Click [{symbol_name}] on the canvas to set its MWELS tick rating, then re-export.",
             })
             continue
 
@@ -430,7 +525,7 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
             any_missing_data = True
             rows.append({
                 "element_id": el_id,
-                "name": fitting_type,
+                "name": symbol_name,
                 "ticks": ticks,
                 "design_flow": None,
                 "unit": "—",
@@ -439,7 +534,6 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
             })
             continue
 
-        # Use the 2-tick flow as the design value for non-compliant fittings (< 2 ticks)
         tick_key = str(ticks) if str(ticks) in mwels_entry else "2"
         design_flow = mwels_entry[tick_key]
         compliant = ticks >= 2
@@ -462,11 +556,11 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
 
     # Build details list
     compliant_count = sum(1 for r in rows if r.get("compliant") is True)
-    non_compliant = [r for r in rows if r.get("compliant") is False]
-    missing_count = sum(1 for r in rows if r.get("compliant") is None)
+    non_compliant   = [r for r in rows if r.get("compliant") is False]
+    missing_count   = sum(1 for r in rows if r.get("compliant") is None)
 
     details: list[str] = [
-        f"Total water fittings: {len(fittings_els)}",
+        f"Total MWELS fittings: {len(mwels_els)}",
         f"Compliant (≥ 2 ticks): {compliant_count}",
     ]
     if non_compliant:
@@ -475,7 +569,7 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
             details.append(f"  ✗ {r['name']}: {r['ticks']} tick(s) — minimum 2 required (PUB, from 1 Apr 2019).")
     if missing_count:
         details.append(
-            f"Missing data: {missing_count} fitting(s) — re-export JSON after selecting fitting type and tick rating."
+            f"Missing data: {missing_count} fitting(s) — click each fixture on the canvas to set its MWELS tick rating."
         )
     if total_flow_lpm > 0:
         details.append(f"Total design flow demand (flow-rate fittings): {total_flow_lpm:.1f} L/min")
@@ -487,17 +581,17 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
         summary = "One or more water fittings do not meet the minimum 2-tick MWELS rating."
     elif any_missing_data and compliant_count == 0:
         status = "WARN"
-        summary = "Water fittings found but no type/rating data in metadata — re-export after configuring fittings."
+        summary = "Water fittings found but tick ratings not set — click each fixture to configure, then re-export."
     elif any_missing_data:
         status = "WARN"
-        summary = "Some fittings compliant, but others are missing type/rating data — check incomplete."
+        summary = "Some fittings compliant, but others are missing tick rating data — check incomplete."
     else:
         status = "PASS"
         summary = f"All {compliant_count} water fitting(s) meet the MWELS 2-tick minimum requirement."
 
     return CheckResult(
         check_id="SEC721",
-        title="Handbook 7.2.1 — Water Efficiency (MWELS)",
+        title="Water Efficiency (MWELS)",
         status=status,
         summary=summary,
         detail=details,

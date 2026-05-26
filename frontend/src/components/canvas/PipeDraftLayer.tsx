@@ -29,12 +29,12 @@ export function PipeDraftLayer({ anchorPoint, previewEnd, isActive, activeTool }
       {hasLength && isColdOrHot ? (
         <Arrow
           points={[anchorPoint.x, anchorPoint.y, previewEnd.x, previewEnd.y]}
-          pointerLength={10}
-          pointerWidth={8}
+          pointerLength={2}
+          pointerWidth={2}
           fill={color}
           stroke={color}
-          strokeWidth={2}
-          dash={[8, 5]}
+          strokeWidth={0.5}
+          dash={[4, 3]}
           lineCap="round"
           opacity={0.7}
         />
@@ -42,13 +42,13 @@ export function PipeDraftLayer({ anchorPoint, previewEnd, isActive, activeTool }
         <Line
           points={[anchorPoint.x, anchorPoint.y, previewEnd.x, previewEnd.y]}
           stroke={color}
-          strokeWidth={2}
-          dash={[8, 5]}
+          strokeWidth={0.5}
+          dash={[4, 3]}
           lineCap="round"
           opacity={0.7}
         />
       )}
-      <Circle x={anchorPoint.x} y={anchorPoint.y} radius={5} fill={color} opacity={0.8} />
+      <Circle x={anchorPoint.x} y={anchorPoint.y} radius={0.5} fill={color} opacity={0.8} />
     </Layer>
   );
 }

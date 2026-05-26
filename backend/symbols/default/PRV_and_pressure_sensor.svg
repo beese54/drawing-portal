@@ -1,0 +1,18 @@
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+ <g>
+  <title>Layer 1</title>
+  <line fill="none" stroke="#000" x1="251.99999" y1="100.99999" x2="253.99999" y2="100.99999" id="svg_1" stroke-linejoin="undefined" stroke-linecap="undefined"/>
+  <path fill="none" stroke="#000" opacity="NaN" d="m-235.54444,-389.18518c0.09259,6.11111 5.64815,9.62963 5.59259,9.53704c0.05555,0.09259 -5.68519,-15.64815 -5.59259,-9.53704z" id="svg_113"/>
+  <line stroke="#000" id="svg_7" y2="36.51054" x2="3.4894" y1="36.51054" x1="0.08515" fill="none"/>
+  <g stroke="null" id="svg_13">
+   <path stroke="#000" id="svg_2" d="m2.44717,20.42932l21.5982,16.27657l-21.5982,16.27657l0,-32.55314z" fill="#fff"/>
+   <path stroke="#000" id="svg_4" d="m45.74498,52.98246l-21.5982,-16.27657l21.5982,-16.27657l0,32.55313z" fill="#fff"/>
+  </g>
+  <line stroke="#000" id="svg_16" y2="36.51054" x2="63.70207" y1="36.51054" x1="45.40424" fill="none"/>
+  <rect stroke="#000" id="svg_21" height="16.48934" width="14.46806" y="4.38292" x="47.53189" fill="#ffffff"/>
+  <text xml:space="preserve" text-anchor="start" font-family="Noto Sans JP" font-size="20" stroke-width="0" id="svg_18" y="19.27652" x="49.9787" stroke="#000" fill="#000000">P</text>
+  <line id="svg_19" y2="20.6595" x2="54.65954" y1="36.40415" x1="54.55316" stroke="#000" fill="none"/>
+  <line id="svg_20" y2="24.17013" x2="72.63824" y1="24.17013" x1="72.53185" stroke="#000" fill="none"/>
+ </g>
+
+</svg>

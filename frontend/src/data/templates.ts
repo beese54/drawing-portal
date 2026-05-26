@@ -1,4 +1,5 @@
 import type { CanvasElement, PipeElement } from '../types';
+import { SCHEMATIC_SYMBOL_PX } from '../types';
 
 export interface Template {
   id: string;
@@ -9,7 +10,7 @@ export interface Template {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const S = 48;
+const S = SCHEMATIC_SYMBOL_PX;
 
 function el(
   symbolId: string,
@@ -30,404 +31,320 @@ function p(
   return { id: crypto.randomUUID(), pipeType, startX: x1, startY: y1, endX: x2, endY: y2 };
 }
 
-// Upstream/downstream port positions for inline elements (rot=0: left/right)
-function iUp(x: number, y: number, rot: number): [number, number] {
-  if (rot === 90)  return [x, y - 24];
-  if (rot === 180) return [x + 24, y];
-  if (rot === 270) return [x, y + 24];
-  return [x - 24, y];
-}
-function iDn(x: number, y: number, rot: number): [number, number] {
-  if (rot === 90)  return [x, y + 24];
-  if (rot === 180) return [x - 24, y];
-  if (rot === 270) return [x, y - 24];
-  return [x + 24, y];
-}
+// ── 2 Storey Residential ─────────────────────────────────────────────────────
 
-// Branch port of tee_junction
-// rot=0 → down | rot=90 → left | rot=180 → up | rot=270 → right
-function tBranch(x: number, y: number, rot: number): [number, number] {
-  if (rot === 90)  return [x - 24, y];
-  if (rot === 180) return [x, y - 24];
-  if (rot === 270) return [x + 24, y];
-  return [x, y + 24];
-}
+function generate2StoryResidential(): { elements: CanvasElement[]; pipes: PipeElement[] } {
+  const elements: CanvasElement[] = [
+    el("gate_valve", "Gate Valve", 140.5, 397.83, 0),
+    el("elbow_bend", "Elbow Bend", 123.16, 413.58, 90),
+    el("water_meter", "Water Meter", 134.5, 397.83, 0),
+    el("elbow_bend", "Elbow Bend", 128.5, 400.83, 270),
+    el("elbow_bend", "Elbow Bend", 146.5, 400.83, 0),
+    el("elbow_bend", "Elbow Bend", 151.75, 413.58, 180),
+    el("tee_junction", "Tee Junction", 157.75, 416.58, 180),
+    el("gate_valve", "Gate Valve", 157.75, 400.75, 270),
+    el("check_valve", "Check Valve", 157.75, 394.75, 270),
+    el("check_valve", "Check Valve", 157.75, 388.75, 270),
+    el("tap_point_schematic", "Tap Point (Schematic)", 160.25, 384.58, 0),
+    el("tee_junction", "Tee Junction", 172, 416.33, 180),
+    el("gate_valve", "Gate Valve", 172, 400.5, 270),
+    el("check_valve", "Check Valve", 172, 394.5, 270),
+    el("check_valve", "Check Valve", 172, 388.5, 270),
+    el("tap_point_schematic", "Tap Point (Schematic)", 174.5, 384.33, 0),
+    el("elbow_bend", "Elbow Bend", 309.81, 413.66, 90),
+    el("tee_junction", "Tee Junction", 312.37, 296, 90),
+    el("gate_valve", "Gate Valve", 306.37, 296, 180),
+    el("check_valve", "Check Valve", 300.37, 296, 180),
+    el("check_valve", "Check Valve", 294.37, 296, 180),
+    el("elbow_bend", "Elbow Bend", 288.37, 299, 270),
+    el("tap_point_schematic", "Tap Point (Schematic)", 287.43, 391.26, 0),
+    el("elbow_bend", "Elbow Bend", 315.14, 154.88, 270),
+    el("tee_junction", "Tee Junction", 324.67, 152.34, 0),
+    el("tee_junction", "Tee Junction", 368.45, 152.66, 0),
+    el("tee_junction", "Tee Junction", 441.27, 152.41, 0),
+    el("tee_junction", "Tee Junction", 487.86, 152.28, 0),
+    el("elbow_bend", "Elbow Bend", 565.44, 155.24, 0),
+    el("gate_valve", "Gate Valve", 546.59, 152.45, 0),
+    el("gate_valve", "Gate Valve", 487.9, 164.95, 90),
+    el("gate_valve", "Gate Valve", 368.33, 165.21, 90),
+    el("tee_junction", "Tee Junction", 368.25, 183.12, 270),
+    el("gate_valve", "Gate Valve", 384.99, 183.05, 0),
+    el("check_valve", "Check Valve", 390.99, 183.05, 0),
+    el("check_valve", "Check Valve", 397.16, 182.97, 0),
+    el("water_heater", "Storage Water Heater", 405.16, 182.97, 0),
+    el("elbow_bend", "Elbow Bend", 417.85, 180.38, 90),
+    el("elbow_bend", "Elbow Bend", 417.85, 174.38, 0),
+    el("elbow_bend", "Elbow Bend", 375.34, 173.56, 270),
+    el("tee_junction", "Tee Junction", 368.24, 196.32, 180),
+    el("tee_junction", "Tee Junction", 361.99, 196.32, 0),
+    el("elbow_bend", "Elbow Bend", 351.66, 198.74, 270),
+    el("tee_junction", "Tee Junction", 374.99, 196.4, 0),
+    el("tee_junction", "Tee Junction", 386.81, 196.33, 0),
+    el("tee_junction", "Tee Junction", 399.99, 196.4, 0),
+    el("elbow_bend", "Elbow Bend", 410.49, 199.24, 0),
+    el("gate_valve", "Gate Valve", 348.66, 246.24, 90),
+    el("tee_junction", "Tee Junction", 370.5, 206.28, 180),
+    el("elbow_bend", "Elbow Bend", 345.66, 209.4, 270),
+    el("gate_valve", "Gate Valve", 361.99, 246.16, 90),
+    el("gate_valve", "Gate Valve", 374.99, 237.74, 90),
+    el("water_closet", "Water Closet (Pedestal)", 361.99, 254.16, 0),
+    el("bidet_spray", "Bidet Spray", 374.99, 250.09, 90),
+    el("vacuum_breaker", "Vacuum Breaker", 374.99, 244.09, 0),
+    el("tee_junction", "Tee Junction", 384.74, 206.17, 0),
+    el("elbow_bend", "Elbow Bend", 394.66, 209.01, 0),
+    el("gate_valve", "Gate Valve", 342.58, 245.82, 90),
+    el("shower_head", "Shower Head", 383.27, 251.61, 0, { dualSupply: true }),
+    el("gate_valve", "Gate Valve", 386.23, 245.5, 90),
+    el("gate_valve", "Gate Valve", 381.27, 245.61, 90),
+    el("long_bath", "Long Bath", 399.23, 252.21, 0, { longBathCapacityL: 200 }),
+    el("gate_valve", "Gate Valve", 396.23, 244.21, 90),
+    el("gate_valve", "Gate Valve", 402.23, 244.21, 90),
+    el("gate_valve", "Gate Valve", 412.56, 244.29, 90),
+    el("tap_point_schematic", "Tap Point (Schematic)", 414.56, 246.29, 0),
+    el("wash_basin_rectangular", "Wash Basin (Rectangular)", 345.58, 253.82, 0, { dualSupply: true }),
+    el("tee_junction", "Tee Junction", 487.22, 183.63, 270),
+    el("gate_valve", "Gate Valve", 503.96, 183.56, 0),
+    el("check_valve", "Check Valve", 509.96, 183.56, 0),
+    el("check_valve", "Check Valve", 516.13, 183.48, 0),
+    el("water_heater", "Storage Water Heater", 524.13, 183.48, 0),
+    el("elbow_bend", "Elbow Bend", 536.82, 180.89, 90),
+    el("elbow_bend", "Elbow Bend", 536.82, 174.89, 0),
+    el("elbow_bend", "Elbow Bend", 494.31, 174.07, 270),
+    el("tee_junction", "Tee Junction", 487.21, 196.83, 180),
+    el("tee_junction", "Tee Junction", 480.96, 196.83, 0),
+    el("elbow_bend", "Elbow Bend", 470.63, 199.25, 270),
+    el("tee_junction", "Tee Junction", 493.96, 196.92, 0),
+    el("gate_valve", "Gate Valve", 467.63, 246.75, 90),
+    el("tee_junction", "Tee Junction", 489.47, 206.8, 180),
+    el("elbow_bend", "Elbow Bend", 464.63, 209.91, 270),
+    el("gate_valve", "Gate Valve", 480.96, 246.67, 90),
+    el("gate_valve", "Gate Valve", 493.96, 238.25, 90),
+    el("water_closet", "Water Closet (Pedestal)", 480.96, 254.67, 0),
+    el("bidet_spray", "Bidet Spray", 493.96, 250.6, 90),
+    el("vacuum_breaker", "Vacuum Breaker", 493.96, 244.6, 0),
+    el("gate_valve", "Gate Valve", 461.57, 246.77, 90),
+    el("shower_head", "Shower Head", 505.99, 252.29, 0, { dualSupply: true }),
+    el("gate_valve", "Gate Valve", 508.95, 246.18, 90),
+    el("gate_valve", "Gate Valve", 503.99, 246.29, 90),
+    el("wash_basin_rectangular", "Wash Basin (Rectangular)", 464.57, 254.77, 0, { dualSupply: true }),
+    el("elbow_bend", "Elbow Bend", 504.86, 199.01, 0),
+    el("elbow_bend", "Elbow Bend", 501.88, 208.93, 0),
+    el("tee_junction", "Tee Junction", 568.31, 183.23, 270),
+    el("gate_valve", "Gate Valve", 574.13, 183.14, 0),
+    el("check_valve", "Check Valve", 580.13, 183.14, 0),
+    el("check_valve", "Check Valve", 586.13, 183.14, 0),
+    el("water_heater", "Storage Water Heater", 594.13, 183.14, 0),
+    el("elbow_bend", "Elbow Bend", 604.12, 180.14, 90),
+    el("elbow_bend", "Elbow Bend", 604.12, 174.14, 0),
+    el("elbow_bend", "Elbow Bend", 573.31, 174.14, 270),
+    el("tee_junction", "Tee Junction", 568.14, 196.23, 180),
+    el("tee_junction", "Tee Junction", 574.14, 196.23, 0),
+    el("tee_junction", "Tee Junction", 561.81, 196.39, 0),
+    el("tee_junction", "Tee Junction", 548.97, 196.48, 0),
+    el("elbow_bend", "Elbow Bend", 584.64, 199.06, 0),
+    el("elbow_bend", "Elbow Bend", 538.89, 198.89, 270),
+    el("gate_valve", "Gate Valve", 587.56, 245.66, 90),
+    el("tee_junction", "Tee Junction", 570.47, 206.24, 180),
+    el("elbow_bend", "Elbow Bend", 581.89, 208.74, 0),
+    el("elbow_bend", "Elbow Bend", 548.56, 208.91, 270),
+    el("gate_valve", "Gate Valve", 535.89, 204.89, 90),
+    el("check_valve", "Check Valve", 535.89, 210.89, 90),
+    el("check_valve", "Check Valve", 535.89, 216.89, 90),
+    el("tap_point_schematic", "Tap Point (Schematic)", 537.77, 247.11, 0),
+    el("wash_basin_rectangular", "Wash Basin (Rectangular)", 547.78, 253.72, 0, { dualSupply: true }),
+    el("gate_valve", "Gate Valve", 550.71, 245.7, 90),
+    el("gate_valve", "Gate Valve", 544.65, 245.72, 90),
+    el("gate_valve", "Gate Valve", 562.01, 246.19, 90),
+    el("gate_valve", "Gate Valve", 583.1, 245.61, 90),
+    el("water_closet", "Water Closet (Pedestal)", 562.01, 254.19, 0),
+    el("bidet_spray", "Bidet Spray", 574.59, 257.87, 90),
+    el("vacuum_breaker", "Vacuum Breaker", 574.59, 251.87, 0),
+    el("check_valve", "Check Valve", 574.59, 245.87, 90),
+    el("shower_head", "Shower Head", 585.1, 251.61, 0, { dualSupply: true }),
+    el("gate_valve", "Gate Valve", 488.5, 304.32, 90),
+    el("tee_junction", "Tee Junction", 487.82, 323, 270),
+    el("gate_valve", "Gate Valve", 504.57, 322.93, 0),
+    el("check_valve", "Check Valve", 510.57, 322.93, 0),
+    el("check_valve", "Check Valve", 516.73, 322.85, 0),
+    el("water_heater", "Storage Water Heater", 524.73, 322.85, 0),
+    el("elbow_bend", "Elbow Bend", 537.43, 320.25, 90),
+    el("elbow_bend", "Elbow Bend", 537.43, 314.25, 0),
+    el("elbow_bend", "Elbow Bend", 494.92, 313.43, 270),
+    el("tee_junction", "Tee Junction", 488.21, 338.93, 180),
+    el("tee_junction", "Tee Junction", 481.96, 338.93, 0),
+    el("elbow_bend", "Elbow Bend", 471.63, 341.35, 270),
+    el("tee_junction", "Tee Junction", 494.96, 339.01, 0),
+    el("gate_valve", "Gate Valve", 468.63, 388.85, 90),
+    el("tee_junction", "Tee Junction", 490.47, 348.89, 180),
+    el("elbow_bend", "Elbow Bend", 465.63, 352.01, 270),
+    el("gate_valve", "Gate Valve", 481.96, 388.77, 90),
+    el("gate_valve", "Gate Valve", 494.96, 380.35, 90),
+    el("water_closet", "Water Closet (Pedestal)", 481.96, 396.77, 0),
+    el("bidet_spray", "Bidet Spray", 494.96, 392.7, 90),
+    el("vacuum_breaker", "Vacuum Breaker", 494.96, 386.7, 0),
+    el("gate_valve", "Gate Valve", 462.57, 388.87, 90),
+    el("shower_head", "Shower Head", 506.98, 394.39, 0, { dualSupply: true }),
+    el("gate_valve", "Gate Valve", 509.94, 388.28, 90),
+    el("gate_valve", "Gate Valve", 504.98, 388.39, 90),
+    el("wash_basin_rectangular", "Wash Basin (Rectangular)", 465.57, 396.87, 0, { dualSupply: true }),
+    el("elbow_bend", "Elbow Bend", 502.87, 351.03, 0),
+    el("elbow_bend", "Elbow Bend", 444.4, 292.7, 180),
+    el("gate_valve", "Gate Valve", 467.41, 295.41, 0),
+    el("elbow_bend", "Elbow Bend", 485.49, 298.1, 0),
+    el("tee_junction", "Tee Junction", 507.44, 338.85, 0),
+    el("elbow_bend", "Elbow Bend", 518.26, 341.63, 0),
+    el("gate_valve", "Gate Valve", 521.26, 347.63, 90),
+    el("check_valve", "Check Valve", 521.26, 353.63, 90),
+    el("check_valve", "Check Valve", 521.26, 359.63, 90),
+    el("tap_point_schematic", "Tap Point (Schematic)", 522.34, 389.57, 0),
+    el("elbow_bend", "Elbow Bend", 327.92, 292.54, 180),
+    el("gate_valve", "Gate Valve", 333.92, 295.54, 0),
+    el("tee_junction", "Tee Junction", 346.97, 295.23, 0),
+    el("elbow_bend", "Elbow Bend", 411.3, 298.14, 0),
+    el("gate_valve", "Gate Valve", 414.3, 304.14, 90),
+    el("tee_junction", "Tee Junction", 347.21, 338.97, 180),
+    el("tee_junction", "Tee Junction", 355.81, 339.11, 0),
+    el("tee_junction", "Tee Junction", 341.21, 338.97, 0),
+    el("elbow_bend", "Elbow Bend", 366.56, 341.78, 0),
+    el("elbow_bend", "Elbow Bend", 335.21, 341.97, 270),
+    el("single_tap", "Single Tap", 332.21, 388.2, 0),
+    el("single_tap", "Single Tap", 339.06, 387.62, 0),
+    el("sink", "Sink", 356.98, 389.54, 0),
+    el("sink", "Sink", 370.48, 389.37, 0),
+    el("gate_valve", "Gate Valve", 355.98, 381.54, 90),
+    el("gate_valve", "Gate Valve", 369.48, 381.37, 90),
+    el("tee_junction", "Tee Junction", 414.44, 339.04, 180),
+    el("tee_junction", "Tee Junction", 420.44, 339.04, 0),
+    el("tee_junction", "Tee Junction", 408.44, 339.04, 0),
+    el("elbow_bend", "Elbow Bend", 430.37, 341.61, 0),
+    el("elbow_bend", "Elbow Bend", 397.12, 341.45, 270),
+    el("washing_machine", "Washing Machine", 394.04, 389.54, 0),
+    el("gate_valve", "Gate Valve", 394.12, 347.45, 90),
+    el("check_valve", "Check Valve", 394.12, 353.45, 90),
+    el("check_valve", "Check Valve", 394.12, 359.45, 90),
+    el("wash_basin_rectangular", "Wash Basin (Rectangular)", 407.87, 394.2, 0, { dualSupply: true }),
+    el("gate_valve", "Gate Valve", 406.87, 386.2, 90),
+    el("gate_valve", "Gate Valve", 420.7, 388.62, 90),
+    el("water_closet", "Water Closet (Pedestal)", 420.7, 396.62, 0),
+    el("bidet_spray", "Bidet Spray", 432.75, 397.09, 90),
+    el("vacuum_breaker", "Vacuum Breaker", 432.75, 391.09, 0),
+    el("check_valve", "Check Valve", 432.75, 385.09, 90),
+  ];
 
-// ── Sub-branch helper ─────────────────────────────────────────────────────────
-//
-// Adds one fixture outlet going LEFT from a vertical main column.
-// The tee at (bx, teeY, rot=90) already exists in the caller's element list.
-// Gate valve at bx-100 (rot=180: upstream=right, downstream=left).
-// Fixture at bx-180 with its upstream port on the right side.
-//
-// Fixture upstream-on-right rotations:
-//   water_closet   → rot=90   (port offsetY=-24 → right after 90° rotation)
-//   water_fittings → rot=90   (port offsetY=-24 → right after 90° rotation)
-//   shower_head    → rot=90   (port offsetY=-24 → right after 90° rotation)
-//   wash_basin     → rot=270  (port offsetY=+24 → right after 270° rotation)
-//   long_bath      → rot=180  (port offsetX=-24 → right after 180° rotation)
-
-const SUB_GV_OFFSET  = 100;
-const SUB_FIX_OFFSET = 180;
-
-function addLeft(
-  elements: CanvasElement[],
-  pipes:    PipeElement[],
-  bx: number,
-  teeY: number,
-  fixId: string,
-  fixName: string,
-  fixRot: number,
-  pt: 'cold' | 'hot' = 'cold',
-  extras: Partial<CanvasElement> = {}
-) {
-  const gvX  = bx - SUB_GV_OFFSET;
-  const fixX = bx - SUB_FIX_OFFSET;
-  elements.push(el('gate_valve', 'Gate Valve', gvX, teeY, 180));
-  elements.push(el(fixId, fixName, fixX, teeY, fixRot, extras));
-  // tee branch (left) → GV right (upstream)
-  pipes.push(p(...tBranch(bx, teeY, 90), ...iUp(gvX, teeY, 180), pt));
-  // GV left (downstream) → fixture right (upstream)
-  pipes.push(p(...iDn(gvX, teeY, 180), fixX + 24, teeY, pt));
-}
-
-// ── Master Bathroom ───────────────────────────────────────────────────────────
-// Cold: WC · WM · TAP · WB   |   Hot: SH+ · LB · ST
-
-function makeMasterBath(bx: number, branchStartY: number) {
-  const els: CanvasElement[] = [];
-  const ps:  PipeElement[]   = [];
-
-  const GV_Y    = branchStartY +  40;
-  const WC_Y    = branchStartY + 110;
-  const WM_Y    = branchStartY + 170;
-  const TAP_Y   = branchStartY + 230;
-  const WB_Y    = branchStartY + 290;
-  const CHECK_Y = branchStartY + 350;
-  const WH_Y    = branchStartY + 420;
-  const SH_Y    = branchStartY + 490;
-  const LB_Y    = branchStartY + 550;
-  const ST_Y    = branchStartY + 610;
-
-  els.push(
-    el('gate_valve',   'Gate Valve',   bx, GV_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, WC_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, WM_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, TAP_Y,   90),
-    el('tee_junction', 'Tee Junction', bx, WB_Y,    90),
-    el('check_valve',  'Check Valve',  bx, CHECK_Y, 90),
-    el('water_heater', 'Water Heater', bx, WH_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, SH_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, LB_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, ST_Y,    90),
-  );
-
-  ps.push(
-    p(bx, branchStartY,         ...iUp(bx, GV_Y,    90)),
-    p(...iDn(bx, GV_Y,    90),  ...iUp(bx, WC_Y,    90)),
-    p(...iDn(bx, WC_Y,    90),  ...iUp(bx, WM_Y,    90)),
-    p(...iDn(bx, WM_Y,    90),  ...iUp(bx, TAP_Y,   90)),
-    p(...iDn(bx, TAP_Y,   90),  ...iUp(bx, WB_Y,    90)),
-    p(...iDn(bx, WB_Y,    90),  ...iUp(bx, CHECK_Y, 90)),
-    p(...iDn(bx, CHECK_Y, 90),  ...iUp(bx, WH_Y,    90)),
-    p(...iDn(bx, WH_Y,    90),  ...iUp(bx, SH_Y,    90), 'hot'),
-    p(...iDn(bx, SH_Y,    90),  ...iUp(bx, LB_Y,    90), 'hot'),
-    p(...iDn(bx, LB_Y,    90),  ...iUp(bx, ST_Y,    90), 'hot'),
-  );
-
-  addLeft(els, ps, bx, WC_Y,  'water_closet',   'Water Closet',    90);
-  addLeft(els, ps, bx, WM_Y,  'water_fittings', 'Washing Machine', 90, 'cold', { fittingType: 'basin_tap' });
-  addLeft(els, ps, bx, TAP_Y, 'water_fittings', 'Tap Point',       90, 'cold', { fittingType: 'basin_tap' });
-  addLeft(els, ps, bx, WB_Y,  'wash_basin',     'Wash Basin',     270);
-  addLeft(els, ps, bx, SH_Y,  'shower_head',    'Shower Head',     90, 'hot');
-  addLeft(els, ps, bx, LB_Y,  'long_bath',      'Long Bath',      180, 'hot');
-  addLeft(els, ps, bx, ST_Y,  'water_fittings', 'Shower Tap',      90, 'hot', { fittingType: 'shower_tap' });
-
-  return { elements: els, pipes: ps };
-}
-
-// ── Standard Bathroom (Bath 2 / Bath 3) ──────────────────────────────────────
-// Cold: WC · WM · WB   |   Hot: SH+ · ST
-
-function makeStandardBath(bx: number, branchStartY: number) {
-  const els: CanvasElement[] = [];
-  const ps:  PipeElement[]   = [];
-
-  const GV_Y    = branchStartY +  40;
-  const WC_Y    = branchStartY + 110;
-  const WM_Y    = branchStartY + 170;
-  const WB_Y    = branchStartY + 230;
-  const CHECK_Y = branchStartY + 290;
-  const WH_Y    = branchStartY + 360;
-  const SH_Y    = branchStartY + 430;
-  const ST_Y    = branchStartY + 490;
-
-  els.push(
-    el('gate_valve',   'Gate Valve',   bx, GV_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, WC_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, WM_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, WB_Y,    90),
-    el('check_valve',  'Check Valve',  bx, CHECK_Y, 90),
-    el('water_heater', 'Water Heater', bx, WH_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, SH_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, ST_Y,    90),
-  );
-
-  ps.push(
-    p(bx, branchStartY,         ...iUp(bx, GV_Y,    90)),
-    p(...iDn(bx, GV_Y,    90),  ...iUp(bx, WC_Y,    90)),
-    p(...iDn(bx, WC_Y,    90),  ...iUp(bx, WM_Y,    90)),
-    p(...iDn(bx, WM_Y,    90),  ...iUp(bx, WB_Y,    90)),
-    p(...iDn(bx, WB_Y,    90),  ...iUp(bx, CHECK_Y, 90)),
-    p(...iDn(bx, CHECK_Y, 90),  ...iUp(bx, WH_Y,    90)),
-    p(...iDn(bx, WH_Y,    90),  ...iUp(bx, SH_Y,    90), 'hot'),
-    p(...iDn(bx, SH_Y,    90),  ...iUp(bx, ST_Y,    90), 'hot'),
-  );
-
-  addLeft(els, ps, bx, WC_Y, 'water_closet',   'Water Closet',    90);
-  addLeft(els, ps, bx, WM_Y, 'water_fittings', 'Washing Machine', 90, 'cold', { fittingType: 'basin_tap' });
-  addLeft(els, ps, bx, WB_Y, 'wash_basin',     'Wash Basin',     270);
-  addLeft(els, ps, bx, SH_Y, 'shower_head',    'Shower Head',     90, 'hot');
-  addLeft(els, ps, bx, ST_Y, 'water_fittings', 'Shower Tap',      90, 'hot', { fittingType: 'shower_tap' });
-
-  return { elements: els, pipes: ps };
-}
-
-// ── Bath 1 ────────────────────────────────────────────────────────────────────
-// Cold: WC · WM · WB   |   Hot: SH+ · BT (bath tap)
-
-function makeBath1(bx: number, branchStartY: number) {
-  const els: CanvasElement[] = [];
-  const ps:  PipeElement[]   = [];
-
-  const GV_Y    = branchStartY +  40;
-  const WC_Y    = branchStartY + 110;
-  const WM_Y    = branchStartY + 170;
-  const WB_Y    = branchStartY + 230;
-  const CHECK_Y = branchStartY + 290;
-  const WH_Y    = branchStartY + 360;
-  const SH_Y    = branchStartY + 430;
-  const BT_Y    = branchStartY + 490;
-
-  els.push(
-    el('gate_valve',   'Gate Valve',   bx, GV_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, WC_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, WM_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, WB_Y,    90),
-    el('check_valve',  'Check Valve',  bx, CHECK_Y, 90),
-    el('water_heater', 'Water Heater', bx, WH_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, SH_Y,    90),
-    el('tee_junction', 'Tee Junction', bx, BT_Y,    90),
-  );
-
-  ps.push(
-    p(bx, branchStartY,         ...iUp(bx, GV_Y,    90)),
-    p(...iDn(bx, GV_Y,    90),  ...iUp(bx, WC_Y,    90)),
-    p(...iDn(bx, WC_Y,    90),  ...iUp(bx, WM_Y,    90)),
-    p(...iDn(bx, WM_Y,    90),  ...iUp(bx, WB_Y,    90)),
-    p(...iDn(bx, WB_Y,    90),  ...iUp(bx, CHECK_Y, 90)),
-    p(...iDn(bx, CHECK_Y, 90),  ...iUp(bx, WH_Y,    90)),
-    p(...iDn(bx, WH_Y,    90),  ...iUp(bx, SH_Y,    90), 'hot'),
-    p(...iDn(bx, SH_Y,    90),  ...iUp(bx, BT_Y,    90), 'hot'),
-  );
-
-  addLeft(els, ps, bx, WC_Y, 'water_closet',   'Water Closet',    90);
-  addLeft(els, ps, bx, WM_Y, 'water_fittings', 'Washing Machine', 90, 'cold', { fittingType: 'basin_tap' });
-  addLeft(els, ps, bx, WB_Y, 'wash_basin',     'Wash Basin',     270);
-  addLeft(els, ps, bx, SH_Y, 'shower_head',    'Shower Head',     90, 'hot');
-  addLeft(els, ps, bx, BT_Y, 'water_fittings', 'Bath Tap',        90, 'hot', { fittingType: 'basin_tap' });
-
-  return { elements: els, pipes: ps };
-}
-
-// ── Wet Kitchen ───────────────────────────────────────────────────────────────
-// Cold: TAP · TAP2 · WM   |   Hot: Sink Tap
-
-function makeWetKitchen(bx: number, branchStartY: number) {
-  const els: CanvasElement[] = [];
-  const ps:  PipeElement[]   = [];
-
-  const GV_Y    = branchStartY +  40;
-  const TAP1_Y  = branchStartY + 110;
-  const TAP2_Y  = branchStartY + 170;
-  const WM_Y    = branchStartY + 230;
-  const CHECK_Y = branchStartY + 290;
-  const WH_Y    = branchStartY + 360;
-  const SK_Y    = branchStartY + 430;
-
-  els.push(
-    el('gate_valve',   'Gate Valve',   bx, GV_Y,   90),
-    el('tee_junction', 'Tee Junction', bx, TAP1_Y, 90),
-    el('tee_junction', 'Tee Junction', bx, TAP2_Y, 90),
-    el('tee_junction', 'Tee Junction', bx, WM_Y,   90),
-    el('check_valve',  'Check Valve',  bx, CHECK_Y, 90),
-    el('water_heater', 'Water Heater', bx, WH_Y,   90),
-    el('tee_junction', 'Tee Junction', bx, SK_Y,   90),
-  );
-
-  ps.push(
-    p(bx, branchStartY,          ...iUp(bx, GV_Y,   90)),
-    p(...iDn(bx, GV_Y,   90),    ...iUp(bx, TAP1_Y, 90)),
-    p(...iDn(bx, TAP1_Y, 90),    ...iUp(bx, TAP2_Y, 90)),
-    p(...iDn(bx, TAP2_Y, 90),    ...iUp(bx, WM_Y,   90)),
-    p(...iDn(bx, WM_Y,   90),    ...iUp(bx, CHECK_Y, 90)),
-    p(...iDn(bx, CHECK_Y, 90),   ...iUp(bx, WH_Y,   90)),
-    p(...iDn(bx, WH_Y,   90),    ...iUp(bx, SK_Y,   90), 'hot'),
-  );
-
-  addLeft(els, ps, bx, TAP1_Y, 'water_fittings', 'Sink Tap',        90, 'cold', { fittingType: 'sink_tap' });
-  addLeft(els, ps, bx, TAP2_Y, 'water_fittings', 'Sink Tap 2',      90, 'cold', { fittingType: 'sink_tap' });
-  addLeft(els, ps, bx, WM_Y,   'water_fittings', 'Washing Machine', 90, 'cold', { fittingType: 'basin_tap' });
-  addLeft(els, ps, bx, SK_Y,   'water_fittings', 'Sink Tap (Hot)',  90, 'hot',  { fittingType: 'sink_tap' });
-
-  return { elements: els, pipes: ps };
-}
-
-// ── Dry Kitchen ───────────────────────────────────────────────────────────────
-// Cold: TAP · TAP2
-
-function makeDryKitchen(bx: number, branchStartY: number) {
-  const els: CanvasElement[] = [];
-  const ps:  PipeElement[]   = [];
-
-  const GV_Y   = branchStartY +  40;
-  const TAP1_Y = branchStartY + 110;
-  const TAP2_Y = branchStartY + 170;
-
-  els.push(
-    el('gate_valve',   'Gate Valve',   bx, GV_Y,   90),
-    el('tee_junction', 'Tee Junction', bx, TAP1_Y, 90),
-    el('tee_junction', 'Tee Junction', bx, TAP2_Y, 90),
-  );
-
-  ps.push(
-    p(bx, branchStartY,        ...iUp(bx, GV_Y,   90)),
-    p(...iDn(bx, GV_Y,   90),  ...iUp(bx, TAP1_Y, 90)),
-    p(...iDn(bx, TAP1_Y, 90),  ...iUp(bx, TAP2_Y, 90)),
-  );
-
-  addLeft(els, ps, bx, TAP1_Y, 'water_fittings', 'Sink Tap',   90, 'cold', { fittingType: 'sink_tap' });
-  addLeft(els, ps, bx, TAP2_Y, 'water_fittings', 'Sink Tap 2', 90, 'cold', { fittingType: 'sink_tap' });
-
-  return { elements: els, pipes: ps };
-}
-
-// ── Toilet ────────────────────────────────────────────────────────────────────
-// Cold: WC · WM · TAP
-
-function makeToilet(bx: number, branchStartY: number) {
-  const els: CanvasElement[] = [];
-  const ps:  PipeElement[]   = [];
-
-  const GV_Y  = branchStartY +  40;
-  const WC_Y  = branchStartY + 110;
-  const WM_Y  = branchStartY + 170;
-  const TAP_Y = branchStartY + 230;
-
-  els.push(
-    el('gate_valve',   'Gate Valve',   bx, GV_Y,  90),
-    el('tee_junction', 'Tee Junction', bx, WC_Y,  90),
-    el('tee_junction', 'Tee Junction', bx, WM_Y,  90),
-    el('tee_junction', 'Tee Junction', bx, TAP_Y, 90),
-  );
-
-  ps.push(
-    p(bx, branchStartY,        ...iUp(bx, GV_Y,  90)),
-    p(...iDn(bx, GV_Y,  90),   ...iUp(bx, WC_Y,  90)),
-    p(...iDn(bx, WC_Y,  90),   ...iUp(bx, WM_Y,  90)),
-    p(...iDn(bx, WM_Y,  90),   ...iUp(bx, TAP_Y, 90)),
-  );
-
-  addLeft(els, ps, bx, WC_Y,  'water_closet',   'Water Closet',    90);
-  addLeft(els, ps, bx, WM_Y,  'water_fittings', 'Washing Machine', 90, 'cold', { fittingType: 'basin_tap' });
-  addLeft(els, ps, bx, TAP_Y, 'water_fittings', 'Tap Point',       90, 'cold', { fittingType: 'basin_tap' });
-
-  return { elements: els, pipes: ps };
-}
-
-// ── Standard Residential Unit ─────────────────────────────────────────────────
-//
-// Vertical main riser at x=200 (INCOMING at bottom, flows upward).
-//
-// 2nd Storey (y=600): Master Bath (500) · Bath 2 (800) · Bath 3 (1100)
-// 1st Storey (y=1400): Dry Kitchen (550) · Wet Kitchen (850) · Toilet (1100) · Bath 1 (1400)
-//
-// Each fixture area has a vertical sub-column hanging downward from the floor
-// tee, with individual gate valve + fixture sub-branches going LEFT —
-// matching the parallel-outlet layout shown in the PDF schematic.
-// X positions are staggered between floors so columns don't visually collide.
-
-function generateResidentialUnit(): { elements: CanvasElement[]; pipes: PipeElement[] } {
-  const elements: CanvasElement[] = [];
-  const pipes:    PipeElement[]   = [];
-
-  const RX  = 200;   // riser X
-  const F1Y = 1400;  // 1st storey tee Y
-  const F2Y = 600;   // 2nd storey tee Y
-
-  // ── Main vertical riser (rot=270 → upstream=bottom, downstream=top) ───────
-
-  const meter  = el('water_meter', 'Water Meter', RX, 1800, 270);
-  const gvMain = el('gate_valve',  'Gate Valve',  RX, 1650, 270);
-  const tee1st = el('tee_junction','Tee Junction', RX,  F1Y, 270);
-  const tee2nd = el('tee_junction','Tee Junction', RX,  F2Y, 270);
-  const gvTop  = el('gate_valve',  'Gate Valve',  RX,  350, 270);
-  elements.push(meter, gvMain, tee1st, tee2nd, gvTop);
-
-  pipes.push(p(RX, 2000, RX, 1824));                                              // INCOMING stub
-  pipes.push(p(...iDn(RX, 1800, 270), ...iUp(RX, 1650, 270)));                   // meter → gvMain
-  pipes.push(p(...iDn(RX, 1650, 270), ...iUp(RX,  F1Y, 270)));                   // gvMain → 1st floor tee
-  pipes.push(p(...iDn(RX,  F1Y, 270), ...iUp(RX,  F2Y, 270)));                   // 1st → 2nd floor tee
-  pipes.push(p(...iDn(RX,  F2Y, 270), ...iUp(RX,  350, 270)));                   // 2nd floor tee → top cap
-
-  // ── 1st Storey horizontal branch (y=F1Y, flowing right) ──────────────────
-  // DK=550  WK=850  Toilet=1100  Bath1=1400
-
-  const t1dk     = el('tee_junction', 'Tee Junction',  550, F1Y, 0);
-  const t1wk     = el('tee_junction', 'Tee Junction',  850, F1Y, 0);
-  const t1toilet = el('tee_junction', 'Tee Junction', 1100, F1Y, 0);
-  const t1bath1  = el('tee_junction', 'Tee Junction', 1400, F1Y, 0);
-  const gv1end   = el('gate_valve',   'Gate Valve',   1540, F1Y, 0);
-  elements.push(t1dk, t1wk, t1toilet, t1bath1, gv1end);
-
-  pipes.push(p(...tBranch(RX, F1Y, 270), ...iUp( 550, F1Y, 0)));
-  pipes.push(p(...iDn( 550, F1Y, 0),     ...iUp( 850, F1Y, 0)));
-  pipes.push(p(...iDn( 850, F1Y, 0),     ...iUp(1100, F1Y, 0)));
-  pipes.push(p(...iDn(1100, F1Y, 0),     ...iUp(1400, F1Y, 0)));
-  pipes.push(p(...iDn(1400, F1Y, 0),     ...iUp(1540, F1Y, 0)));
-
-  // ── 2nd Storey horizontal branch (y=F2Y, flowing right) ──────────────────
-  // Master Bath=500  Bath2=800  Bath3=1100
-
-  const t2mb    = el('tee_junction', 'Tee Junction',  500, F2Y, 0);
-  const t2bath2 = el('tee_junction', 'Tee Junction',  800, F2Y, 0);
-  const t2bath3 = el('tee_junction', 'Tee Junction', 1100, F2Y, 0);
-  const gv2end  = el('gate_valve',   'Gate Valve',   1240, F2Y, 0);
-  elements.push(t2mb, t2bath2, t2bath3, gv2end);
-
-  pipes.push(p(...tBranch(RX, F2Y, 270), ...iUp( 500, F2Y, 0)));
-  pipes.push(p(...iDn( 500, F2Y, 0),     ...iUp( 800, F2Y, 0)));
-  pipes.push(p(...iDn( 800, F2Y, 0),     ...iUp(1100, F2Y, 0)));
-  pipes.push(p(...iDn(1100, F2Y, 0),     ...iUp(1240, F2Y, 0)));
-
-  // ── Fixture sub-columns (hanging downward from each floor tee) ───────────
-
-  const f1Start = F1Y + 24;   // 1424
-  const f2Start = F2Y + 24;   // 624
-
-  const dryKit = makeDryKitchen( 550, f1Start);
-  const wetKit = makeWetKitchen( 850, f1Start);
-  const toilet = makeToilet(    1100, f1Start);
-  const bath1  = makeBath1(     1400, f1Start);
-
-  const master = makeMasterBath(  500, f2Start);
-  const bath2  = makeStandardBath(800, f2Start);
-  const bath3  = makeStandardBath(1100, f2Start);
-
-  for (const branch of [dryKit, wetKit, toilet, bath1, master, bath2, bath3]) {
-    elements.push(...branch.elements);
-    pipes.push(...branch.pipes);
-  }
+  const pipes: PipeElement[] = [
+    p(110.08, 416.5, 120.16, 416.58, "cold"),
+    p(126.16, 410.58, 125.5, 403.83, "cold"),
+    p(149.5, 403.83, 148.75, 410.58, "cold"),
+    p(157.75, 413.58, 157.75, 403.75, "cold"),
+    p(172, 413.33, 172, 403.5, "cold"),
+    p(160.75, 416.58, 169, 416.33, "cold"),
+    p(175, 416.33, 306.81, 416.66, "cold"),
+    p(285.37, 302, 285.43, 392.26, "cold"),
+    p(312.81, 410.66, 312.37, 299, "cold"),
+    p(318.14, 151.88, 321.67, 152.34, "cold"),
+    p(312.37, 293, 312.14, 157.88, "cold"),
+    p(327.67, 152.34, 365.45, 152.66, "cold"),
+    p(368.45, 155.66, 368.33, 162.21, "cold"),
+    p(368.33, 168.21, 368.25, 180.12, "cold"),
+    p(410.16, 182.97, 414.85, 183.38, "hot"),
+    p(414.85, 171.38, 378.34, 170.56, "hot"),
+    p(371.25, 183.12, 381.99, 183.05, "cold"),
+    p(368.25, 186.12, 368.24, 193.32, "cold"),
+    p(358.99, 196.32, 354.66, 195.74, "cold"),
+    p(377.99, 196.4, 383.81, 196.33, "cold"),
+    p(389.81, 196.33, 396.99, 196.4, "cold"),
+    p(402.99, 196.4, 407.49, 196.24, "cold"),
+    p(348.66, 201.74, 348.66, 243.24, "cold"),
+    p(372.34, 176.56, 370.5, 203.28, "hot"),
+    p(367.5, 206.28, 348.66, 206.4, "hot"),
+    p(361.99, 199.32, 361.99, 243.16, "cold"),
+    p(374.99, 199.4, 374.99, 234.74, "cold"),
+    p(342.66, 212.4, 342.58, 242.82, "hot"),
+    p(373.5, 206.28, 381.74, 206.17, "hot"),
+    p(387.74, 206.17, 391.66, 206.01, "hot"),
+    p(384.74, 209.17, 381.27, 242.61, "hot"),
+    p(386.81, 199.33, 386.23, 242.5, "cold"),
+    p(399.99, 199.4, 402.23, 241.21, "cold"),
+    p(397.66, 212.01, 396.23, 240.12, "hot"),
+    p(413.49, 202.24, 413.15, 240.29, "cold"),
+    p(371.45, 152.66, 438.27, 152.41, "cold"),
+    p(444.27, 152.41, 484.86, 152.28, "cold"),
+    p(490.86, 152.28, 543.59, 152.45, "cold"),
+    p(549.59, 152.45, 562.44, 152.24, "cold"),
+    p(487.86, 155.28, 488.81, 161.77, "cold"),
+    p(487.3, 168.72, 487.22, 180.63, "cold"),
+    p(529.13, 183.48, 533.82, 183.89, "hot"),
+    p(533.82, 171.89, 497.31, 171.07, "hot"),
+    p(490.22, 183.63, 500.96, 183.56, "cold"),
+    p(487.22, 186.63, 487.21, 193.83, "cold"),
+    p(477.96, 196.83, 473.63, 196.25, "cold"),
+    p(496.96, 196.92, 501.86, 196.01, "cold"),
+    p(467.63, 202.25, 467.63, 243.75, "cold"),
+    p(491.31, 177.07, 489.47, 203.8, "hot"),
+    p(486.47, 206.8, 467.63, 206.91, "hot"),
+    p(480.96, 199.83, 480.96, 243.67, "cold"),
+    p(493.96, 199.92, 493.96, 235.25, "cold"),
+    p(461.63, 212.18, 461.57, 243.77, "hot"),
+    p(492.47, 206.8, 498.88, 205.93, "hot"),
+    p(507.86, 202.01, 508.95, 243.18, "cold"),
+    p(504.88, 211.93, 503.99, 243.29, "hot"),
+    p(568.44, 158.24, 568.31, 180.23, "cold"),
+    p(599.13, 183.14, 599.13, 183.14, "hot"),
+    p(599.13, 183.14, 601.12, 183.14, "hot"),
+    p(601.12, 171.14, 576.31, 171.14, "hot"),
+    p(568.31, 186.23, 568.14, 193.23, "cold"),
+    p(577.14, 196.23, 581.64, 196.06, "cold"),
+    p(558.81, 196.39, 551.97, 196.48, "cold"),
+    p(545.97, 196.48, 541.89, 195.89, "cold"),
+    p(570.31, 177.14, 570.47, 203.24, "hot"),
+    p(567.47, 206.24, 551.56, 205.91, "hot"),
+    p(573.47, 206.24, 578.89, 205.74, "hot"),
+    p(535.89, 219.89, 535.77, 248.11, "cold"),
+    p(545.56, 211.91, 544.65, 242.72, "hot"),
+    p(548.97, 199.48, 550.71, 242.7, "cold"),
+    p(561.81, 199.39, 562.01, 243.19, "cold"),
+    p(574.14, 199.23, 574.68, 242.69, "cold"),
+    p(587.64, 202.06, 587.56, 242.66, "cold"),
+    p(584.89, 211.74, 583.1, 242.61, "hot"),
+    p(487.9, 308.09, 487.82, 320, "cold"),
+    p(529.73, 322.85, 534.43, 323.25, "hot"),
+    p(534.43, 311.25, 497.92, 310.43, "hot"),
+    p(478.96, 338.93, 474.63, 338.35, "cold"),
+    p(468.63, 344.35, 468.63, 385.85, "cold"),
+    p(491.92, 316.43, 490.08, 345.33, "hot"),
+    p(487.47, 348.89, 468.63, 349.01, "hot"),
+    p(481.96, 341.93, 481.96, 385.77, "cold"),
+    p(494.96, 342.01, 494.96, 377.35, "cold"),
+    p(462.63, 354.28, 462.57, 385.87, "hot"),
+    p(493.47, 348.89, 499.87, 348.03, "hot"),
+    p(507.44, 341.85, 509.94, 385.28, "cold"),
+    p(505.87, 354.03, 504.98, 385.39, "hot"),
+    p(487.82, 326, 488.21, 335.93, "cold"),
+    p(490.82, 323, 501.57, 322.93, "cold"),
+    p(497.96, 339.01, 504.44, 338.85, "cold"),
+    p(510.44, 338.85, 515.26, 338.63, "cold"),
+    p(521.26, 362.63, 520.34, 390.57, "cold"),
+    p(441.27, 155.41, 441.4, 289.7, "cold"),
+    p(447.4, 295.7, 464.41, 295.41, "cold"),
+    p(470.41, 295.41, 482.49, 295.1, "cold"),
+    p(324.67, 155.34, 324.92, 289.54, "cold"),
+    p(336.92, 295.54, 343.97, 295.23, "cold"),
+    p(349.97, 295.23, 408.3, 295.14, "cold"),
+    p(346.97, 298.23, 347.21, 335.97, "cold"),
+    p(358.81, 339.11, 363.56, 338.78, "cold"),
+    p(350.21, 338.97, 352.81, 339.11, "cold"),
+    p(332.21, 344.97, 332.21, 385.2, "cold"),
+    p(341.21, 341.97, 339.06, 384.62, "cold"),
+    p(355.81, 342.11, 355.98, 378.54, "cold"),
+    p(369.56, 344.78, 369.48, 378.37, "cold"),
+    p(405.44, 339.04, 400.12, 338.45, "cold"),
+    p(423.44, 339.04, 427.37, 338.61, "cold"),
+    p(394.12, 362.45, 394.04, 386.54, "cold"),
+    p(408.44, 342.04, 406.87, 383.2, "cold"),
+    p(420.44, 342.04, 420.7, 385.62, "cold"),
+    p(433.37, 344.61, 432.75, 382.09, "cold"),
+    p(414.3, 307.14, 414.44, 336.04, "cold"),
+  ];
 
   return { elements, pipes };
 }
@@ -436,13 +353,14 @@ function generateResidentialUnit(): { elements: CanvasElement[]; pipes: PipeElem
 
 export const TEMPLATES: Template[] = [
   {
-    id: 'standard-residential-unit',
-    name: 'Standard Residential Unit',
+    id: '2-story-residential',
+    name: '2 Storey Residential — 1 Master Bath, 3 Baths, 1 Wet Kitchen, 1 Dry Kitchen, 1 Toilet',
     description:
-      'Full schematic for a typical residential unit: Master Bath, Bath 1–3, ' +
-      'Wet Kitchen, Dry Kitchen, and Toilet. Vertical main riser with 1st and 2nd storey ' +
-      'branches. Each area shows individual outlets (WC, WB, WM, SH+, LB, TAP etc.) with ' +
-      'isolation gate valves and water heaters. Fill in pipe sizes, materials, and MRL values after loading.',
-    generate: generateResidentialUnit,
+      '2-storey residential schematic with cold-water main entry (elbow → water meter → gate valve), ' +
+      'horizontal distribution main branching to 5 bays. Each bay has a dedicated gate valve, ' +
+      'dual check valves, storage water heater and hot-water loop serving a shower (dual supply), ' +
+      'wash basin (dual supply), water closet and bidet. Ground floor includes wet kitchen ' +
+      '(sinks + washing machine), dry kitchen (tap points) and a standalone toilet.',
+    generate: generate2StoryResidential,
   },
 ];

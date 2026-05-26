@@ -5,10 +5,109 @@ tank_pump_check.py — Tank / pump installation compliance check (PUB / SS 245 /
 from __future__ import annotations
 from typing import Any
 from app.agents.compliance_checks import CheckResult
+from app.agents.graph_utils import build_adjacency
 
 PUB_APPROVED_MATERIALS = {"FRP", "GRP", "SS_316", "RC"}
 PLASTIC_MATERIALS = {"pvc", "upvc", "cpvc"}
 
+
+# ---------------------------------------------------------------------------
+# Bypass-line topology checker
+# ---------------------------------------------------------------------------
+
+
+def _find_path_excluding(
+    adj: dict[str, set[str]],
+    start: str,
+    end: str,
+    exclude: set[str],
+) -> list[str] | None:
+    """DFS: find any simple path from start → end that avoids nodes in exclude."""
+    stack: list[tuple[str, list[str]]] = [(start, [start])]
+    visited: set[str] = set()
+    while stack:
+        node, path = stack.pop()
+        if node == end:
+            return path
+        if node in visited or node in exclude:
+            continue
+        visited.add(node)
+        for nbr in adj.get(node, []):
+            if nbr not in visited:
+                stack.append((nbr, path + [nbr]))
+    return None
+
+
+def _check_bypass_line(elements: list[dict], pipes: list[dict]) -> list[str]:
+    """
+    Detect whether a bypass line with a gate valve exists around each pump.
+
+    Returns one result line per pump (starting with ✓, ⚠, or –).
+    """
+    pumps = [e for e in elements if e.get("symbol_id") == "pump"]
+    if not pumps:
+        return [
+            "⚠ Bypass line: No pump detected — if a booster pump is part of this installation, "
+            "a bypass line with a normally-closed gate valve is required. Add the pump to the schematic."
+        ]
+
+    elem_by_id = {e["id"]: e for e in elements}
+    adj = build_adjacency(elements, pipes)
+    results: list[str] = []
+
+    for pump in pumps:
+        pump_id = pump["id"]
+        pump_name = pump.get("symbol_name", "Pump")
+        neighbors = list(adj.get(pump_id, []))
+
+        if len(neighbors) < 2:
+            results.append(
+                f"– [{pump_name}] Pump has fewer than 2 pipe connections — "
+                f"bypass topology cannot be verified. Ensure the pump inlet and outlet are both piped."
+            )
+            continue
+
+        found_bypass = False
+        has_gate_valve = False
+        for i in range(len(neighbors)):
+            for j in range(i + 1, len(neighbors)):
+                src, dst = neighbors[i], neighbors[j]
+                bypass_path = _find_path_excluding(adj, src, dst, {pump_id})
+                if bypass_path is None:
+                    continue
+                found_bypass = True
+                for node_id in bypass_path:
+                    el = elem_by_id.get(node_id, {})
+                    if el.get("symbol_id") == "gate_valve":
+                        has_gate_valve = True
+                        break
+                if has_gate_valve:
+                    break
+            if has_gate_valve:
+                break
+
+        if found_bypass and has_gate_valve:
+            results.append(
+                f"✓ [{pump_name}] Bypass line with gate valve detected — "
+                f"ensure the bypass valve is in the normally-closed position during normal operation."
+            )
+        elif found_bypass:
+            results.append(
+                f"⚠ [{pump_name}] Bypass path detected but no gate valve found on the bypass line — "
+                f"a normally-closed gate valve must be installed on all pump bypass lines."
+            )
+        else:
+            results.append(
+                f"⚠ [{pump_name}] No bypass line detected — "
+                f"a bypass line with a normally-closed gate valve is required around the pump."
+            )
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Main check
+# ---------------------------------------------------------------------------
 
 def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
     """
@@ -24,9 +123,9 @@ def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
       7. Sunken/detention tank noted if flagged
 
     System sub-checks:
-      8. Pump discharge pipe not plastic (PVC / uPVC)
-      9. Bypass line — N.A. (no symbol support yet)
-     10. 35 m head limit — N.A. (requires pump head data)
+      8. Pump discharge pipes must not be plastic (PVC/uPVC) — advisory reminder
+      9. Bypass line with normally-closed gate valve — topology check
+     10. Terminal fittings ≤ 35 m pump head — LP/PE acknowledgment
     """
     elements: list[dict] = metadata.get("elements", [])
     pipes: list[dict] = metadata.get("pipes", [])
@@ -36,7 +135,7 @@ def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
     if not tanks:
         return CheckResult(
             check_id="TANK_PUMP",
-            title="Tank / Pump Installation",
+            title="Adequacy of Supply & Tank / Pump Installation",
             status="SKIP",
             summary="No water tank found in schematic — check skipped.",
             detail=["This check applies only when a water tank is present."],
@@ -44,12 +143,14 @@ def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
 
     detail: list[str] = []
     sub_statuses: list[str] = []
-    skipped_critical: list[str] = []   # critical fields left blank — triggers WARN
+    skipped_critical: list[str] = []
     pipe_by_id = {p["id"]: p for p in pipes}
 
-    for tank in tanks:
+    for idx, tank in enumerate(tanks, start=1):
         tp: dict = tank.get("tank_properties") or {}
         name = tank.get("symbol_name", "Water Tank")
+        label = name if len(tanks) == 1 else f"{name} {idx}"
+        detail.append(f"## {label}")
 
         overflow_d      = tp.get("overflow_pipe_diameter_m")
         inlet_d         = tp.get("inlet_pipe_diameter_m")
@@ -142,6 +243,47 @@ def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
             )
             skipped_critical.append(f"[{name}] Outlet-to-base distance")
 
+        # Rule 4b: capacity adequacy check (Section 4)
+        effective_capacity_l = tp.get("effective_capacity_l")
+        occupants = tp.get("occupants")
+        required_m3 = tp.get("daily_demand_m3") or (occupants * 0.141 if occupants else None)
+        if required_m3 is not None and required_m3 > 0:
+            if effective_capacity_l is None:
+                detail.append(
+                    f"– [{name}] Effective capacity could not be calculated (missing dimensions or pipe levels) — "
+                    f"capacity adequacy check against required {required_m3} m³/day skipped."
+                )
+                skipped_critical.append(f"[{name}] Effective capacity (incomplete Advanced Details)")
+            else:
+                effective_m3 = effective_capacity_l / 1000
+                if effective_m3 > required_m3 * 1.2:
+                    detail.append(
+                        f"⚠ [{name}] Effective capacity ({effective_m3:.2f} m³) exceeds 120% of "
+                        f"required 1-day storage ({required_m3} m³, 120% = {required_m3 * 1.2:.2f} m³) — "
+                        f"tank may be oversized. Review with LP/PE."
+                    )
+                    sub_statuses.append("WARN")
+                elif effective_m3 >= required_m3:
+                    detail.append(
+                        f"✓ [{name}] Effective capacity ({effective_m3:.2f} m³) meets required "
+                        f"1-day storage ({required_m3} m³)."
+                    )
+                    sub_statuses.append("PASS")
+                else:
+                    shortfall = required_m3 - effective_m3
+                    detail.append(
+                        f"✗ [{name}] Effective capacity ({effective_m3:.2f} m³) is less than required "
+                        f"1-day storage ({required_m3} m³) — shortfall of {shortfall:.2f} m³. "
+                        f"Increase tank dimensions or adjust pipe levels."
+                    )
+                    sub_statuses.append("FAIL")
+        else:
+            detail.append(
+                f"– [{name}] Required 1-day storage not entered — capacity adequacy check skipped. "
+                f"Enter the required daily storage (m³) in Advanced Details to enable this check."
+            )
+            skipped_critical.append(f"[{name}] Required 1-day storage (m³)")
+
         # Rule 5: pressure vessel (advisory)
         if pressure_vessel is None:
             detail.append(f"– [{name}] Pressure vessel presence not specified.")
@@ -179,56 +321,61 @@ def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
                 f"Ensure relevant underground installation requirements are met."
             )
 
-    # Rule 8: pump discharge pipe not plastic
+    # System-level checks (pump, bypass, head) — apply across all tanks
+    detail.append("## System Checks")
     pumps = [e for e in elements if e.get("symbol_id") == "pump"]
     if not pumps:
-        detail.append("– Pump discharge pipe material: No pump in schematic (N.A.).")
+        detail.append(
+            "⚠ No pump detected in schematic — if a booster pump is part of this installation, "
+            "add it to the schematic and re-evaluate. "
+            "Pump discharge pipes must NOT use plastic materials (PVC/uPVC)."
+        )
+        sub_statuses.append("WARN")
     else:
-        any_pump_checked = False
-        for pump in pumps:
-            pump_name = pump.get("symbol_name", "Pump")
-            for port in pump.get("ports", []):
-                if port.get("role") != "downstream":
-                    continue
-                pipe_id = port.get("connected_pipe_id")
-                if not pipe_id:
-                    detail.append(
-                        f"– [{pump_name}] Discharge pipe not connected — material cannot be checked."
-                    )
-                    continue
-                pipe = pipe_by_id.get(pipe_id)
-                if not pipe:
-                    continue
-                mat_raw = pipe.get("material") or ""
-                mat = mat_raw.lower().replace("-", "").replace(" ", "")
-                any_pump_checked = True
-                if any(p in mat for p in PLASTIC_MATERIALS):
-                    detail.append(
-                        f"✗ [{pump_name}] Discharge pipe material is '{mat_raw}' (plastic). "
-                        f"uPVC/PVC must not be used as a pump discharge pipe."
-                    )
-                    sub_statuses.append("FAIL")
-                elif mat:
-                    detail.append(
-                        f"✓ [{pump_name}] Discharge pipe material is '{mat_raw}' (non-plastic — compliant)."
-                    )
-                    sub_statuses.append("PASS")
-                else:
-                    detail.append(
-                        f"– [{pump_name}] Discharge pipe material not specified — cannot check."
-                    )
-        if not any_pump_checked:
+        discharge_ack = metadata.get("pump_discharge_material_acknowledged", False)
+        if discharge_ack:
             detail.append(
-                "– Pump discharge pipe: Pump outlet port not connected to a pipe — cannot check material."
+                "✓ Rule 8: LP/PE confirmed pump discharge pipes are made of PUB-approved "
+                "non-plastic materials (copper, stainless steel, etc.) as required."
             )
+            sub_statuses.append("PASS")
+        else:
+            detail.append(
+                "⚠ Rule 8: Pump discharge pipe material not confirmed. "
+                "Pump discharge pipes must NOT use plastic materials (PVC/uPVC) — "
+                "please acknowledge in the pre-evaluation checklist."
+            )
+            sub_statuses.append("WARN")
 
-    # Rules 9-10: N.A.
-    detail.append(
-        "– Bypass line with normally closed valve: Not yet verifiable from schematic topology (N.A.)."
-    )
-    detail.append(
-        "– Terminal fittings ≤ 35 m head: Requires pump rated head data (N.A.)."
-    )
+    # Rule 9: bypass line with normally-closed gate valve — topology check (one result per pump)
+    bypass_lines = _check_bypass_line(elements, pipes)
+    detail.extend(bypass_lines)
+    for line in bypass_lines:
+        if line.startswith("✓"):
+            sub_statuses.append("PASS")
+        elif line.startswith(("⚠", "✗", "–")):
+            sub_statuses.append("WARN")
+
+    # Rule 10: terminal fittings ≤ 35 m pump head — LP/PE acknowledgment
+    pump_head_ack = metadata.get("pump_head_acknowledged", False)
+    if not pumps:
+        detail.append(
+            "⚠ No pump detected in schematic — if a booster pump is part of this installation, "
+            "add it to the schematic and confirm that terminal fittings do not receive more than 35 m head."
+        )
+        sub_statuses.append("WARN")
+    elif pump_head_ack:
+        detail.append(
+            "✓ LP/PE has confirmed that the pump rated head does not exceed 35 m "
+            "(as required by PUB regulations)."
+        )
+        sub_statuses.append("PASS")
+    else:
+        detail.append(
+            "⚠ Pump rated head acknowledgment not provided — please confirm the pump rated head "
+            "does not exceed 35 m before submitting. Tick the acknowledgment checkbox and re-evaluate."
+        )
+        sub_statuses.append("WARN")
 
     # Overall status
     if "FAIL" in sub_statuses:
@@ -255,7 +402,7 @@ def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
 
     return CheckResult(
         check_id="TANK_PUMP",
-        title="Tank / Pump Installation",
+        title="Adequacy of Supply & Tank / Pump Installation",
         status=status,
         summary=summary,
         detail=detail,

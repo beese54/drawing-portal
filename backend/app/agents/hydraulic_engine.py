@@ -10,9 +10,9 @@ Approach 1 — Single Path
     Friction factor f solved via Colebrook-White (implicit, iterative):
         1/sqrt(f) = -2 log10(epsilon/(3.7*D) + 2.51/(Re*sqrt(f)))
 
-Approach 2 — Network Solver
-    Linear Theory method (simplified Hardy Cross) using scipy.optimize.fsolve.
-    Solves simultaneous head-loss / continuity equations for a branched network.
+Approach 2 — Tree Traversal Solver
+    BFS-based spanning tree solver for branching plumbing networks.
+    Handles multi-source schematics and virtual (port-touching) connections.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-from scipy.optimize import brentq, fsolve
+from scipy.optimize import brentq
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -279,162 +279,8 @@ class NetworkResult:
     reached_node_ids: set = field(default_factory=set)  # nodes reachable from source via BFS
 
 
-def solve_network(
-    pipes: list[NetworkPipe],
-    nodes: list[NetworkNode],
-) -> NetworkResult:
-    """Solve pipe network using Linear Theory (iterative conductance method).
-
-    The Linear Theory method linearises the head-loss equation at each iteration:
-        h_f,k = R_k * Q_k^n  →  linearised as  h_f,k ≈ (R_k * Q_k^(n-1)) * Q_k
-    where n=1.852 (Hazen-Williams) or n=2 (Darcy approximation).
-
-    For simplicity this solver uses Darcy-Weisbach with a fixed Moody f (0.02)
-    as the linearisation seed, then iterates until flow corrections < 0.1%.
-
-    Parameters
-    ----------
-    pipes : list[NetworkPipe]
-    nodes : list[NetworkNode]
-
-    Returns
-    -------
-    NetworkResult
-    """
-    node_map: dict[str, NetworkNode] = {n.id: n for n in nodes}
-    pipe_ids = [p.id for p in pipes]
-    n_pipes = len(pipes)
-    n_nodes = len(nodes)
-
-    # Identify fixed-pressure (source) nodes and free nodes
-    source_nodes = [n.id for n in nodes if n.fixed_pressure_bar is not None]
-    free_node_ids = [n.id for n in nodes if n.fixed_pressure_bar is None]
-    n_free = len(free_node_ids)
-    free_node_idx = {nid: i for i, nid in enumerate(free_node_ids)}
-
-    # Pre-compute pipe geometry
-    diameters: list[float] = []
-    areas: list[float] = []
-    epsilons: list[float] = []
-    for p in pipes:
-        d = _get_diameter_m(p.material.lower(), p.nominal_mm, p.custom_id_mm)
-        diameters.append(d)
-        areas.append(math.pi * d ** 2 / 4.0)
-        epsilons.append(FRICTION[p.material.lower()]["epsilon_mm"] / 1000.0)
-
-    # Initialise flows (equal distribution from sources)
-    total_demand = sum(n.demand_lps for n in nodes if n.demand_lps > 0)
-    q = np.full(n_pipes, max(total_demand / n_pipes, 0.001) / 1000.0)  # m³/s
-
-    def pipe_resistance(i: int, qi: float) -> float:
-        """Darcy-Weisbach resistance: R such that hf = R * |Q| * Q (m per m³/s)."""
-        d = diameters[i]
-        area = areas[i]
-        p = pipes[i]
-        v = abs(qi) / area if area > 0 else 0.001
-        re = max(_reynolds(v, d), 1.0)
-        f = _colebrook_white_f(re, epsilons[i], d)
-        # Darcy friction resistance coefficient
-        R_darcy = f * p.length_m / (d * 2.0 * G * area ** 2)
-        # Minor losses: K_total * 1/(2g*A²) — equivalent pipe resistance
-        total_k = sum(K_VALUES.get(fname, 0.0) * cnt for fname, cnt in p.fittings.items())
-        R_minor = total_k / (2.0 * G * area ** 2)
-        return R_darcy + R_minor
-
-    def equations(q_vec: np.ndarray) -> np.ndarray:
-        """Residuals: continuity at free nodes."""
-        res = np.zeros(n_free)
-        # Build node flow balance: inflow - outflow - demand = 0
-        for fn_id, fi in free_node_idx.items():
-            balance = -node_map[fn_id].demand_lps / 1000.0
-            for i, p in enumerate(pipes):
-                if p.node_to == fn_id:
-                    balance += q_vec[i]
-                elif p.node_from == fn_id:
-                    balance -= q_vec[i]
-            res[fi] = balance
-        return res
-
-    # Use scipy fsolve with a Jacobian-free approach
-    # For a proper network solve we embed head equations directly.
-    # Build the full [continuity + head-loss] system.
-
-    def full_system(x: np.ndarray) -> np.ndarray:
-        """x = [Q_0..Q_{n_pipes-1}, H_free_0..H_free_{n_free-1}]"""
-        q_vec = x[:n_pipes]
-        h_free = x[n_pipes:]
-
-        residuals = np.zeros(n_pipes + n_free)
-
-        # Head-loss equations: for each pipe: hf(Q) = H_from - H_to
-        for i, p in enumerate(pipes):
-            R = pipe_resistance(i, q_vec[i])
-            hf = R * abs(q_vec[i]) * q_vec[i]  # signed
-
-            h_from = (node_map[p.node_from].fixed_pressure_bar / (RHO * G / 1e5)
-                      + node_map[p.node_from].elevation_m
-                      if node_map[p.node_from].fixed_pressure_bar is not None
-                      else h_free[free_node_idx[p.node_from]] + node_map[p.node_from].elevation_m)
-            h_to   = (node_map[p.node_to].fixed_pressure_bar / (RHO * G / 1e5)
-                      + node_map[p.node_to].elevation_m
-                      if node_map[p.node_to].fixed_pressure_bar is not None
-                      else h_free[free_node_idx[p.node_to]] + node_map[p.node_to].elevation_m)
-
-            residuals[i] = h_from - h_to - hf
-
-        # Continuity equations at free nodes
-        for fn_id, fi in free_node_idx.items():
-            balance = -node_map[fn_id].demand_lps / 1000.0
-            for i, p in enumerate(pipes):
-                if p.node_to == fn_id:
-                    balance += q_vec[i]
-                elif p.node_from == fn_id:
-                    balance -= q_vec[i]
-            residuals[n_pipes + fi] = balance
-
-        return residuals
-
-    # Initial guess: small positive flows, head = source pressure head
-    src_head = 0.0
-    for n in nodes:
-        if n.fixed_pressure_bar is not None:
-            src_head = n.fixed_pressure_bar / (RHO * G / 1e5) + n.elevation_m
-            break
-
-    x0 = np.concatenate([q, np.full(n_free, src_head * 0.9)])
-    sol = fsolve(full_system, x0, full_output=True)
-    x_sol, info, ier, msg = sol
-    converged = (ier == 1)
-
-    q_sol = x_sol[:n_pipes]
-    h_free_sol = x_sol[n_pipes:]
-
-    # Reconstruct node pressures (bar)
-    node_pressures: dict[str, float] = {}
-    for n in nodes:
-        if n.fixed_pressure_bar is not None:
-            node_pressures[n.id] = n.fixed_pressure_bar
-        else:
-            h_total = h_free_sol[free_node_idx[n.id]] + n.elevation_m
-            p_bar = (h_total - n.elevation_m) * (RHO * G / 1e5)
-            node_pressures[n.id] = round(float(p_bar), 4)
-
-    pipe_flows = {p.id: round(float(abs(q_sol[i])) * 1000.0, 4) for i, p in enumerate(pipes)}  # L/s
-    node_velocities = {
-        p.id: round(float(abs(q_sol[i])) / areas[i], 4)
-        for i, p in enumerate(pipes)
-    }
-
-    return NetworkResult(
-        pipe_flows=pipe_flows,
-        node_pressures=node_pressures,
-        node_velocities=node_velocities,
-        converged=converged,
-    )
-
-
 # ---------------------------------------------------------------------------
-# Approach 3 — Tree traversal solver (reliable for branching plumbing networks)
+# Approach 2 — Tree traversal solver (reliable for branching plumbing networks)
 # ---------------------------------------------------------------------------
 
 def solve_tree_network(
@@ -561,115 +407,6 @@ def solve_tree_network(
     )
 
 
-# ---------------------------------------------------------------------------
-# Convenience wrapper — accepts DrawingMetadata JSON dict (from frontend export)
-# ---------------------------------------------------------------------------
-
-def analyse_schematic(
-    metadata: dict[str, Any],
-    source_pressure_bar: float,
-    material: str,
-    nominal_mm: int | None = None,
-    custom_id_mm: float | None = None,
-    fittings_per_pipe: dict[str, dict[str, int]] | None = None,
-) -> dict[str, Any]:
-    """Run network analysis on a DrawingMetadata JSON export.
-
-    Parameters
-    ----------
-    metadata : dict
-        Output of `buildMetadata()` from the frontend.
-    source_pressure_bar : float
-        Mains / source pressure in bar.
-    material : str
-        Pipe material: 'copper' or 'ss'.
-    nominal_mm : int, optional
-        Nominal pipe size (15 / 22 / 28 mm).
-    custom_id_mm : float, optional
-        Custom internal diameter in mm.
-    fittings_per_pipe : dict, optional
-        Mapping of pipe_id → fittings dict for minor losses.
-
-    Returns
-    -------
-    dict with 'network_result', 'hydraulic_context', and per-outlet 'outlet_summary'.
-    """
-    fittings_per_pipe = fittings_per_pipe or {}
-
-    # Build NetworkNode list from elements
-    network_nodes: list[NetworkNode] = []
-    elements = metadata.get("elements", [])
-    hc = metadata.get("hydraulic_context", {})
-
-    for el in elements:
-        node_type = el.get("node_type", "")
-        elevation = el.get("elevation_m", 0.0)
-        # Source node gets fixed pressure
-        if el["id"] == hc.get("source_element_id"):
-            network_nodes.append(NetworkNode(
-                id=el["id"],
-                elevation_m=elevation,
-                fixed_pressure_bar=source_pressure_bar,
-            ))
-        elif node_type in ("outlet", "water_fittings"):
-            network_nodes.append(NetworkNode(
-                id=el["id"],
-                elevation_m=elevation,
-                demand_lps=0.1,  # default design demand per outlet
-            ))
-        else:
-            network_nodes.append(NetworkNode(
-                id=el["id"],
-                elevation_m=elevation,
-            ))
-
-    # Build NetworkPipe list from pipes
-    network_pipes: list[NetworkPipe] = []
-    for pipe in metadata.get("pipes", []):
-        from_id = pipe.get("flow_from_element_id") or pipe.get("start_connects_to")
-        to_id   = pipe.get("flow_to_element_id")   or pipe.get("end_connects_to")
-        if not from_id or not to_id:
-            continue
-        length_px = pipe.get("length_px", 100.0)
-        # Rough scale: assume canvas is ~5m wide per 1000px
-        length_m = max(length_px / 200.0, 0.5)
-        network_pipes.append(NetworkPipe(
-            id=pipe["id"],
-            node_from=from_id,
-            node_to=to_id,
-            length_m=length_m,
-            material=material,
-            nominal_mm=nominal_mm,
-            custom_id_mm=custom_id_mm,
-            fittings=fittings_per_pipe.get(pipe["id"], {}),
-        ))
-
-    if not network_pipes or len(network_nodes) < 2:
-        return {"error": "Insufficient network topology for analysis."}
-
-    result = solve_network(network_pipes, network_nodes)
-
-    # Outlet summary
-    outlet_summary = []
-    for node in network_nodes:
-        if node.demand_lps > 0:
-            outlet_summary.append({
-                "node_id": node.id,
-                "residual_pressure_bar": result.node_pressures.get(node.id, 0.0),
-                "elevation_m": node.elevation_m,
-            })
-
-    return {
-        "network_result": {
-            "pipe_flows_lps": result.pipe_flows,
-            "node_pressures_bar": result.node_pressures,
-            "pipe_velocities_ms": result.node_velocities,
-            "converged": result.converged,
-        },
-        "outlet_summary": outlet_summary,
-        "hydraulic_context": hc,
-    }
-
 
 # ---------------------------------------------------------------------------
 # CLI demo — run directly: python hydraulic_engine.py
@@ -715,24 +452,4 @@ if __name__ == "__main__":
     print(f"  Flow rate         : {result_hw.flow_rate_lpm:.2f} L/min")
     print(f"  Total loss        : {result_hw.total_loss_bar:.4f} bar")
 
-    # --- Approach 2: Simple network (source → junction → 2 outlets) ---
-    print("\n[Network Solver — branched system]")
-    pipes_net = [
-        NetworkPipe("p1", "source", "junction", 8.0,  "copper", nominal_mm=22),
-        NetworkPipe("p2", "junction", "outlet_a", 5.0, "copper", nominal_mm=15,
-                    fittings={"elbow_90": 1}),
-        NetworkPipe("p3", "junction", "outlet_b", 4.0, "copper", nominal_mm=15,
-                    fittings={"check_valve": 1}),
-    ]
-    nodes_net = [
-        NetworkNode("source",   elevation_m=0.0, fixed_pressure_bar=3.0),
-        NetworkNode("junction", elevation_m=0.0),
-        NetworkNode("outlet_a", elevation_m=2.0, demand_lps=0.08),
-        NetworkNode("outlet_b", elevation_m=1.5, demand_lps=0.06),
-    ]
-    net_result = solve_network(pipes_net, nodes_net)
-    print(f"  Converged : {net_result.converged}")
-    print(f"  Pipe flows (L/s) : {net_result.pipe_flows}")
-    print(f"  Node pressures (bar) : {net_result.node_pressures}")
-    print(f"  Pipe velocities (m/s): {net_result.node_velocities}")
     print("\nDone.")

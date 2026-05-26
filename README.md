@@ -10,7 +10,7 @@ An interactive web application for designing water pipe schematics and running A
 
 **Stage 1 — Draw:** Design water pipe schematics on a real-world elevation (mRL) canvas using drag-and-drop symbols. Export structured JSON metadata for downstream processing.
 
-**Stage 2 — Evaluate:** Submit your schematic for AI-driven compliance checking. The system parses the schematic JSON, runs deterministic rule checks (Reg 28, HB 2.2.1, HB 7.2.1) and a full hydraulic pressure analysis, then explains the results in plain English using GPT-4o-mini or Qwen 2.5-72B via a RAG pipeline grounded in the official PUB regulations and handbook.
+**Stage 2 — Evaluate:** Submit your schematic for deterministic compliance checking. The system parses the schematic JSON and runs 7 rule checks against Regulation 28, SS 636, and the PUB Handbook 2022.
 
 ---
 
@@ -18,10 +18,9 @@ An interactive web application for designing water pipe schematics and running A
 
 | Feature | Description |
 |---|---|
-| Drawing Canvas | Drag-and-drop schematic editor with 16 built-in water system symbols |
+| Drawing Canvas | Drag-and-drop schematic editor with 67 built-in water system symbols |
 | Real-world Elevation | Y-axis maps directly to mRL (metres above sea level) |
-| AI Compliance Evaluation | Checks Reg 28 (backflow prevention), HB 2.2.1 (mode of supply), HB 7.2.1 (WELS water efficiency) |
-| Hydraulic Analysis | Network solver computes residual pressure at every outlet under simultaneous peak demand |
+| 7 Compliance Checks | Reg 28 backflow, supply mode, MWELS water efficiency, tank/pump rules, long bath, hot water contamination, pipe materials |
 | RAG Knowledge Base | Retrieval-augmented Q&A over PUB Handbook 2022 and Public Utilities Regulations |
 | Dual LLM Support | Switch between OpenAI GPT-4o-mini and Together AI Qwen2.5-72B |
 | Token Metrics | Live per-query cost, latency, and token tracking |
@@ -46,9 +45,6 @@ An interactive web application for designing water pipe schematics and running A
 
 ### AI Compliance Report — HB 7.2.1 (WELS Water Efficiency)
 ![WELS Table](docs/screenshots/wels_table.jpg)
-
-### Hydraulic Analysis
-![Hydraulic Analysis](docs/screenshots/hydraulic_analysis.jpg)
 
 ---
 
@@ -143,38 +139,34 @@ Click **Export Metadata (JSON)** to download a structured JSON file with all sym
 
 ---
 
-## Stage 2: AI Compliance Evaluation
+## Stage 2: Compliance Evaluation
 
 ### How to use
 1. Draw your schematic in the **Draw Schematic** tab
 2. Switch to the **Evaluate Schematic** tab
-3. Select your LLM model (GPT-4o-mini or Qwen 7B)
+3. Complete the pre-evaluation acknowledgment checklist
 4. Click **Run Compliance Evaluation**
 
-The system exports the schematic JSON automatically, sends it to the backend, and streams back the evaluation report.
+The system exports the schematic JSON automatically, sends it to the backend, and returns the full compliance report.
 
 ### Compliance Checks
 
 | Check | Regulation | What it verifies |
 |---|---|---|
-| Reg 28 — Backflow Prevention | Public Utilities (Water Supply) Regulations, Reg 28(1) | Every water heater has a check valve immediately upstream |
-| HB 2.2.1 — Mode of Supply | PUB Handbook 2022, Section 2.2.1 | Direct supply from PUB mains is appropriate given highest fitting elevation (≤ 125 m MRL) |
-| HB 7.2.1 — Water Efficiency | PUB Handbook 2022, Section 7.2.1 | All water fittings carry a MWELS ≥ 2-tick rating |
-
-### Hydraulic Analysis
-
-The backend runs a network pressure solver across all fittings simultaneously:
-- Inputs: mains pressure (3 bar default), source elevation, pipe network topology from schematic JSON
-- Outputs: residual pressure (bar) at every outlet under peak simultaneous demand
-- Flags the **highest elevation fitting** (worst-case pressure point)
-- Pass/Fail: all outlets must have ≥ 1 bar residual pressure
+| REG28 — Backflow Prevention | Reg 28(1) | Every water heater has a check valve immediately upstream (BFS topology check) |
+| SEC221 — Mode of Supply | HB 2.2.1 | Supply mode matches highest fitting elevation: ≤25 m direct, ≤37 m indirect tank, >37 m Mode C pump |
+| SEC721 — Water Efficiency | HB 7.2.1 | All water fittings carry a MWELS ≥ 2-tick rating |
+| TANK_PUMP — Tank & Pump | SS 636 | Overflow/warning/outlet dimensions, effective capacity vs occupancy demand, pump head ≤35 m, bypass topology |
+| LONG_BATH — Long Bath | SS 636 | Capacity ≤250 L (no provisions); >250 L requires TMV, recirculation, 40 mm overflow |
+| HOT_WATER — Hot Water | SS 636 §6 | Supply mode consistency, heater protection (CV+PRV), appliance double check valves, bidet spray vacuum breaker |
+| SEC7_MATERIALS — Pipe Materials | SS 636 §7 | LP/PE acknowledgment that all pipes/fittings comply with SS 636 Table 1 |
 
 ### RAG Knowledge Base
-The AI explanations are grounded in two official documents loaded into a ChromaDB vector store:
+The Knowledge tab provides Q&A grounded in two official documents loaded into a ChromaDB vector store:
 - *PUB Handbook on Application for Water Supply 2022*
 - *Public Utilities (Water Supply) Regulations*
 
-The backend ingests these on startup. To use a custom document set, drop PDF or DOCX files into `backend/knowledge/` and restart the container.
+To use a custom document set, drop PDF or DOCX files into `backend/knowledge/` and restart the container.
 
 ---
 
@@ -197,13 +189,13 @@ schematic-drawing-portal/
 │   └── app/
 │       ├── main.py                   # FastAPI entry point
 │       ├── config.py                 # Settings & environment
-│       ├── agents/                   # LLM agents (compliance, hydraulic, RAG, chat)
+│       ├── agents/                   # Compliance checks, RAG, chat, LLM router
 │       ├── routers/                  # API endpoints (evaluate, chat, symbols, health)
 │       ├── models/                   # Pydantic data models
 │       ├── schemas/                  # Request/response schemas
 │       └── services/                 # Business logic (vector store, metrics, symbols)
 │   └── symbols/
-│       ├── default/                  # 16 built-in SVG water system symbols
+│       ├── default/                  # 67 built-in SVG water system symbols
 │       ├── custom/                   # User-uploaded symbols (gitignored)
 │       └── manifest.json             # Symbol registry
 │   └── knowledge/                    # Regulatory PDFs for RAG (gitignored)
@@ -219,7 +211,7 @@ schematic-drawing-portal/
 │       │   ├── canvas/               # Drawing canvas & pipe tools
 │       │   ├── chat/                 # Evaluation report & chat UI
 │       │   ├── panel/                # Symbol palette & settings panels
-│       │   └── layout/              # App shell
+│       │   └── layout/               # App shell
 │       ├── store/                    # Zustand state (canvas, chat, UI)
 │       ├── hooks/                    # Custom React hooks
 │       ├── types/                    # TypeScript type definitions
@@ -238,29 +230,6 @@ schematic-drawing-portal/
 
 ---
 
-## Default Symbols
-
-| Symbol | Type |
-|---|---|
-| Water Pipe | Line drawing tool |
-| Gate Valve | Drag-drop |
-| Check Valve (NRV) | Drag-drop |
-| Pump | Drag-drop |
-| Flow Meter | Drag-drop |
-| Tee Junction | Drag-drop |
-| Elbow / Bend | Drag-drop |
-| Reducer | Drag-drop |
-| Water Heater | Drag-drop |
-| Water Tank | Drag-drop |
-| Water Meter | Drag-drop |
-| Water Fittings | Drag-drop |
-| Fire Hydrant | Drag-drop |
-| Sump / Manhole | Drag-drop |
-| Hot Water Pipe | Line drawing tool |
-| Cold Water Pipe | Line drawing tool |
-
----
-
 ## Metadata Export Format
 
 ```json
@@ -273,8 +242,8 @@ schematic-drawing-portal/
     {
       "id": "el_uuid",
       "type": "symbol",
-      "symbol_id": "water_heater",
-      "symbol_name": "Water Heater",
+      "symbol_id": "storage_water_heater",
+      "symbol_name": "Storage Water Heater",
       "position": { "canvas_x": 680, "canvas_y": 210 },
       "mrl": { "value": 102.8, "unit": "m" },
       "rotation_deg": 0,

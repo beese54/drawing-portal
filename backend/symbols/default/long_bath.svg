@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Supply stub from left -->
-  <line x1="0" y1="32" x2="8" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Supply stub from top -->
+  <line x1="32" y1="0" x2="32" y2="12" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
   <!-- Bath outer rectangle -->
   <rect x="8" y="12" width="48" height="40" rx="4" fill="none" stroke="#1a1a1a" stroke-width="2"/>
   <!-- Inner rim (curved tub interior) -->

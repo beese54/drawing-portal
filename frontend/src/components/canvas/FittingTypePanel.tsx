@@ -1,7 +1,5 @@
 import { useCanvasStore } from '../../store/canvasStore';
-import { WATER_FITTING_TYPES } from '../../types';
-
-const SYMBOL_SIZE = 48;
+import { WATER_FITTING_TYPES, SCHEMATIC_SYMBOL_PX } from '../../types';
 const TICK = '✓';
 
 interface FittingTypePanelProps {
@@ -10,6 +8,7 @@ interface FittingTypePanelProps {
   y: number;
   currentFittingTypeId: string;
   currentEfficiencyRating?: 2 | 3;
+  elementHalfWidthVp?: number;
 }
 
 const panelStyle: React.CSSProperties = {
@@ -37,14 +36,14 @@ const labelStyle: React.CSSProperties = {
   userSelect: 'none',
 };
 
-export function FittingTypePanel({ elementId, x, y, currentFittingTypeId, currentEfficiencyRating }: FittingTypePanelProps) {
+export function FittingTypePanel({ elementId, x, y, currentFittingTypeId, currentEfficiencyRating, elementHalfWidthVp = SCHEMATIC_SYMBOL_PX / 2 }: FittingTypePanelProps) {
   const updateFittingType    = useCanvasStore((s) => s.updateFittingType);
   const updateEfficiencyRating = useCanvasStore((s) => s.updateEfficiencyRating);
 
   const posStyle: React.CSSProperties = {
     ...panelStyle,
-    left: x + SYMBOL_SIZE / 2 + 22,
-    top: y - SYMBOL_SIZE / 2,
+    left: x + elementHalfWidthVp + 22,
+    top: y - elementHalfWidthVp,
   };
 
   return (

@@ -1,37 +1,13 @@
-# Stage 1 — core API
+# Core API
 fastapi==0.111.0
 uvicorn[standard]==0.30.1
 python-multipart==0.0.9
 pydantic-settings==2.3.0
 aiofiles==23.2.1
-
-# Stage 2 — environment / utilities
 python-dotenv>=1.0.0
 
-# Stage 2 — hydraulic calculations
-scipy>=1.13.0
-numpy>=1.26.0
-
-# Stage 2 — AI / LLM (OpenAI + Together AI use same client)
+# LLM client (OpenAI + Together AI use same client)
 openai>=1.35.0
 
-# Stage 2 — RAG / LangChain
-langchain>=0.2.0
-langchain-community>=0.2.0
-langchain-openai>=0.1.0
-
-# Stage 2 — vector store
-chromadb>=0.5.0
-
-# Stage 2 — embeddings
-sentence-transformers>=3.0.0
-
-# Stage 2 — document ingestion
-pdfplumber>=0.11.0
-python-docx>=1.1.0
-
-# Stage 2 — websockets (for streaming chat)
-websockets>=12.0
-
-# Stage 2 — image annotation
+# Image annotation (backflow check annotated image)
 Pillow>=10.0.0

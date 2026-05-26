@@ -16,16 +16,6 @@ def _slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9_]", "_", name.lower().strip())
 
 
-def list_symbols() -> list[dict]:
-    manifest = read_manifest(settings.manifest_path)
-    symbols = []
-    for sym in manifest.get("symbols", []):
-        symbols.append({
-            **sym,
-            "url": f"/api/symbols/{sym['id']}/image",
-        })
-    return symbols
-
 
 def get_symbol_file_path(symbol_id: str) -> Path:
     manifest = read_manifest(settings.manifest_path)

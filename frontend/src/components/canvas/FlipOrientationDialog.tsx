@@ -47,8 +47,19 @@ const WATER_HEATER_DOTS_RTL: DotDef[] = [
   { left: 2,  top: 27, color: '#e63329', label: 'Output', labelLeft: 14  },
 ];
 
+// pump: IN stub at right (SVG x=64,y=36), OUT casing opening at top-left (SVG x=12,y=2)
+const PUMP_DOTS_LTR: DotDef[] = [
+  { left: 59, top: 31, color: '#007bff', label: 'IN',  labelLeft: -28 },
+  { left:  8, top:  2, color: '#e63329', label: 'OUT', labelLeft:  20 },
+];
+// mirrored: IN moves to left, OUT moves to top-right
+const PUMP_DOTS_RTL: DotDef[] = [
+  { left:  2, top: 31, color: '#007bff', label: 'IN',  labelLeft: 14 },
+  { left: 52, top:  2, color: '#e63329', label: 'OUT', labelLeft: 28 },
+];
+
 // symbols that use scaleX=-1 for Left←Right (image stays upright, ports mirror)
-const SCALE_FLIP_SYMBOLS = new Set(['water_tank', 'water_heater', 'water_meter']);
+const SCALE_FLIP_SYMBOLS = new Set(['water_tank', 'water_heater', 'water_meter', 'pump']);
 
 // water_meter: stubs at y=32, left tip at x=0, right tip at x=64
 const WATER_METER_DOTS_LTR: DotDef[] = [
@@ -65,11 +76,13 @@ const DOTS_LTR: Record<string, DotDef[]> = {
   water_tank:   WATER_TANK_DOTS_LTR,
   water_heater: WATER_HEATER_DOTS_LTR,
   water_meter:  WATER_METER_DOTS_LTR,
+  pump:         PUMP_DOTS_LTR,
 };
 const DOTS_RTL: Record<string, DotDef[]> = {
   water_tank:   WATER_TANK_DOTS_RTL,
   water_heater: WATER_HEATER_DOTS_RTL,
   water_meter:  WATER_METER_DOTS_RTL,
+  pump:         PUMP_DOTS_RTL,
 };
 
 /** Renders only the coloured dot circles on the image — labels are shown outside the image. */

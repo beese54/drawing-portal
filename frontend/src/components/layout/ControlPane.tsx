@@ -2,10 +2,11 @@ import { MrlConfigPanel } from '../panel/MrlConfigPanel';
 import { SymbolPalette } from '../panel/SymbolPalette';
 import { ActionPanel } from '../panel/ActionPanel';
 import { SchematicSettingsPanel } from '../panel/SchematicSettingsPanel';
-import { PipePropertiesPanel } from '../panel/PipePropertiesPanel';
 import { WaterTankPropertiesPanel } from '../panel/WaterTankPropertiesPanel';
+import { DualSupplyPropertiesPanel } from '../panel/DualSupplyPropertiesPanel';
 import { useSymbols } from '../../hooks/useSymbols';
 import { useCanvasStore } from '../../store/canvasStore';
+import { DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
 
 interface ControlPaneProps {
   canvasWidth: number;
@@ -14,11 +15,10 @@ interface ControlPaneProps {
 
 export function ControlPane({ canvasWidth, canvasHeight }: ControlPaneProps) {
   const symbolsState = useSymbols();
-  const { selectedId, pipes, elements } = useCanvasStore();
-  const isPipeSelected = pipes.some((p) => p.id === selectedId);
-  const isTankSelected = elements.some(
-    (el) => el.id === selectedId && el.symbolId === 'water_tank'
-  );
+  const { selectedId, elements } = useCanvasStore();
+  const selectedEl = elements.find((el) => el.id === selectedId);
+  const isTankSelected = selectedEl?.symbolId === 'water_tank';
+  const isDualSupplySymbol = selectedEl ? DUAL_SUPPLY_SYMBOLS.has(selectedEl.symbolId) : false;
 
   return (
     <div style={{
@@ -33,8 +33,8 @@ export function ControlPane({ canvasWidth, canvasHeight }: ControlPaneProps) {
       height: '100%',
     }}>
       <SchematicSettingsPanel />
-      {isPipeSelected && <PipePropertiesPanel />}
       {isTankSelected && <WaterTankPropertiesPanel />}
+      {isDualSupplySymbol && <DualSupplyPropertiesPanel />}
       <MrlConfigPanel />
       <SymbolPalette {...symbolsState} />
       <ActionPanel canvasWidth={canvasWidth} canvasHeight={canvasHeight} />

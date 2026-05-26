@@ -1,18 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Supply stub from top -->
-  <line x1="32" y1="0" x2="32" y2="14" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Branch line to two taps -->
-  <line x1="20" y1="14" x2="44" y2="14" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Left tap vertical body -->
-  <line x1="20" y1="14" x2="20" y2="36" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Left tap handle -->
-  <line x1="10" y1="28" x2="30" y2="28" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="10" y1="23" x2="10" y2="33" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <line x1="30" y1="23" x2="30" y2="33" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Right tap vertical body -->
-  <line x1="44" y1="14" x2="44" y2="36" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Right tap handle -->
-  <line x1="34" y1="28" x2="54" y2="28" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
-  <line x1="34" y1="23" x2="34" y2="33" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <line x1="54" y1="23" x2="54" y2="33" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg" viewBox="19 22 28 23">
+ <g>
+  <title>Layer 1</title>
+  <line stroke-linecap="undefined" stroke-linejoin="undefined" id="svg_1" y2="100.99999" x2="253.99999" y1="100.99999" x1="251.99999" stroke="#000" fill="none"/>
+  <ellipse stroke="#000" ry="2.71845" rx="2.57282" id="svg_47" cy="28.73786" cx="34.18446" fill="none"/>
+  <line id="svg_53" y2="35.3398" x2="34.13592" y1="31.5534" x1="34.13592" stroke="#000" fill="none"/>
+  <line stroke="#000" id="svg_55" y2="35.43689" x2="43.50002" y1="35.53398" x1="24.86661" fill="none"/>
+  <line id="svg_56" y2="42.3324" x2="25.35434" y1="35.24502" x1="25.35434" stroke="#000" fill="none"/>
+  <line id="svg_57" y2="38.86256" x2="28.11374" y1="38.86256" x1="22.90047" stroke="#000" fill="none"/>
+  <line id="svg_59" y2="42.04804" x2="42.98468" y1="34.96066" x1="42.98468" stroke="#000" fill="none"/>
+  <line id="svg_60" y2="38.67298" x2="45.64929" y1="38.67298" x1="40.43602" stroke="#000" fill="none"/>
+ </g>
+
 </svg>

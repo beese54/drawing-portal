@@ -4,12 +4,7 @@ import { useCanvasStore } from '../store/canvasStore';
 import { PipeElement, PipeType } from '../types';
 import { findNearestPort } from '../utils/symbolPorts';
 
-export interface PendingChain {
-  pipeId: string;
-  endPoint: { x: number; y: number };
-}
-
-const PORT_SNAP_THRESHOLD = 16; // px — user clicks near a port dot to connect
+const PORT_SNAP_THRESHOLD = 4; // px — user clicks near a port dot to connect
 
 type PipeDrawState = 'idle' | 'waiting_first' | 'waiting_second';
 
@@ -34,14 +29,12 @@ export function useCanvasInteraction() {
   const activeTool = useUiStore((s) => s.activeTool);
   const setActiveTool = useUiStore((s) => s.setActiveTool);
   const addPipe = useCanvasStore((s) => s.addPipe);
-  const removePipe = useCanvasStore((s) => s.removePipe);
   const setSelected = useCanvasStore((s) => s.setSelected);
 
   const [drawState, setDrawState] = useState<PipeDrawState>('idle');
   const [anchorPoint, setAnchorPoint] = useState<{ x: number; y: number } | null>(null);
   const [previewEnd, setPreviewEnd] = useState<{ x: number; y: number } | null>(null);
   const [shiftHeld, setShiftHeld] = useState(false);
-  const [pendingChain, setPendingChain] = useState<PendingChain | null>(null);
 
   const isPipeTool =
     activeTool === 'pipe' || activeTool === 'cold_pipe' || activeTool === 'hot_pipe';
@@ -96,9 +89,13 @@ export function useCanvasInteraction() {
     (rawX: number, rawY: number) => {
       if (!isPipeTool) return;
 
-      // Snap to a port if the click is close enough
+      // Snap to a port if the click is close enough.
+      // For typed pipes, prefer the matching-label port within a larger radius
+      // so drawing a cold pipe near a dual-supply fixture always lands on Cold.
       const elements = useCanvasStore.getState().elements;
-      const nearPort = findNearestPort(rawX, rawY, elements, PORT_SNAP_THRESHOLD);
+      const pipeType = activeToPipeType(activeTool);
+      const preferLabel = pipeType === 'cold' ? 'Cold' : pipeType === 'hot' ? 'Hot' : undefined;
+      const nearPort = findNearestPort(rawX, rawY, elements, PORT_SNAP_THRESHOLD, preferLabel);
       const x = nearPort ? nearPort.x : rawX;
       const y = nearPort ? nearPort.y : rawY;
 
@@ -121,9 +118,10 @@ export function useCanvasInteraction() {
         };
         addPipe(pipe);
         setSelected(pipe.id);
-        // Pause chaining — wait for the user to fill pipe properties
-        setPendingChain({ pipeId: pipe.id, endPoint: end });
-        setDrawState('waiting_first'); // freeze drawing until modal is resolved
+        // Resume chaining immediately from the end point
+        setAnchorPoint(end);
+        setPreviewEnd(end);
+        setDrawState('waiting_second');
       }
     },
     [isPipeTool, drawState, anchorPoint, applyConstraint, addPipe, activeTool]
@@ -138,36 +136,11 @@ export function useCanvasInteraction() {
     [drawState, applyConstraint]
   );
 
-  /** User confirmed pipe properties — resume chaining from the end point. */
-  const confirmPipe = useCallback(() => {
-    if (!pendingChain) return;
-    const { endPoint } = pendingChain;
-    setPendingChain(null);
-    setSelected(null);
-    setAnchorPoint(endPoint);
-    setPreviewEnd(endPoint);
-    setDrawState('waiting_second');
-  }, [pendingChain, setSelected]);
-
-  /** User discarded the pipe — delete it and reset to start of a new pipe. */
-  const discardPipe = useCallback(() => {
-    if (!pendingChain) return;
-    removePipe(pendingChain.pipeId);
-    setPendingChain(null);
-    setSelected(null);
-    setAnchorPoint(null);
-    setPreviewEnd(null);
-    setDrawState('waiting_first');
-  }, [pendingChain, removePipe, setSelected]);
-
   return {
     isDrawingPipe: isPipeTool,
     drawState,
     anchorPoint,
     previewEnd,
-    pendingChain,
-    confirmPipe,
-    discardPipe,
     handleCanvasClick,
     handleCanvasMouseMove,
   };

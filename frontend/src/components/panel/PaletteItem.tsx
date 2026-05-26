@@ -1,4 +1,4 @@
-import { SymbolMeta, ActiveTool } from '../../types';
+import { SymbolMeta, ActiveTool, COMPLIANCE_OBLIGATED_IDS } from '../../types';
 import { symbolsApi } from '../../api/client';
 import { useUiStore } from '../../store/uiStore';
 
@@ -23,6 +23,7 @@ export function PaletteItem({ symbol }: PaletteItemProps) {
   const isPipeTool = !!toolName;
   const isActiveAsPipeTool = isPipeTool && activeTool === toolName;
   const isPendingPlacement = !isPipeTool && pendingSymbol?.id === symbol.id;
+  const isCompliance = COMPLIANCE_OBLIGATED_IDS.has(symbol.id);
 
   const activeColor = toolName === 'hot_pipe' ? '#e63329' : '#007bff';
   const activeBg = toolName === 'hot_pipe' ? '#ffe8e8' : '#e8f0fe';
@@ -87,21 +88,22 @@ export function PaletteItem({ symbol }: PaletteItemProps) {
         padding: '8px 4px',
         borderRadius: 6,
         cursor: 'pointer',
-        border: isActiveAsPipeTool ? `2px solid ${activeColor}` : isPendingPlacement ? '2px solid #f59e0b' : '1px solid #e0e0e0',
-        background: isActiveAsPipeTool ? activeBg : isPendingPlacement ? '#fef3c7' : '#fff',
+        border: isActiveAsPipeTool ? `2px solid ${activeColor}` : isPendingPlacement ? '2px solid #f59e0b' : `1px solid ${isCompliance ? '#fcd34d' : '#e0e0e0'}`,
+        borderLeft: isCompliance && !isActiveAsPipeTool && !isPendingPlacement ? '3px solid #f59e0b' : undefined,
+        background: isActiveAsPipeTool ? activeBg : isPendingPlacement ? '#fef3c7' : isCompliance ? '#fffbeb' : '#fff',
         userSelect: 'none',
         transition: 'all 0.15s',
       }}
       onMouseEnter={(e) => {
         if (!isActiveAsPipeTool && !isPendingPlacement) {
-          (e.currentTarget as HTMLDivElement).style.background = '#f0f4ff';
-          (e.currentTarget as HTMLDivElement).style.borderColor = '#aac4e8';
+          (e.currentTarget as HTMLDivElement).style.background = isCompliance ? '#fef3c7' : '#f0f4ff';
+          (e.currentTarget as HTMLDivElement).style.borderColor = isCompliance ? '#f59e0b' : '#aac4e8';
         }
       }}
       onMouseLeave={(e) => {
         if (!isActiveAsPipeTool && !isPendingPlacement) {
-          (e.currentTarget as HTMLDivElement).style.background = '#fff';
-          (e.currentTarget as HTMLDivElement).style.borderColor = '#e0e0e0';
+          (e.currentTarget as HTMLDivElement).style.background = isCompliance ? '#fffbeb' : '#fff';
+          (e.currentTarget as HTMLDivElement).style.borderColor = isCompliance ? '#fcd34d' : '#e0e0e0';
         }
       }}
     >
@@ -124,6 +126,11 @@ export function PaletteItem({ symbol }: PaletteItemProps) {
       {isPendingPlacement && (
         <span style={{ fontSize: 9, color: '#d97706', fontWeight: 600 }}>
           ARMED
+        </span>
+      )}
+      {isCompliance && !isPipeTool && !isPendingPlacement && (
+        <span title="Required by SS636 / PUB regulations" style={{ fontSize: 8, color: '#92400e', fontWeight: 700, background: '#fde68a', borderRadius: 3, padding: '1px 4px', lineHeight: 1.4 }}>
+          § REG
         </span>
       )}
     </div>

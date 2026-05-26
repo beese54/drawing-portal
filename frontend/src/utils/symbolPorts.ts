@@ -5,6 +5,33 @@ export interface SymbolPortDef {
   offsetX: number;
   offsetY: number;
   label?: string;
+  /** Enforce a minimum canvas-space |offsetX| in px.
+   *  Must be > PORT_MATCH_THRESHOLD (4 px) so a center-placed pipe cannot
+   *  accidentally satisfy both dual supply ports. */
+  minCanvasOffsetX?: number;
+}
+
+const SYMBOL_SIZE = 48;
+
+/**
+ * Returns the effective port offset (in px) for an element, accounting for
+ * custom width/height on symbols that can be scaled (e.g. water_tank).
+ */
+export function getScaledPortOffset(
+  symbolId: string,
+  port: SymbolPortDef,
+  width: number | undefined,
+  height: number | undefined,
+  scaleX = 1,
+): { ox: number; oy: number } {
+  const w = width ?? SYMBOL_SIZE;
+  const h = height ?? SYMBOL_SIZE;
+  let ox = port.offsetX * (w / SYMBOL_SIZE) * scaleX;
+  if (port.minCanvasOffsetX !== undefined && port.offsetX !== 0) {
+    const sign = port.offsetX > 0 ? 1 : -1;
+    ox = sign * Math.max(Math.abs(ox), port.minCanvasOffsetX);
+  }
+  return { ox, oy: port.offsetY * (h / SYMBOL_SIZE) };
 }
 
 // ─── Port registry (offsets in px from element centre; symbol size = 48px) ───
@@ -19,8 +46,8 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'downstream', offsetX:  24, offsetY:   0, label: 'Output' },
   ],
   pump: [
-    { role: 'upstream',   offsetX: -24, offsetY:   0 },
-    { role: 'downstream', offsetX:  24, offsetY:   0 },
+    { role: 'upstream',   offsetX:  24, offsetY:  +3, label: 'IN (suction)'    },  // right of circle  (SVG x=64, y=36)
+    { role: 'downstream', offsetX: -12, offsetY: -24, label: 'OUT (discharge)' },  // top-left corner   (SVG x=12, y=0)
   ],
   tee_junction: [
     { role: 'upstream',   offsetX: -24, offsetY:   0, label: 'in'  },
@@ -28,20 +55,16 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'downstream', offsetX:   0, offsetY:  24, label: 'out' },
   ],
   water_tank: [
-    { role: 'upstream',   offsetX: -12, offsetY: -24, label: 'Input'  },  // top-left  (inlet)
-    { role: 'downstream', offsetX:  12, offsetY:  24, label: 'Output' },  // bottom-right (outlet)
+    { role: 'upstream',   offsetX: -12, offsetY: -18, label: 'Input'  },  // top-left  (inlet) — -18 aligns with SVG body top (y=8 in 64px viewBox → -24*(48/64) = -18 in 48px ref)
+    { role: 'downstream', offsetX:  12, offsetY:  18, label: 'Output' },  // bottom-right (outlet)
   ],
   water_heater: [
     { role: 'upstream',   offsetX: -24, offsetY:   0, label: 'Input'  },  // left side (inlet)
     { role: 'downstream', offsetX:  24, offsetY:   0, label: 'Output' },  // right side (outlet)
   ],
   elbow_bend: [
-    { role: 'upstream',   offsetX: -21, offsetY:  -9, label: 'Input'  },  // left end of horizontal stub
-    { role: 'downstream', offsetX:   9, offsetY:  21, label: 'Output' },  // bottom end of vertical stub
-  ],
-  reducer: [
-    { role: 'upstream',   offsetX: -24, offsetY:   0 },
-    { role: 'downstream', offsetX:  24, offsetY:   0 },
+    { role: 'upstream',   offsetX: -22, offsetY: -22, label: 'Input'  },  // top-left end of horizontal stub
+    { role: 'downstream', offsetX:  22, offsetY:  22, label: 'Output' },  // bottom-right end of vertical stub
   ],
   flow_meter: [
     { role: 'upstream',   offsetX: -24, offsetY:   0 },
@@ -51,54 +74,44 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'upstream',   offsetX: -24, offsetY:   0, label: 'Input'  },
     { role: 'downstream', offsetX:  24, offsetY:   0, label: 'Output' },
   ],
-  fire_hydrant: [
-    { role: 'upstream',   offsetX:   0, offsetY:  24 },  // inlet bottom
-    { role: 'downstream', offsetX:   0, offsetY: -24 },  // outlet top
-  ],
-  sump_manhole: [
-    { role: 'upstream',   offsetX: -24, offsetY:   0 },
-    { role: 'downstream', offsetX:   0, offsetY:  24 },
-  ],
   water_fittings: [
     { role: 'upstream', offsetX: 0, offsetY: -24, label: 'Supply' },
   ],
 
   // ── Fixtures (terminal – upstream port only) ─────────────────────────────────
   single_tap: [
-    { role: 'upstream', offsetX: 0, offsetY: 24 },
+    { role: 'upstream', offsetX: 4, offsetY: -24 },
   ],
   single_tap_combined: [
-    { role: 'upstream', offsetX: 0, offsetY: -24 },
+    { role: 'upstream', offsetX: -16, offsetY: -24, label: 'Hot'  },
+    { role: 'upstream', offsetX:  16, offsetY: -24, label: 'Cold' },
   ],
   twin_tap: [
-    { role: 'upstream', offsetX: 0, offsetY: -24 },
+    { role: 'upstream', offsetX: 3, offsetY: -20 },
   ],
   shower_head: [
     { role: 'upstream', offsetX: 0, offsetY: -24 },
   ],
   drinking_fountain_pedestal: [
-    { role: 'upstream', offsetX: 0, offsetY: 24 },
+    { role: 'upstream', offsetX: 0, offsetY: -24 },
   ],
   drinking_fountain_trough: [
-    { role: 'upstream', offsetX: 0, offsetY: 24 },
+    { role: 'upstream', offsetX: 0, offsetY: -24 },
   ],
   drinking_fountain_wall: [
-    { role: 'upstream', offsetX: 0, offsetY: 24 },
-  ],
-  wash_basin: [
-    { role: 'upstream', offsetX: 0, offsetY: 24 },
+    { role: 'upstream', offsetX: 0, offsetY: -24 },
   ],
   water_closet: [
     { role: 'upstream', offsetX: 0, offsetY: -24 },
   ],
   urinal_wall: [
-    { role: 'upstream', offsetX: 0, offsetY: -24 },
+    { role: 'upstream', offsetX: 4, offsetY: -20 },
   ],
   long_bath: [
-    { role: 'upstream', offsetX: -24, offsetY: 0 },
+    { role: 'upstream', offsetX: 0, offsetY: -24 },
   ],
   shower_bath: [
-    { role: 'upstream', offsetX: -24, offsetY: 0 },
+    { role: 'upstream', offsetX: 0, offsetY: -24 },
   ],
 
   // ── Inline valves (left upstream, right downstream) ──────────────────────────
@@ -111,10 +124,6 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
   ],
   globe_valve: [
-    { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
-    { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
-  ],
-  pressure_reducing_valve: [
     { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
     { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
   ],
@@ -134,21 +143,9 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
     { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
   ],
-  grease_interceptor: [
-    { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
-    { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
-  ],
-  dilution_tank: [
-    { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
-    { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
-  ],
-  strainer_basket: [
-    { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
-    { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
-  ],
   pressure_gauge_prv: [
-    { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
-    { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
+    { role: 'upstream',   offsetX:   12, offsetY: -16, label: 'Input (top)'   },
+    { role: 'downstream', offsetX:  24, offsetY:   0, label: 'Output (right)' },
   ],
   sight_glass: [
     { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
@@ -169,7 +166,8 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'upstream', offsetX: 0, offsetY: 24 },
   ],
   pressure_gauge_cock: [
-    { role: 'upstream', offsetX: 0, offsetY: 24 },
+    { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
+    { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
   ],
   water_hammer_absorber: [
     { role: 'upstream', offsetX: 0, offsetY: 24 },
@@ -181,20 +179,29 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'upstream', offsetX: 0, offsetY: 24 },
   ],
 
-  // ── Branch / terminal (upstream top) ─────────────────────────────────────────
-  vortex_inhibitor: [
-    { role: 'upstream', offsetX: 0, offsetY: -24 },
-  ],
   tap_point_schematic: [
-    { role: 'upstream', offsetX: 0, offsetY: -24 },
+    { role: 'upstream', offsetX: -14, offsetY: 4 },
   ],
   ball_float_valve: [
-    { role: 'upstream', offsetX: 0, offsetY: -24 },
+    { role: 'upstream', offsetX: -24, offsetY: 0 },
   ],
 
   // ── Branch / terminal (upstream left) ────────────────────────────────────────
   vortex_inhibitor_schematic: [
-    { role: 'upstream', offsetX: -24, offsetY: 0 },
+    { role: 'upstream', offsetX: 24, offsetY: 0 },
+  ],
+
+  // ── Section 6 — Hot water / contamination symbols ────────────────────────────
+  pressure_relief_valve: [
+    { role: 'upstream',   offsetX: 0, offsetY: -24, label: 'Input'  },
+    { role: 'downstream', offsetX: 0, offsetY:  24, label: 'Output' },
+  ],
+  vacuum_breaker: [
+    { role: 'upstream',   offsetX: 0, offsetY: -24, label: 'Input'  },
+    { role: 'downstream', offsetX: 0, offsetY:  24, label: 'Output' },
+  ],
+  bidet_spray: [
+    { role: 'upstream', offsetX: -24, offsetY: 0, label: 'Supply' },
   ],
 
   // ── Multi-port (left upstream, right downstream, bottom downstream) ──────────
@@ -204,17 +211,106 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'downstream', offsetX:   0, offsetY: 24, label: 'Branch'  },
   ],
   sampling_tap: [
-    { role: 'upstream',   offsetX: -24, offsetY:  0, label: 'Input'   },
-    { role: 'downstream', offsetX:  24, offsetY:  0, label: 'Output'  },
-    { role: 'downstream', offsetX:   0, offsetY: 24, label: 'Sample'  },
+    { role: 'upstream',   offsetX:   -12, offsetY: 20, label: 'Input'  },
+    { role: 'downstream', offsetX:  20, offsetY:  0, label: 'Output' },
+  ],
+
+  y_type_strainer: [
+    { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
+    { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
+  ],
+  pipe_blank_off: [
+    { role: 'upstream', offsetX: -24, offsetY: 0, label: 'Input' },
+  ],
+  flexible_connection: [
+    { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
+    { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
+  ],
+
+  // ── New fixtures ─────────────────────────────────────────────────────────────
+  foot_bath: [
+    { role: 'upstream', offsetX: 0, offsetY: -24, label: 'Supply' },
+  ],
+  multiple_show_unit: [
+    { role: 'upstream', offsetX: 0, offsetY: -24, label: 'Supply' },
+  ],
+  square_bath: [
+    { role: 'upstream', offsetX: 0, offsetY: -24, label: 'Supply' },
+  ],
+  sink: [
+    { role: 'upstream', offsetX: -6, offsetY: -24, label: 'Supply' },
+  ],
+  wash_basin_rectangular: [
+    { role: 'upstream', offsetX: -4, offsetY: -24, label: 'Supply' },
+  ],
+
+  puddle_flange: [
+    { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
+    { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
+  ],
+  bib_tap_cw_cap_and_lock_schematic: [
+    { role: 'upstream', offsetX: -24, offsetY: 0, label: 'Supply' },
+  ],
+
+  // ── SS636 §6.4 backflow-risk appliances ─────────────────────────────────────
+  washing_machine: [
+    { role: 'upstream', offsetX: 0, offsetY: -24, label: 'Supply' },
+  ],
+  dishwasher: [
+    { role: 'upstream', offsetX: 0, offsetY: -24, label: 'Supply' },
+  ],
+  water_dispenser: [
+    { role: 'upstream', offsetX: 0, offsetY: -24, label: 'Supply' },
   ],
 
   // ── Standalone (no pipe ports) ───────────────────────────────────────────────
-  level_sensor_switch:  [],
-  wc_ur_isolator:       [],
-  vent_cowl:            [],
-  control_panel:        [],
+  level_sensor_switch:    [],
+  wc_ur_isolator:         [],
+  vent_cowl_schematic:    [],
+  control_panel:          [],
 };
+
+// ─── Dual supply port definitions ─────────────────────────────────────────────
+// Symbols that support a per-instance dual hot+cold supply toggle.
+
+export const DUAL_SUPPLY_SYMBOLS = new Set([
+  'shower_head', 'long_bath', 'washing_machine', 'dishwasher',
+  'shower_bath', 'square_bath', 'foot_bath', 'wash_basin_rectangular',
+]);
+
+const COLD_PORT = (offsetY = -24): SymbolPortDef => ({ role: 'upstream', offsetX: -16, offsetY, label: 'Cold', minCanvasOffsetX: 2 });
+const HOT_PORT  = (offsetY = -24): SymbolPortDef => ({ role: 'upstream', offsetX:  16, offsetY, label: 'Hot',  minCanvasOffsetX: 2 });
+
+const DUAL_SUPPLY_PORTS: Record<string, SymbolPortDef[]> = {
+  shower_head:           [COLD_PORT(), HOT_PORT()],
+  long_bath:             [COLD_PORT(), HOT_PORT()],
+  washing_machine:       [COLD_PORT(), HOT_PORT()],
+  dishwasher:            [COLD_PORT(), HOT_PORT()],
+  shower_bath:           [COLD_PORT(), HOT_PORT()],
+  square_bath:           [COLD_PORT(), HOT_PORT()],
+  foot_bath:             [COLD_PORT(), HOT_PORT()],
+  wash_basin_rectangular:[COLD_PORT(), HOT_PORT()],
+};
+
+const SWAPPED_LABELS: Record<string, string> = { Cold: 'Hot', Hot: 'Cold' };
+
+/**
+ * Returns the effective port definitions for an element, respecting the
+ * per-instance dualSupply and swapDualSupply toggles for supported fixture symbols.
+ */
+export function getElementPorts(element: CanvasElement): SymbolPortDef[] {
+  if (element.dualSupply && DUAL_SUPPLY_SYMBOLS.has(element.symbolId)) {
+    const ports = DUAL_SUPPLY_PORTS[element.symbolId] ?? [];
+    if (element.swapDualSupply) {
+      return ports.map((p) => ({
+        ...p,
+        label: p.label !== undefined ? (SWAPPED_LABELS[p.label] ?? p.label) : p.label,
+      }));
+    }
+    return ports;
+  }
+  return SYMBOL_PORTS[element.symbolId] ?? [];
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -242,7 +338,8 @@ export function getPortPosition(
   port: SymbolPortDef
 ): { x: number; y: number } {
   const sx = element.scaleX ?? 1;
-  const { x: rx, y: ry } = rotateOffset(port.offsetX * sx, port.offsetY, element.rotation);
+  const { ox, oy } = getScaledPortOffset(element.symbolId, port, element.width, element.height, sx);
+  const { x: rx, y: ry } = rotateOffset(ox, oy, element.rotation);
   return { x: element.x + rx, y: element.y + ry };
 }
 
@@ -262,7 +359,7 @@ export function getEffectivePortRole(
   if (element.upstreamPortIndex !== undefined) {
     return portIndex === element.upstreamPortIndex ? 'upstream' : 'downstream';
   }
-  return SYMBOL_PORTS[element.symbolId]?.[portIndex]?.role ?? 'downstream';
+  return getElementPorts(element)?.[portIndex]?.role ?? 'downstream';
 }
 
 /**
@@ -272,7 +369,7 @@ export function getEffectivePortLabel(
   element: CanvasElement,
   portIndex: number
 ): string | undefined {
-  const port = SYMBOL_PORTS[element.symbolId]?.[portIndex];
+  const port = getElementPorts(element)?.[portIndex];
   if (!port?.label) return undefined;
   if (element.upstreamPortIndices !== undefined) {
     return element.upstreamPortIndices.includes(portIndex) ? 'in' : 'out';
@@ -295,27 +392,46 @@ export interface NearestPortResult {
 
 /**
  * Find the port closest to (cx, cy) within `threshold` px.
- * Returns null if no port is close enough.
+ *
+ * When `preferLabel` is provided (e.g. 'Cold' or 'Hot'), ports whose label
+ * matches are searched within `labelThreshold` px (default 16) instead of the
+ * normal threshold. The best label-matching result wins over any non-matching
+ * result, so drawing a cold pipe near a dual-supply fixture always snaps to the
+ * Cold port even if the click was closer to the Hot port or the symbol centre.
  */
 export function findNearestPort(
   cx: number,
   cy: number,
   elements: CanvasElement[],
-  threshold: number
+  threshold: number,
+  preferLabel?: string,
+  labelThreshold = 4,
 ): NearestPortResult | null {
   let best: NearestPortResult | null = null;
   let bestDist = threshold;
+  let bestLabeled: NearestPortResult | null = null;
+  let bestLabeledDist = labelThreshold;
 
   for (const el of elements) {
-    const ports = SYMBOL_PORTS[el.symbolId] ?? [];
+    const ports = getElementPorts(el);
     for (let i = 0; i < ports.length; i++) {
-      const pos = getPortPosition(el, ports[i]);
+      const port = ports[i];
+      const pos = getPortPosition(el, port);
       const d = Math.sqrt((cx - pos.x) ** 2 + (cy - pos.y) ** 2);
+      if (preferLabel && port.label === preferLabel && d <= bestLabeledDist) {
+        bestLabeledDist = d;
+        bestLabeled = { elementId: el.id, portIndex: i, x: pos.x, y: pos.y, role: port.role };
+      }
       if (d <= bestDist) {
         bestDist = d;
-        best = { elementId: el.id, portIndex: i, x: pos.x, y: pos.y, role: ports[i].role };
+        best = { elementId: el.id, portIndex: i, x: pos.x, y: pos.y, role: port.role };
       }
     }
+  }
+  // Labeled port wins only when it is the closest candidate overall —
+  // never override a generic port that is physically nearer.
+  if (bestLabeled !== null && (best === null || bestLabeledDist <= bestDist)) {
+    return bestLabeled;
   }
   return best;
 }

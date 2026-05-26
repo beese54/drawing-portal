@@ -2,6 +2,17 @@ import { useCallback } from 'react';
 import { useCanvasStore } from '../store/canvasStore';
 import { useUiStore } from '../store/uiStore';
 import { buildMetadata } from '../utils/metadataBuilder';
+import type { AcknowledgmentFlags } from '../types';
+
+const DEFAULT_ACKS: AcknowledgmentFlags = {
+  materialsAcknowledged: false,
+  pumpHeadAcknowledged: false,
+  pumpDischargeMaterialAcknowledged: false,
+  heaterTypeAcknowledged: false,
+  applianceCheckValveAcknowledged: false,
+  bidetVacuumBreakerAcknowledged: false,
+  tankPositionAcknowledged: false,
+};
 
 export function useMetadataExport(canvasWidth: number, canvasHeight: number) {
   const elements = useCanvasStore((s) => s.elements);
@@ -9,8 +20,8 @@ export function useMetadataExport(canvasWidth: number, canvasHeight: number) {
   const sourcePressureBar = useCanvasStore((s) => s.sourcePressureBar);
   const mrlConfig = useUiStore((s) => s.mrlConfig);
 
-  const exportMetadata = useCallback(() => {
-    const data = buildMetadata(elements, pipes, mrlConfig, canvasWidth, canvasHeight, sourcePressureBar);
+  const exportMetadata = useCallback((acks: AcknowledgmentFlags = DEFAULT_ACKS) => {
+    const data = buildMetadata(elements, pipes, mrlConfig, canvasWidth, canvasHeight, sourcePressureBar, acks);
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -20,8 +31,8 @@ export function useMetadataExport(canvasWidth: number, canvasHeight: number) {
     URL.revokeObjectURL(url);
   }, [elements, pipes, mrlConfig, canvasWidth, canvasHeight, sourcePressureBar]);
 
-  const getMetadata = useCallback(() => {
-    return buildMetadata(elements, pipes, mrlConfig, canvasWidth, canvasHeight, sourcePressureBar);
+  const getMetadata = useCallback((acks: AcknowledgmentFlags = DEFAULT_ACKS) => {
+    return buildMetadata(elements, pipes, mrlConfig, canvasWidth, canvasHeight, sourcePressureBar, acks);
   }, [elements, pipes, mrlConfig, canvasWidth, canvasHeight, sourcePressureBar]);
 
   return { exportMetadata, getMetadata };

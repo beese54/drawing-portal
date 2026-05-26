@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0.0 20.0 62.0 24.0" width="64" height="64">
+  <!-- Supply stub from left -->
+  <line x1="0" y1="32" x2="14" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Handle body -->
+  <rect x="14" y="26" width="22" height="12" rx="4" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Flexible hose (dashed) -->
+  <line x1="36" y1="32" x2="44" y2="32" stroke="#1a1a1a" stroke-width="1.5" stroke-dasharray="2,2" stroke-linecap="round"/>
+  <!-- Spray head (D-shape facing right) -->
+  <path d="M44,22 L44,42 Q60,42 60,32 Q60,22 44,22 Z" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- Spray jets -->
+  <circle cx="53" cy="26" r="1.5" fill="#1a1a1a"/>
+  <circle cx="56" cy="32" r="1.5" fill="#1a1a1a"/>
+  <circle cx="53" cy="38" r="1.5" fill="#1a1a1a"/>
+</svg>

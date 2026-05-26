@@ -38,7 +38,7 @@ export function PipeElement({
 
   const { normal, selected } = PIPE_COLORS[pipeType ?? 'generic'];
   const color = isSelected ? selected : normal;
-  const strokeWidth = isSelected ? 3.5 : 2.5;
+  const strokeWidth = isSelected ? 1 : 0.5;
 
   // Skip zero-length pipes
   const dx = endX - startX;
@@ -57,8 +57,8 @@ export function PipeElement({
           onTap={() => setSelected(id)}
           hitStrokeWidth={12}
         />
-        <Circle x={startX} y={startY} radius={3} fill={color} listening={false} />
-        <Circle x={endX} y={endY} radius={3} fill={color} listening={false} />
+        <Circle x={startX} y={startY} radius={0.5} fill={color} listening={false} />
+        <Circle x={endX} y={endY} radius={0.5} fill={color} listening={false} />
       </>
     );
   }
@@ -103,21 +103,21 @@ export function PipeElement({
     <>
       <Arrow
         points={[startX, startY, endX, endY]}
-        pointerLength={10}
-        pointerWidth={8}
+        pointerLength={2}
+        pointerWidth={2}
         fill={color}
         stroke={color}
         strokeWidth={strokeWidth}
         lineCap="round"
         onClick={() => setSelected(id)}
         onTap={() => setSelected(id)}
-        hitStrokeWidth={12}
+        hitStrokeWidth={8}
       />
       {/* Upstream endpoint */}
       <Circle
         x={startX}
         y={startY}
-        radius={isSelected ? 5 : 3}
+        radius={isSelected ? 1 : 0.5}
         fill={color}
         listening={isSelected}
         draggable={isSelected}
@@ -130,7 +130,7 @@ export function PipeElement({
       <Circle
         x={endX}
         y={endY}
-        radius={isSelected ? 5 : 3}
+        radius={isSelected ? 1 : 0.5}
         fill={color}
         listening={isSelected}
         draggable={isSelected}

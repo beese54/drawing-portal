@@ -1,0 +1,9 @@
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg" viewBox="0 15.2 47.8 36.6">
+  <!-- left inlet pipe stub -->
+  <line x1="0" y1="33.5" x2="22.5" y2="33.5" stroke="#1a1a1a" stroke-width="2"/>
+  <line id="svg_180" y2="24.73929" x2="35.8" y1="24.73929" x1="28.03214" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+  <line id="svg_181" y2="24.56072" x2="31.96071" y1="33.93572" x1="31.96071" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+  <line stroke="#1a1a1a" stroke-width="2" id="svg_182" y2="33.48929" x2="41.24643" y1="33.57857" x1="22.58572" fill="none"/>
+  <line stroke="#1a1a1a" stroke-width="2" id="svg_183" y2="33.4" x2="40.88929" y1="37.15" x1="45.8" fill="none"/>
+  <rect stroke-dasharray="2,2" id="svg_184" height="18.21429" width="11.25" y="19.20357" x="26.24643" stroke="#1a1a1a" stroke-width="1.5" fill="none"/>
+</svg>

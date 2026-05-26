@@ -1,4 +1,84 @@
 export type ActiveTool = 'select' | 'pipe' | 'cold_pipe' | 'hot_pipe';
+
+// ── Sheet / drawing setup ─────────────────────────────────────────────────────
+
+export type PaperSeries = 'ISO' | 'ANSI';
+export type PaperSize = 'A0' | 'A1' | 'A2' | 'A3' | 'A4'
+                      | 'ANSI_A' | 'ANSI_B' | 'ANSI_C' | 'ANSI_D' | 'ANSI_E';
+export type DrawingScale = 20 | 25 | 50 | 100 | 200 | 500;
+
+export const PAPER_SIZES_MM: Record<PaperSize, { w: number; h: number }> = {
+  // ISO A-series (landscape)
+  A0: { w: 1189, h: 841 },
+  A1: { w: 841,  h: 594 },
+  A2: { w: 594,  h: 420 },
+  A3: { w: 420,  h: 297 },
+  A4: { w: 297,  h: 210 },
+  // ANSI series (landscape)
+  ANSI_A: { w: 279, h: 216 },
+  ANSI_B: { w: 432, h: 279 },
+  ANSI_C: { w: 559, h: 432 },
+  ANSI_D: { w: 864, h: 559 },
+  ANSI_E: { w: 1118, h: 864 },
+};
+
+/** Base pixel density: 2 px per mm — used for both canvas display and content coordinates. */
+export const SHEET_PX_PER_MM = 2;
+
+/** Standard schematic symbol size: 3 mm on paper → 6 px at 2 px/mm. Fixed regardless of drawing scale. */
+export const SYMBOL_SIZE_MM = 3;
+export const SCHEMATIC_SYMBOL_PX = SYMBOL_SIZE_MM * SHEET_PX_PER_MM; // 6
+
+/** Left-margin reserved for the MRL elevation axis (px). Exported so canvas store can use it. */
+export const AXIS_WIDTH = 64;
+
+/**
+ * Canvas-pixel size for symbols at a given drawing scale.
+ * Fixed at SCHEMATIC_SYMBOL_PX (3 mm paper size) regardless of scale — matches real CAD convention
+ * where schematic symbols are a fixed paper size, not a fixed real-world size.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function getSymbolSizePx(_scale: DrawingScale): number {
+  return SCHEMATIC_SYMBOL_PX;
+}
+
+/** Title block width in mm (right-side strip, matches ISO standard ~100 mm). */
+export const TITLE_BLOCK_MM = 100;
+
+/** Pixels per metre in content coordinates for a given drawing scale. */
+export function getPxPerMetre(drawingScale: DrawingScale): number {
+  return (SHEET_PX_PER_MM * 1000) / drawingScale;
+}
+
+export interface TitleBlockData {
+  projectName: string;
+  drawingNo:   string;
+  drawnBy:     string;
+  checkedBy:   string;
+  date:        string;
+  rev:         string;
+  /** Base64 data-URL of the LP/PE stamp/signature image */
+  stampImage?: string;
+}
+
+export interface SheetConfig {
+  paperSize:    PaperSize;
+  drawingScale: DrawingScale;
+  titleBlock:   TitleBlockData;
+}
+
+export const DEFAULT_SHEET_CONFIG: SheetConfig = {
+  paperSize:    'A3',
+  drawingScale: 50,
+  titleBlock: {
+    projectName: '',
+    drawingNo:   '',
+    drawnBy:     '',
+    checkedBy:   '',
+    date:        new Date().toISOString().slice(0, 10),
+    rev:         '-',
+  },
+};
 export type PipeType = 'generic' | 'cold' | 'hot';
 
 export const WATER_FITTING_TYPES = [
@@ -8,17 +88,51 @@ export const WATER_FITTING_TYPES = [
   { id: 'urinal_flush',          code: 'UR',  label: 'Urinal Flush'          },
   { id: 'water_closet',          code: 'WC',  label: 'Water Closet'          },
   { id: 'dual_flushing_cistern', code: 'DFC', label: 'Dual Flushing Cistern' },
+  { id: 'dishwasher',            code: 'DW',  label: 'Dishwasher'            },
+  { id: 'water_dispenser',       code: 'WDP', label: 'Water Dispenser'       },
+  { id: 'washing_machine',       code: 'WM',  label: 'Washing Machine'       },
+  { id: 'landscape_tap',         code: 'LT',  label: 'Landscape Tap'         },
 ] as const;
 
 export type WaterFittingTypeId = (typeof WATER_FITTING_TYPES)[number]['id'];
 
+/**
+ * Maps dedicated fixture symbol IDs to their fixed MWELS category.
+ * null = ambiguous (user must pick basin_tap or sink_tap via the panel).
+ * Symbols absent from this map are not subject to MWELS.
+ */
+export const FIXTURE_MWELS_CATEGORY: Record<string, WaterFittingTypeId | null> = {
+  shower_head:            'shower_tap',
+  multiple_shower_unit:   'shower_tap',
+  shower_bath:            'shower_tap',
+  wash_basin_rectangular: 'basin_tap',
+  sink:                   'sink_tap',
+  water_closet:           'dual_flushing_cistern',
+  urinal_wall_hung:       'urinal_flush',
+  single_tap:             null,
+  twin_tap:               null,
+  single_tap_combined:    null,
+};
+
+/** MWELS category options presented for ambiguous fixture symbols. */
+export const AMBIGUOUS_TAP_OPTIONS: { id: WaterFittingTypeId; label: string }[] = [
+  { id: 'basin_tap', label: 'Basin Tap & Mixer' },
+  { id: 'sink_tap',  label: 'Sink/Bib Tap & Mixer' },
+];
+
 export const ROTATABLE_SYMBOL_IDS = [
   'check_valve', 'gate_valve', 'tee_junction', 'pump', 'elbow_bend', 'water_tank', 'water_heater', 'water_meter', 'water_fittings',
   // new inline valves & equipment
-  'solenoid_valve', 'motorised_valve', 'globe_valve', 'pressure_reducing_valve', 'prv_with_sensor',
-  'jockey_pump', 'sub_meter', 'cold_water_tank', 'grease_interceptor', 'dilution_tank',
-  'strainer_basket', 'pressure_gauge_prv', 'sight_glass', 'strainer',
+  'solenoid_valve', 'motorised_valve', 'globe_valve', 'prv_with_sensor',
+  'jockey_pump', 'sub_meter', 'cold_water_tank',
+  'pressure_gauge_cock', 'pressure_gauge_prv', 'sight_glass', 'strainer',
   'cap_off_valve', 'multiport_valve', 'sampling_tap',
+  // section 6 — hot water / contamination
+  'pressure_relief_valve', 'vacuum_breaker',
+  // fixtures with rotation support
+  'bidet_spray',
+  // new equipment
+  'y_type_strainer', 'pipe_blank_off', 'flexible_connection', 'puddle_flange',
 ] as const;
 export type RotatableSymbolId = (typeof ROTATABLE_SYMBOL_IDS)[number];
 
@@ -26,13 +140,73 @@ export type RotatableSymbolId = (typeof ROTATABLE_SYMBOL_IDS)[number];
 export const CLOCKWISE_SYMBOL_IDS = [
   'tee_junction', 'elbow_bend', 'check_valve', 'gate_valve', 'water_fittings',
   // new inline valves & equipment
-  'solenoid_valve', 'motorised_valve', 'globe_valve', 'pressure_reducing_valve', 'prv_with_sensor',
-  'jockey_pump', 'sub_meter', 'cold_water_tank', 'grease_interceptor', 'dilution_tank',
-  'strainer_basket', 'pressure_gauge_prv', 'sight_glass', 'strainer',
+  'solenoid_valve', 'motorised_valve', 'globe_valve', 'prv_with_sensor',
+  'jockey_pump', 'sub_meter', 'cold_water_tank',
+  'pressure_gauge_cock', 'pressure_gauge_prv', 'sight_glass', 'strainer',
   'cap_off_valve', 'multiport_valve', 'sampling_tap',
+  // section 6 — hot water / contamination
+  'pressure_relief_valve', 'vacuum_breaker',
+  // fixtures with rotation support
+  'bidet_spray',
+  // new equipment
+  'y_type_strainer', 'pipe_blank_off', 'flexible_connection', 'puddle_flange',
 ] as const;
 /** Left-to-right / right-to-left flip only (0° or 180°). */
 export const FLIP_ONLY_SYMBOL_IDS = ['pump', 'water_tank', 'water_heater', 'water_meter'] as const;
+
+/**
+ * Symbols that SS636 or PUB explicitly mandate in a drawing.
+ * Palette items in this set receive a small amber "§" tag to distinguish them
+ * from neutral pipework symbols (gates, elbows, etc.) within the same category.
+ */
+export const COMPLIANCE_OBLIGATED_IDS = new Set([
+  // Backflow & pressure protection (SS636 §5)
+  'check_valve', 'vacuum_breaker', 'pressure_relief_valve',
+  'auto_air_relief_valve', 'ball_float_valve',
+  'prv_with_sensor', 'pressure_gauge_prv',
+  // Metering (PUB mandatory)
+  'water_meter',
+  // Contamination prevention (SS636 §6.5)
+  'bidet_spray',
+  // Appliances requiring double check valve (SS636 §6.4)
+  'washing_machine', 'dishwasher', 'water_dispenser', 'bib_tap_cw_cap_and_lock_schematic',
+]);
+
+/**
+ * Backflow protection rule per element type (SS636):
+ *   double_check_valve  — §6.4 appliances: 2 check valves in series upstream
+ *   vb_and_check_valve  — §6.5 bidet spray: vacuum breaker + check valve assembly
+ */
+export type BackflowRule = 'double_check_valve' | 'vb_and_check_valve';
+
+const DOUBLE_CHECK_VALVE_SYMBOL_IDS = new Set([
+  'bib_tap_cw_cap_and_lock_schematic', // yard / landscape tap  — SS636 §6.4
+  'washing_machine',                   // SS636 §6.4
+  'dishwasher',                        // SS636 §6.4
+  'water_dispenser',                   // SS636 §6.4
+]);
+
+const DOUBLE_CHECK_VALVE_FITTING_TYPES = new Set([
+  'dishwasher', 'washing_machine', 'landscape_tap', 'water_dispenser',
+]);
+
+const VB_AND_CHECK_VALVE_SYMBOL_IDS = new Set([
+  'bidet_spray', 'bidet', // SS636 §6.5
+]);
+
+/** Returns the backflow protection rule for an element, or null if not applicable. */
+export function getBackflowRule(el: { symbolId: string; fittingType?: string }): BackflowRule | null {
+  if (VB_AND_CHECK_VALVE_SYMBOL_IDS.has(el.symbolId)) return 'vb_and_check_valve';
+  if (DOUBLE_CHECK_VALVE_SYMBOL_IDS.has(el.symbolId)) return 'double_check_valve';
+  if (el.symbolId === 'water_fittings' && el.fittingType) {
+    if (DOUBLE_CHECK_VALVE_FITTING_TYPES.has(el.fittingType)) return 'double_check_valve';
+  }
+  return null;
+}
+
+export function isBackflowRiskElement(el: { symbolId: string; fittingType?: string }): boolean {
+  return getBackflowRule(el) !== null;
+}
 
 export interface MrlConfig {
   upperMrl: number;
@@ -46,7 +220,15 @@ export interface FloorLevel {
 }
 
 export const MRL_LOWER_HARD_MIN = 0;
-export const MRL_UPPER_HARD_MAX = 300;
+
+/**
+ * Derives the upper MRL from a lower MRL and sheet config.
+ * The paper height at the chosen drawing scale sets the elevation range exactly.
+ * e.g. A3 (297 mm) at 1:100 → range = 29.7 m → upperMrl = lowerMrl + 29.7
+ */
+export function getUpperMrl(lowerMrl: number, sheetConfig: SheetConfig): number {
+  return lowerMrl + (PAPER_SIZES_MM[sheetConfig.paperSize].h * sheetConfig.drawingScale) / 1000;
+}
 
 export interface CanvasElement {
   id: string;
@@ -71,6 +253,10 @@ export interface CanvasElement {
   tankProperties?: TankProperties;
   /** Capacity in litres — only present on long_bath elements. */
   longBathCapacityL?: number;
+  /** When true, dual hot + cold supply ports are active instead of a single supply port. */
+  dualSupply?: boolean;
+  /** When true, the hot/cold side assignment is swapped (hot on left, cold on right). */
+  swapDualSupply?: boolean;
   /**
    * Fluid type carried by this element (cold or hot).
    * Set automatically when the element is snapped to a pipe at placement time
@@ -80,8 +266,51 @@ export interface CanvasElement {
   carriesFluid?: 'cold' | 'hot';
 }
 
-export type PipeMaterial = string;
-export type NominalSizeMm = number;
+// ─── Canvas annotations ───────────────────────────────────────────────────────
+
+export interface AnnotationElement {
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  fontSize: number;
+  color: string;
+  maxWidth: number;
+}
+
+export interface AnnotationTemplate {
+  id: string;
+  label: string;
+  text: string;
+}
+
+export const ANNOTATION_TEMPLATES: AnnotationTemplate[] = [
+  {
+    id: 'bypass_pump',
+    label: 'Pump bypass line',
+    text: 'Pump bypass line provided with normally closed valve (NC) and check valve.',
+  },
+  {
+    id: 'bidet_spray',
+    label: 'Bidet spray assembly',
+    text: 'Bidet spray assembly: check valve and vacuum breaker provided on flexible hose to prevent backflow contamination.',
+  },
+  {
+    id: 'dcv_appliance',
+    label: 'DCV for appliances',
+    text: 'Double check valve (DCV) provided for backflow prevention as required under Reg. 28.',
+  },
+  {
+    id: 'prv_note',
+    label: 'PRV setting note',
+    text: 'Pressure reducing valve (PRV) to be set to ___ bar. LP/PE to verify setting on site.',
+  },
+  {
+    id: 'tank_overflow',
+    label: 'Tank overflow compliance',
+    text: 'Overflow pipe one nominal size larger than inlet pipe. Warning pipe 50 mm below overflow level. Normal water level 25 mm below warning pipe level.',
+  },
+];
 
 // ─── Water Tank properties ────────────────────────────────────────────────────
 
@@ -131,6 +360,9 @@ export interface TankProperties {
 
   // Supports
   supportHeightM?: number;
+
+  // Water requirement schedule
+  occupants?: number;
 }
 
 /**
@@ -144,18 +376,41 @@ export function calcWaterLevelAmsl(props: TankProperties | undefined): number | 
   return Math.round((inletPipeMAmsl - overflowPipeDiameterM - 0.075) * 10000) / 10000;
 }
 
-/** Compute tank effective capacity in litres from length × width × height (metres). */
+/**
+ * Compute tank effective capacity in litres using PUB formula (Tank Checker, SS 245):
+ *   effective_depth = water_level − outlet_elevation
+ *   water_level     = inlet_amsl − overflow_diameter − 0.075
+ *   outlet_elevation = floor_amsl + support_height + outlet_to_base
+ *   capacity_L      = effective_depth × length × width × 1000
+ *
+ * Returns null if any required input is missing.
+ */
 export function calcTankCapacityLitres(props: TankProperties | undefined): number | null {
   if (!props) return null;
-  const { lengthM, widthM, heightM } = props;
+  const {
+    inletPipeMAmsl,
+    overflowPipeDiameterM,
+    floorLevelMAmsl,
+    distanceOutletToBaseM,
+    lengthM,
+    widthM,
+  } = props;
+  const supportH = typeof props.supportHeightM === 'number' ? props.supportHeightM : 0.6;
   if (
-    typeof lengthM !== 'number' || lengthM <= 0 ||
-    typeof widthM  !== 'number' || widthM  <= 0 ||
-    typeof heightM !== 'number' || heightM <= 0
+    typeof inletPipeMAmsl      !== 'number' ||
+    typeof overflowPipeDiameterM !== 'number' ||
+    typeof floorLevelMAmsl     !== 'number' ||
+    typeof distanceOutletToBaseM !== 'number' ||
+    typeof lengthM             !== 'number' || lengthM <= 0 ||
+    typeof widthM              !== 'number' || widthM  <= 0
   ) {
     return null;
   }
-  return Math.round(lengthM * widthM * heightM * 1000 * 100) / 100; // L
+  const waterLevel    = inletPipeMAmsl - overflowPipeDiameterM - 0.075;
+  const outletElev    = floorLevelMAmsl + supportH + distanceOutletToBaseM;
+  const effectiveDepth = waterLevel - outletElev;
+  if (effectiveDepth <= 0) return 0;
+  return Math.round(effectiveDepth * lengthM * widthM * 1000 * 100) / 100;
 }
 
 export interface PipeElement {
@@ -165,18 +420,12 @@ export interface PipeElement {
   startY: number;
   endX: number;
   endY: number;
-  /** Real-world pipe length in metres (user-entered). */
-  lengthM?: number;
-  /** Nominal pipe size in mm. */
-  nominalSizeMm?: NominalSizeMm;
-  /** Pipe material, e.g. copper, ss, PVC, HDPE. */
-  material?: PipeMaterial;
 }
 
 export interface SymbolMeta {
   id: string;
   name: string;
-  category: 'default' | 'custom' | 'fixtures' | 'valves' | 'equipment';
+  category: 'water_supply' | 'backflow_prevention' | 'pumps' | 'tanks' | 'sanitary' | 'default' | 'custom';
   filename: string;
   url: string;
   created_at: string;
@@ -197,10 +446,8 @@ export type NodeType =
   | 'junction'          // tee_junction — splits or joins flow
   | 'heat_exchanger'    // water_heater
   | 'bend'              // elbow_bend
-  | 'reducer'           // reducer — diameter change
   | 'flow_meter'        // flow_meter, water_meter
   | 'water_fitting'    // water_fittings — terminal fixture (tap, WC, etc.)
-  | 'outlet'           // fire_hydrant, sump_manhole — terminal points
   | 'component';       // anything else / custom symbol
 
 export interface ExportedPort {
@@ -251,7 +498,7 @@ export interface ExportedElement {
 
 /**
  * Tank properties as written to the exported schematic JSON.
- * `effective_capacity_l` is derived from length × width × height for the backend's convenience.
+ * `effective_capacity_l` is derived using PUB formula (water level − outlet elevation) × L × W.
  */
 export interface ExportedTankProperties {
   material: string | null;
@@ -282,9 +529,14 @@ export interface ExportedTankProperties {
   // Supports
   support_height_m: number | null;
 
-  /** Auto-calculated from L × W × H × 1000. Null if any dimension missing. */
+  /** Effective capacity from PUB formula (water level − outlet elevation) × L × W × 1000. */
   effective_capacity_l: number | null;
   is_sunken_tank: boolean | null;
+
+  /** Number of occupants — drives daily demand (141 L/person). */
+  occupants: number | null;
+  /** Derived daily demand in m³ (occupants × 0.141). */
+  daily_demand_m3: number | null;
 }
 
 export interface ExportedPipe {
@@ -325,12 +577,6 @@ export interface ExportedPipe {
   flow_to_port_index: number | null;
   length_px: number;
   rotation_deg: number;
-  /** Real-world pipe length in metres (user-entered). Null if not set. */
-  length_m: number | null;
-  /** Nominal pipe size in mm (15 / 22 / 28). Null if not set. */
-  nominal_size_mm: NominalSizeMm | null;
-  /** Pipe material: 'copper' or 'ss'. Null if not set. */
-  material: PipeMaterial | null;
 }
 
 /**
@@ -349,6 +595,22 @@ export interface HydraulicContext {
   note: string;
 }
 
+/** All LP/PE acknowledgment flags collected in the pre-evaluation checklist popup. */
+export interface AcknowledgmentFlags {
+  materialsAcknowledged: boolean;
+  pumpHeadAcknowledged: boolean;
+  /** Rule 8 — Pump discharge pipes use PUB-approved non-plastic materials. */
+  pumpDischargeMaterialAcknowledged: boolean;
+  /** 6.2 — Heaters on direct supply are mains-pressure type (storage or instantaneous). */
+  heaterTypeAcknowledged: boolean;
+  /** 6.4 — Double check valves installed for applicable appliances. */
+  applianceCheckValveAcknowledged: boolean;
+  /** 6.5 — Bidet sprays installed with vacuum breaker + check valve assembly. */
+  bidetVacuumBreakerAcknowledged: boolean;
+  /** 6.6 — Tanks/pumps not installed below sanitary or non-potable water pipes. */
+  tankPositionAcknowledged: boolean;
+}
+
 export interface DrawingMetadata {
   schema_version: '1.0';
   exported_at: string;
@@ -356,6 +618,20 @@ export interface DrawingMetadata {
   canvas: { width_px: number; height_px: number };
   /** Source (mains) pressure in bar, as entered by the user. Null if not set. */
   source_pressure_bar: number | null;
+  /** LP/PE has acknowledged use of PUB-approved materials. */
+  materials_acknowledged: boolean;
+  /** LP/PE has acknowledged pump rated head does not exceed 35 m. */
+  pump_head_acknowledged: boolean;
+  /** LP/PE has acknowledged pump discharge pipes use PUB-approved non-plastic materials. */
+  pump_discharge_material_acknowledged: boolean;
+  /** LP/PE has acknowledged heaters on direct supply are mains-pressure type. */
+  heater_type_acknowledged: boolean;
+  /** LP/PE has acknowledged double check valves are installed for applicable appliances. */
+  appliance_check_valve_acknowledged: boolean;
+  /** LP/PE has acknowledged bidet sprays have vacuum breaker + check valve assembly. */
+  bidet_vacuum_breaker_acknowledged: boolean;
+  /** LP/PE has acknowledged tanks/pumps are not below sanitary or non-potable water pipes. */
+  tank_position_acknowledged: boolean;
   elements: ExportedElement[];
   pipes: ExportedPipe[];
   hydraulic_context: HydraulicContext;

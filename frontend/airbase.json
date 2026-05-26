@@ -1,0 +1,5 @@
+{
+  "framework": "container",
+  "handle": "soar/sdp-fe",
+  "port": 3000
+}

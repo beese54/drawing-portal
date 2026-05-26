@@ -6,7 +6,7 @@ import { ChatInput } from './ChatInput';
 import { MetricsPanel } from './MetricsPanel';
 import { ModelSelector } from './ModelSelector';
 
-const PORT_PROXIMITY_SQ = 20 ** 2; // px² — matches portConnectionStatus.ts threshold
+const PORT_PROXIMITY_SQ = 10 ** 2; // px² — matches portConnectionStatus.ts threshold
 
 /** Inspect exported metadata JSON for ports with no pipe AND no port-to-port touching connection. */
 function findUnconnectedPortsInMetadata(
@@ -85,7 +85,7 @@ export function ChatWindow() {
     reset();
     addMessage({
       role: 'assistant',
-      content: 'Upload a schematic JSON file and optionally a JPG, then click **Run Compliance Evaluation** to check Reg 28, supply mode, and MWELS ratings.',
+      content: 'Upload a schematic JSON file and optionally a JPG, then click **Run Compliance Evaluation** to all 7 WSI compliance checks — backflow prevention, supply mode, MWELS ratings, tank/pump, bath length, hot water contamination, and pipe/fitting requirements.',
       type: 'info',
     });
   }, []);
@@ -108,7 +108,7 @@ export function ChatWindow() {
     setHasSchematic(true);
     addMessage({
       role: 'assistant',
-      content: `Schematic "${file.name}" loaded. Click **Run Compliance Evaluation** to check Reg 28, supply mode, and MWELS ratings — or optionally upload the schematic JPG first for an annotated diagram.`,
+      content: `Schematic "${file.name}" loaded. Click **Run Compliance Evaluation** to all 7 WSI compliance checks — backflow prevention, supply mode, MWELS ratings, tank/pump, bath length, hot water contamination, and pipe/fitting requirements — or optionally upload the schematic JPG first for an annotated diagram.`,
       type: 'info',
     });
   }
@@ -132,7 +132,7 @@ export function ChatWindow() {
       const list = unconnected.map((u) => `• ${u.elementName} — ${u.portLabel} port`).join('\n');
       addMessage({
         role: 'assistant',
-        content: `⚠ **Unconnected ports detected** — hydraulic analysis may be inaccurate.\n\nThe following ports have no pipe connected:\n${list}\n\nConnect all ports before evaluating for correct hydraulic results.`,
+        content: `⚠ **Unconnected ports detected** — compliance checks may produce incorrect results.\n\nThe following ports have no pipe connected:\n${list}\n\nConnect all ports before evaluating.`,
         type: 'error',
       });
       return;
@@ -259,7 +259,7 @@ export function ChatWindow() {
               reset();
               addMessage({
                 role: 'assistant',
-                content: 'Upload a schematic JSON file and optionally a JPG, then click **Run Compliance Evaluation** to check Reg 28, supply mode, and MWELS ratings.',
+                content: 'Upload a schematic JSON file and optionally a JPG, then click **Run Compliance Evaluation** to all 7 WSI compliance checks — backflow prevention, supply mode, MWELS ratings, tank/pump, bath length, hot water contamination, and pipe/fitting requirements.',
                 type: 'info',
               });
             }}

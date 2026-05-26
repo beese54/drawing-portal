@@ -1,8 +1,10 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Stage } from 'react-konva';
+import { Stage, Layer, Rect as KonvaRect } from 'react-konva';
 import Konva from 'konva';
 import { GridLayer } from './GridLayer';
 import { ElementsLayer } from './ElementsLayer';
+import { AnnotationsLayer } from './AnnotationsLayer';
+import { AnnotationContextMenu } from './AnnotationContextMenu';
 import { PipeDraftLayer } from './PipeDraftLayer';
 import { RotationPanel } from './RotationPanel';
 import { TeeJunctionPortDialog } from './TeeJunctionPortDialog';
@@ -10,53 +12,62 @@ import { ElbowBendPortDialog } from './ElbowBendPortDialog';
 import { FlipOrientationDialog } from './FlipOrientationDialog';
 import { WaterFittingsDialog } from './WaterFittingsDialog';
 import { FittingTypePanel } from './FittingTypePanel';
+import { FixtureMwelsPanel } from './FixtureMwelsPanel';
 import { LongBathPanel } from './LongBathPanel';
 import { PdfBackgroundLayer } from './PdfBackgroundLayer';
-import { PipePropertiesModal } from './PipePropertiesModal';
 import { WaterTankPropertiesModal } from './WaterTankPropertiesModal';
 import { useUiStore } from '../../store/uiStore';
 import { useCanvasStore } from '../../store/canvasStore';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
-import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS } from '../../types';
+import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, PAPER_SIZES_MM, SHEET_PX_PER_MM, TITLE_BLOCK_MM, SCHEMATIC_SYMBOL_PX, AXIS_WIDTH, getSymbolSizePx, FIXTURE_MWELS_CATEGORY } from '../../types';
 import { symbolsApi } from '../../api/client';
 import { closestPointOnSegment, distance } from '../../utils/geometry';
 import { SYMBOL_PORTS, rotateOffset, getPortPosition, getEffectivePortRole } from '../../utils/symbolPorts';
 import { renderPdfPageToDataUrl } from '../../utils/pdfRenderer';
 
-const AXIS_WIDTH = 64;
-const SYMBOL_SIZE = 48;
-const SNAP_THRESHOLD = 80;
+const SNAP_THRESHOLD = 4;
 const SNAP_T_MIN = 0.02;
 const SNAP_T_MAX = 0.98;
 
-// Virtual canvas is 3× the viewport height so MRL intervals have more space
-const VIRTUAL_HEIGHT_FACTOR = 3;
-const MIN_SCALE = 0.4;
-const MAX_SCALE = 2.0;
-const SCALE_STEP = 0.2;
+// Canvas content dimensions are fixed to the selected paper size (Option B: paper drives everything)
+const MAX_SCALE = 12.0;
+const SCALE_STEP = 0.25;
+// At "100%" zoom the page occupies this fraction of the viewport, leaving grey margins on all sides
+const FIT_PAD = 0.92;
 
 // Symbols where the pipe passes straight through inlet → outlet (split at both ports)
 const INLINE_SYMBOL_IDS = new Set([
-  'gate_valve', 'check_valve', 'pump', 'reducer', 'flow_meter', 'water_heater', 'water_meter',
+  'gate_valve', 'check_valve', 'pump', 'flow_meter', 'water_heater', 'water_meter',
   // new inline valves & equipment
-  'solenoid_valve', 'motorised_valve', 'globe_valve', 'pressure_reducing_valve', 'prv_with_sensor',
-  'jockey_pump', 'sub_meter', 'cold_water_tank', 'grease_interceptor', 'dilution_tank',
-  'strainer_basket', 'pressure_gauge_prv', 'sight_glass', 'strainer',
-  'multiport_valve', 'sampling_tap',
+  'solenoid_valve', 'motorised_valve', 'globe_valve', 'prv_with_sensor',
+  'jockey_pump', 'sub_meter', 'cold_water_tank',
+  'pressure_gauge_cock', 'pressure_gauge_prv', 'sight_glass', 'strainer',
+  'multiport_valve',
+  // section 6 inline
+  'vacuum_breaker', 'pressure_relief_valve',
+  // new equipment
+  'y_type_strainer', 'flexible_connection', 'puddle_flange',
 ]);
 // Symbols where the pipe terminates at the connection port (no pipe continues through)
 const TERMINAL_SYMBOL_IDS = new Set([
-  'water_tank', 'fire_hydrant', 'sump_manhole', 'water_fittings',
+  'water_tank', 'water_fittings',
   // fixtures
   'single_tap', 'single_tap_combined', 'twin_tap', 'shower_head',
   'long_bath', 'shower_bath',
   'drinking_fountain_pedestal', 'drinking_fountain_trough', 'drinking_fountain_wall',
-  'wash_basin', 'water_closet', 'urinal_wall',
+  'water_closet', 'urinal_wall',
   // terminal valves & equipment (single upstream port)
-  'cap_off_valve',
-  'auto_air_relief_valve', 'pressure_gauge_cock', 'water_hammer_absorber',
+  'cap_off_valve', 'pipe_blank_off',
+  'auto_air_relief_valve', 'water_hammer_absorber',
   'pressure_vessel_schematic', 'water_tank_air_vent',
-  'vortex_inhibitor', 'vortex_inhibitor_schematic', 'tap_point_schematic', 'ball_float_valve',
+  'vortex_inhibitor_schematic', 'tap_point_schematic', 'ball_float_valve', 'sampling_tap',
+  // section 6 terminal fixtures
+  'bidet_spray',
+  // SS636 §6.4 backflow-risk appliances
+  'washing_machine', 'dishwasher', 'water_dispenser',
+  // new fixtures
+  'foot_bath', 'multiple_show_unit', 'square_bath', 'sink', 'wash_basin_rectangular',
+  'bib_tap_cw_cap_and_lock_schematic',
 ]);
 
 /**
@@ -71,7 +82,7 @@ function inferFluidFromPipe(
 ): 'cold' | 'hot' | undefined {
   if (pipe.pipeType === 'cold' || pipe.pipeType === 'hot') return pipe.pipeType;
   // Generic pipe — follow it back to the upstream element's stored carriesFluid
-  const MATCH = 20;
+  const MATCH = 8;
   for (const el of allElements) {
     const ports = SYMBOL_PORTS[el.symbolId] ?? [];
     for (const port of ports) {
@@ -106,20 +117,41 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 1600, height: 600 });
+  // Tracks the last known mouse position in canvas content coordinates for paste-at-cursor
+  const lastMouseCanvasPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // Virtual canvas scroll/zoom state
   const [stageOffsetY, setStageOffsetY] = useState(0); // viewport px scrolled
   const [stageOffsetX, setStageOffsetX] = useState(0);
   const [stageScale, setStageScale] = useState(1.0);
+  // The scale at which the full sheet fits the viewport — defined as "100%" and the minimum zoom
+  const [baseScale, setBaseScale] = useState(1.0);
+  const baseScaleRef = useRef(1.0);
+  baseScaleRef.current = baseScale;
+  // Always-fresh refs so the wheel handler can read current values without stale closures
+  const stageOffsetXRef = useRef(0);
+  const stageOffsetYRef = useRef(0);
+  const stageScaleRef   = useRef(1.0);
+  stageOffsetXRef.current = stageOffsetX;
+  stageOffsetYRef.current = stageOffsetY;
+  stageScaleRef.current   = stageScale;
   const scrollbarDragRef = useRef<{ startY: number; startOffset: number } | null>(null);
   const horizontalScrollbarDragRef = useRef<{startX: number; startOffset: number;} | null>(null);
 
-  // Derived virtual canvas dimensions
-  const virtualHeight = canvasSize.height * VIRTUAL_HEIGHT_FACTOR;
-  const maxOffset = Math.max(0, virtualHeight * stageScale - canvasSize.height);
-  const virtualWidth = canvasSize.width * 2;
-  const maxOffsetX = Math.max(0, virtualWidth * stageScale - canvasSize.width);
-  
+  // sheetConfig must be read before the derived canvas dimensions below
+  const sheetConfig = useUiStore((s) => s.sheetConfig);
+
+  // Content dimensions are fixed to the selected paper size — independent of viewport
+  const virtualHeight = PAPER_SIZES_MM[sheetConfig.paperSize].h * SHEET_PX_PER_MM;
+  const virtualWidth  = AXIS_WIDTH + PAPER_SIZES_MM[sheetConfig.paperSize].w * SHEET_PX_PER_MM;
+  // Stable refs so the one-time ResizeObserver callback can read the latest values
+  const virtualHeightRef = useRef(virtualHeight);
+  const virtualWidthRef  = useRef(virtualWidth);
+  virtualHeightRef.current = virtualHeight;
+  virtualWidthRef.current  = virtualWidth;
+  const maxOffset  = Math.max(0, virtualHeight * stageScale - canvasSize.height);
+  const maxOffsetX = Math.max(0, virtualWidth  * stageScale - canvasSize.width);
+
   const horizontalThumbWidth =
     maxOffsetX > 0
       ? Math.max(40, (canvasSize.width / (virtualWidth * stageScale)) * canvasSize.width)
@@ -130,21 +162,36 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       ? (stageOffsetX / maxOffsetX) * (canvasSize.width - horizontalThumbWidth)
       : 0;
 
+  // Fit-to-screen — returns to the base (100%) scale with the full sheet visible + grey margins
+  const fitToScreen = useCallback(() => {
+    const fitScale = Math.min(MAX_SCALE, Math.min(
+      canvasSize.width  / virtualWidth,
+      canvasSize.height / virtualHeight,
+    )) * FIT_PAD;
+    const offsetX = -(canvasSize.width  - virtualWidth  * fitScale) / 2;
+    const offsetY = -(canvasSize.height - virtualHeight * fitScale) / 2;
+    setBaseScale(fitScale);
+    setStageScale(fitScale);
+    setStageOffsetX(offsetX);
+    setStageOffsetY(offsetY);
+  }, [canvasSize.width, canvasSize.height, virtualWidth, virtualHeight]);
+
   // Zoom helper — keeps viewport centre fixed in content space
   const zoom = useCallback((delta: number) => {
     setStageScale((prevScale) => {
-      const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, prevScale + delta));
+      const newScale = Math.max(baseScale, Math.min(MAX_SCALE, prevScale + delta));
       if (newScale === prevScale) return prevScale;
       setStageOffsetY((prevOffset) => {
-        const vHeight = canvasSize.height;
-        const virt = vHeight * VIRTUAL_HEIGHT_FACTOR;
-        const contentCenterY = (prevOffset + vHeight / 2) / prevScale;
-        const newOffset = contentCenterY * newScale - vHeight / 2;
-        return Math.max(0, Math.min(newOffset, Math.max(0, virt * newScale - vHeight)));
+        const vp = canvasSize.height;
+        const contentCenterY = (prevOffset + vp / 2) / prevScale;
+        const newOffset = contentCenterY * newScale - vp / 2;
+        const pageH = virtualHeight * newScale;
+        const minOfs = pageH < vp ? -(vp - pageH) / 2 : 0;
+        return Math.max(minOfs, Math.min(newOffset, Math.max(0, pageH - vp)));
       });
       return newScale;
     });
-  }, [canvasSize.height]);
+  }, [canvasSize.height, virtualHeight]);
 
   // Convert virtual canvas (content) coords to viewport px (for overlay panels)
   const contentToViewport = useCallback(
@@ -173,7 +220,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         // x, y are the CENTER of the image in content coords
         const cx = stageOffsetX / stageScale + viewportContentW / 2;
         const cy = stageOffsetY / stageScale + viewportContentH / 2;
-        setPdfBackground({ dataUrl, x: cx, y: cy, width: targetW, height: targetH, rotation: 0, locked: false });
+        setPdfBackground({ dataUrl, x: cx, y: cy, width: targetW, height: targetH, rotation: 0, locked: false, opacity: 0.4 });
       } catch (err) {
         console.error('PDF import failed:', err);
         alert('Could not read the PDF. Please try a different file.');
@@ -182,14 +229,16 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     registerPdfImport(handler);
   }, [canvasSize, stageScale, stageOffsetX, stageOffsetY, setPdfBackground, registerPdfImport]);
 
-  const mrlConfig   = useUiStore((s) => s.mrlConfig);
-  const floorLevels = useUiStore((s) => s.floorLevels);
+  const mrlConfig          = useUiStore((s) => s.mrlConfig);
+  const floorLevels        = useUiStore((s) => s.floorLevels);
+  const floorLevelOpacity  = useUiStore((s) => s.floorLevelOpacity);
   const activeTool  = useUiStore((s) => s.activeTool);
   const draggingSymbolId = useUiStore((s) => s.draggingSymbolId);
   const setDraggingSymbolId = useUiStore((s) => s.setDraggingSymbolId);
   const pendingSymbol = useUiStore((s) => s.pendingSymbol);
   const setPendingSymbol = useUiStore((s) => s.setPendingSymbol);
   const registerExportJpg = useUiStore((s) => s.registerExportJpg);
+  const showBidetToast = useUiStore((s) => s.showBidetToast);
 
   const [dragOverPos, setDragOverPos] = useState<{ x: number; y: number } | null>(null);
 
@@ -256,9 +305,20 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   } | null>(null);
   const setSelected = useCanvasStore((s) => s.setSelected);
   const setSelectedIds = useCanvasStore((s) => s.setSelectedIds);
+  const setMultiSelection = useCanvasStore((s) => s.setMultiSelection);
   const addElement = useCanvasStore((s) => s.addElement);
   const insertElementOnPipe = useCanvasStore((s) => s.insertElementOnPipe);
   const insertElementOnPipeInline = useCanvasStore((s) => s.insertElementOnPipeInline);
+  const addAnnotation = useCanvasStore((s) => s.addAnnotation);
+  const removeAnnotation = useCanvasStore((s) => s.removeAnnotation);
+
+  // Right-click context menu for annotation templates
+  const [contextMenu, setContextMenu] = useState<{
+    viewportX: number;
+    viewportY: number;
+    contentX: number;
+    contentY: number;
+  } | null>(null);
 
   // Register JPG export function — captures the full virtual canvas (entire MRL range)
   useEffect(() => {
@@ -267,13 +327,16 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       if (!stage) return;
 
       // Save current transform
+      const prevX      = stage.x();
       const prevY      = stage.y();
       const prevScaleX = stage.scaleX();
       const prevScaleY = stage.scaleY();
       const prevHeight = stage.height();
-      const vHeight    = canvasSize.height * VIRTUAL_HEIGHT_FACTOR;
+      const vHeight    = PAPER_SIZES_MM[sheetConfig.paperSize].h * SHEET_PX_PER_MM;
 
-      // Reset to full-canvas view at scale=1
+      // Reset to full-canvas view at scale=1 — must zero x too so centered offset
+      // (negative stageOffsetX) doesn't shift the exported image
+      stage.x(0);
       stage.y(0);
       stage.scaleX(1);
       stage.scaleY(1);
@@ -284,6 +347,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       const pngUrl = stage.toDataURL({ mimeType: 'image/png', pixelRatio: 2 });
 
       // Restore immediately so the UI isn't frozen waiting for the image to load
+      stage.x(prevX);
       stage.y(prevY);
       stage.scaleX(prevScaleX);
       stage.scaleY(prevScaleY);
@@ -292,13 +356,97 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
 
       const img = new Image();
       img.onload = () => {
+        const pixelRatio = 2;
+        const tbPx = Math.round(TITLE_BLOCK_MM * SHEET_PX_PER_MM * pixelRatio);
+
         const offscreen = document.createElement('canvas');
-        offscreen.width = img.width;
+        offscreen.width = img.width + tbPx;
         offscreen.height = img.height;
         const ctx = offscreen.getContext('2d')!;
+
+        // White background
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, offscreen.width, offscreen.height);
         ctx.drawImage(img, 0, 0);
+
+        // Title block strip
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(img.width, 0, tbPx, img.height);
+
+        // Left border of title block
+        ctx.strokeStyle = '#1a3a5c';
+        ctx.lineWidth = 2 * pixelRatio;
+        ctx.beginPath();
+        ctx.moveTo(img.width, 0);
+        ctx.lineTo(img.width, img.height);
+        ctx.stroke();
+
+        // Title block content
+        const tbX = img.width + 14 * pixelRatio;
+        const tbRight = img.width + tbPx - 10 * pixelRatio;
+        const { titleBlock, drawingScale } = sheetConfig;
+
+        // Header
+        ctx.fillStyle = '#1a3a5c';
+        ctx.font = `bold ${13 * pixelRatio}px Arial, sans-serif`;
+        ctx.fillText('SCHEMATIC DRAWING', tbX, 22 * pixelRatio);
+        ctx.strokeStyle = '#1a3a5c';
+        ctx.lineWidth = 1 * pixelRatio;
+        ctx.beginPath();
+        ctx.moveTo(img.width + 10 * pixelRatio, 26 * pixelRatio);
+        ctx.lineTo(tbRight, 26 * pixelRatio);
+        ctx.stroke();
+
+        const drawField = (label: string, value: string, y: number) => {
+          ctx.font = `${8 * pixelRatio}px Arial, sans-serif`;
+          ctx.fillStyle = '#6b7280';
+          ctx.fillText(label.toUpperCase(), tbX, y);
+          ctx.font = `${11 * pixelRatio}px Arial, sans-serif`;
+          ctx.fillStyle = '#111827';
+          ctx.fillText(value || '—', tbX, y + 11 * pixelRatio);
+          ctx.strokeStyle = '#e5e7eb';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(img.width + 10 * pixelRatio, y + 18 * pixelRatio);
+          ctx.lineTo(tbRight, y + 18 * pixelRatio);
+          ctx.stroke();
+        };
+
+        let y = 38 * pixelRatio;
+        const step = 22 * pixelRatio;
+        drawField('Project', titleBlock.projectName, y); y += step;
+        drawField('Drawing No.', titleBlock.drawingNo, y); y += step;
+        drawField('Scale', `1:${drawingScale}`, y); y += step;
+        drawField('Date', titleBlock.date, y); y += step;
+        drawField('Drawn By', titleBlock.drawnBy, y); y += step;
+        drawField('Checked By', titleBlock.checkedBy, y); y += step;
+        drawField('Rev.', titleBlock.rev, y); y += step + 6 * pixelRatio;
+
+        // LP/PE stamp image
+        if (titleBlock.stampImage) {
+          const stampImg = new Image();
+          stampImg.onload = () => {
+            const maxW = (tbPx - 24) * pixelRatio;
+            const maxH = 60 * pixelRatio;
+            const scale = Math.min(maxW / stampImg.width, maxH / stampImg.height, 1);
+            const sw = stampImg.width * scale;
+            const sh = stampImg.height * scale;
+            // Label
+            ctx.font = `${8 * pixelRatio}px Arial, sans-serif`;
+            ctx.fillStyle = '#6b7280';
+            ctx.fillText('LP / PE STAMP & SIGNATURE', tbX, y);
+            // Stamp box
+            const boxY = y + 4 * pixelRatio;
+            const boxW = tbPx - 20 * pixelRatio;
+            const boxH = maxH + 8 * pixelRatio;
+            ctx.strokeStyle = '#e5e7eb';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(img.width + 10 * pixelRatio, boxY, boxW, boxH);
+            // Draw stamp centred in box
+            ctx.drawImage(stampImg, img.width + 10 * pixelRatio + (boxW - sw) / 2, boxY + (boxH - sh) / 2, sw, sh);
+          };
+          stampImg.src = titleBlock.stampImage;
+        }
 
         const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
         const a = document.createElement('a');
@@ -308,7 +456,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       };
       img.src = pngUrl;
     });
-  }, [registerExportJpg, canvasSize.height]);
+  }, [registerExportJpg, canvasSize.height, sheetConfig]);
 
   // Delete selected element or pipe with Delete/Backspace key; Escape clears pending placement
   useEffect(() => {
@@ -321,29 +469,42 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         return;
       }
 
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        useCanvasStore.getState().undo();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+        useCanvasStore.getState().redo();
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         useCanvasStore.getState().copySelection();
         return;
       }
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        useCanvasStore.getState().pasteClipboard();
+        useCanvasStore.getState().pasteClipboard(lastMouseCanvasPosRef.current ?? undefined);
         return;
       }
 
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-      const { selectedId, selectedIds, elements, pipes, removeElement, removePipe } = useCanvasStore.getState();
-      // Multi-select delete
-      if (selectedIds.length > 0) {
+      const { selectedId, selectedIds, selectedPipeIds, elements, pipes, removeElement, removePipe } = useCanvasStore.getState();
+      // Multi-select delete — elements and pipes together
+      if (selectedIds.length > 0 || selectedPipeIds.length > 0) {
         for (const id of selectedIds) {
           if (elements.some((el) => el.id === id)) removeElement(id);
-          else if (pipes.some((p) => p.id === id)) removePipe(id);
+        }
+        for (const id of selectedPipeIds) {
+          if (pipes.some((p) => p.id === id)) removePipe(id);
         }
         return;
       }
       if (!selectedId) return;
       if (elements.some((el) => el.id === selectedId)) removeElement(selectedId);
       else if (pipes.some((p) => p.id === selectedId)) removePipe(selectedId);
+      else useCanvasStore.getState().removeAnnotation(selectedId);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -361,6 +522,12 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     return el?.symbolId === 'water_fittings' ? el : null;
   });
 
+  // Show MWELS tick panel when a dedicated fixture symbol is selected
+  const selectedFixtureMwels = useCanvasStore((s) => {
+    const el = s.elements.find((e) => e.id === s.selectedId);
+    return el && el.symbolId in FIXTURE_MWELS_CATEGORY ? el : null;
+  });
+
   // Show long bath capacity panel when a long_bath element is selected
   const selectedLongBath = useCanvasStore((s) => {
     const el = s.elements.find((e) => e.id === s.selectedId);
@@ -371,28 +538,63 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     isDrawingPipe,
     anchorPoint,
     previewEnd,
-    pendingChain,
-    confirmPipe,
-    discardPipe,
     handleCanvasClick,
     handleCanvasMouseMove,
   } = useCanvasInteraction();
 
-  // Responsive sizing
+  // Responsive sizing — tracks viewport dimensions only; auto-fits on first measurement
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    let hasFit = false;
     const observer = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect;
       const w = Math.max(width, 400);
       const h = Math.max(height, 400);
       setCanvasSize({ width: w, height: h });
-      // Report virtual height so MRL → elevation mapping covers the full virtual canvas
-      onSizeChange?.(w, h * VIRTUAL_HEIGHT_FACTOR);
+      if (!hasFit) {
+        hasFit = true;
+        const fitScale = Math.min(MAX_SCALE, Math.min(
+          w / virtualWidthRef.current,
+          h / virtualHeightRef.current,
+        )) * FIT_PAD;
+        const offsetX = -(w - virtualWidthRef.current  * fitScale) / 2;
+        const offsetY = -(h - virtualHeightRef.current * fitScale) / 2;
+        setBaseScale(fitScale);
+        setStageScale(fitScale);
+        setStageOffsetX(offsetX);
+        setStageOffsetY(offsetY);
+      }
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [onSizeChange]);
+  }, []);
+
+  // Keep a stable ref to onSizeChange so the effect below doesn't re-run on every render
+  const onSizeChangeRef = useRef(onSizeChange);
+  onSizeChangeRef.current = onSizeChange;
+
+  // Report paper-based content dimensions whenever sheet config changes
+  useEffect(() => {
+    onSizeChangeRef.current?.(virtualWidth, virtualHeight);
+  }, [virtualWidth, virtualHeight]);
+
+  // Re-fit to screen when sheet config changes (new paper size or scale)
+  // Skip the very first render — the ResizeObserver handles the initial fit
+  const isFirstSheetEffect = useRef(true);
+  useEffect(() => {
+    if (isFirstSheetEffect.current) { isFirstSheetEffect.current = false; return; }
+    const fitScale = Math.min(MAX_SCALE, Math.min(
+      canvasSize.width  / virtualWidth,
+      canvasSize.height / virtualHeight,
+    )) * FIT_PAD;
+    const offsetX = -(canvasSize.width  - virtualWidth  * fitScale) / 2;
+    const offsetY = -(canvasSize.height - virtualHeight * fitScale) / 2;
+    setBaseScale(fitScale);
+    setStageScale(fitScale);
+    setStageOffsetX(offsetX);
+    setStageOffsetY(offsetY);
+  }, [virtualWidth, virtualHeight]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Wheel scroll — must be non-passive to call preventDefault
   useEffect(() => {
@@ -403,28 +605,52 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       if (tankModalOpenRef.current) return;
       e.preventDefault();
 
+      // Ctrl+scroll → zoom centred on cursor
+      if (e.ctrlKey) {
+        const rect = el.getBoundingClientRect();
+        const px = e.clientX - rect.left;   // cursor in viewport px
+        const py = e.clientY - rect.top;
+        const prevScale  = stageScaleRef.current;
+        const prevOfsX   = stageOffsetXRef.current;
+        const prevOfsY   = stageOffsetYRef.current;
+        const scaleFactor = Math.pow(0.999, e.deltaY);
+        const newScale = Math.max(baseScaleRef.current, Math.min(MAX_SCALE, prevScale * scaleFactor));
+        if (newScale === prevScale) return;
+        // Content point under cursor must stay fixed
+        const contentX = (px + prevOfsX) / prevScale;
+        const contentY = (py + prevOfsY) / prevScale;
+        setStageScale(newScale);
+        const pageW = virtualWidth  * newScale;
+        const pageH = virtualHeight * newScale;
+        const minX = pageW < canvasSize.width  ? -(canvasSize.width  - pageW) / 2 : 0;
+        const minY = pageH < canvasSize.height ? -(canvasSize.height - pageH) / 2 : 0;
+        setStageOffsetX(Math.max(minX, Math.min(contentX * newScale - px, Math.max(0, pageW - canvasSize.width))));
+        setStageOffsetY(Math.max(minY, Math.min(contentY * newScale - py, Math.max(0, pageH - canvasSize.height))));
+        return;
+      }
+
       // Detect horizontal vs vertical scrolling
       const deltaX = e.shiftKey ? e.deltaY : e.deltaX;
       const deltaY = e.shiftKey ? 0 : e.deltaY;
 
       // Horizontal scroll
       setStageOffsetX((prev) => {
-        const virtW = canvasSize.width * 2; // your virtual width
-        const mo = Math.max(0, virtW * stageScale - canvasSize.width);
-        return Math.max(0, Math.min(prev + deltaX, mo));
+        const pageW = virtualWidth * stageScale;
+        const minOfs = pageW < canvasSize.width ? -(canvasSize.width - pageW) / 2 : 0;
+        return Math.max(minOfs, Math.min(prev + deltaX, Math.max(0, pageW - canvasSize.width)));
       });
 
       // Vertical scroll
       setStageOffsetY((prev) => {
-        const virtH = canvasSize.height * VIRTUAL_HEIGHT_FACTOR;
-        const mo = Math.max(0, virtH * stageScale - canvasSize.height);
-        return Math.max(0, Math.min(prev + deltaY, mo));
+        const pageH = virtualHeight * stageScale;
+        const minOfs = pageH < canvasSize.height ? -(canvasSize.height - pageH) / 2 : 0;
+        return Math.max(minOfs, Math.min(prev + deltaY, Math.max(0, pageH - canvasSize.height)));
       });
     };
 
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [canvasSize.width, canvasSize.height, stageScale]);
+  }, [canvasSize.width, canvasSize.height, stageScale, virtualWidth, virtualHeight]);
 
   const getCursor = () => {
     if (isDrawingPipe) return 'crosshair';
@@ -440,9 +666,10 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       // Convert viewport px → virtual canvas content coordinates
       const contentX = (rawX + stageOffsetX) / stageScale;
       const contentY = (rawY + stageOffsetY) / stageScale;
+      const symPx = getSymbolSizePx(sheetConfig.drawingScale);
       return {
-        x: Math.max(AXIS_WIDTH + SYMBOL_SIZE / 2, contentX),
-        y: Math.max(SYMBOL_SIZE / 2, Math.min(contentY, virtualHeight - SYMBOL_SIZE / 2)),
+        x: Math.max(AXIS_WIDTH + symPx / 2, contentX),
+        y: Math.max(symPx / 2, Math.min(contentY, virtualHeight - symPx / 2)),
       };
     },
     [stageScale, stageOffsetX, stageOffsetY, virtualHeight]
@@ -455,9 +682,33 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     }
   }, []);
 
+  // Size multipliers relative to the base symbol size (1× = 6 px = 3 mm on paper).
+  // Medium ≈ 10 px (5 mm), large ≈ 16 px (8 mm) — keeps fixtures legible at fixed paper size.
+  const SYMBOL_SIZE_MULTIPLIERS: Partial<Record<string, number>> = {
+    // Medium fixtures — ~1.7× (≈ 10 px)
+    wash_basin_rectangular:     1.7,
+    sink:                       1.7,
+    water_closet:               1.7,
+    urinal_wall:                1.7,
+    drinking_fountain_pedestal: 1.7,
+    drinking_fountain_trough:   1.7,
+    drinking_fountain_wall:     1.7,
+    foot_bath:                  1.7,
+    multiple_show_unit:         1.7,
+    water_heater:               1.7,
+    pump:                       1.7,
+    jockey_pump:                1.7,
+    long_bath:                  1.7,
+    shower_bath:                1.7,
+    square_bath:                1.7,
+  };
+
   // Core placement logic shared by drag-drop and tap-to-place
   const placeSymbolAt = useCallback(
     (x: number, y: number, symbolId: string, symbolName: string) => {
+      const basePx = getSymbolSizePx(sheetConfig.drawingScale);
+      const mult = SYMBOL_SIZE_MULTIPLIERS[symbolId] ?? 1;
+      const sz = Math.round(basePx * mult);
       let el: CanvasElement = {
         id: crypto.randomUUID(),
         symbolId,
@@ -465,8 +716,8 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         x,
         y,
         rotation: 0,
-        width: SYMBOL_SIZE,
-        height: SYMBOL_SIZE,
+        width:  sz,
+        height: sz,
       };
 
       // Port-aware snap: align the closest port of the dropped symbol to the nearest pipe
@@ -663,9 +914,30 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       } else {
         addElement(el);
       }
+
+      // Bidet proximity nudge
+      const TAP_SYMBOL_IDS = new Set(['single_tap', 'single_tap_combined', 'twin_tap']);
+      const BIDET_PROXIMITY = 48; // ~8 symbol widths
+      const { elements: placed } = useCanvasStore.getState();
+      if (TAP_SYMBOL_IDS.has(symbolId)) {
+        // Case A: tap placed near an existing WC
+        const nearWC = placed.some(
+          (e) => e.symbolId === 'water_closet' &&
+            Math.sqrt((e.x - x) ** 2 + (e.y - y) ** 2) < BIDET_PROXIMITY,
+        );
+        if (nearWC) showBidetToast(el.id, x, y);
+      } else if (symbolId === 'water_closet') {
+        // Case B: WC placed near an existing tap
+        const nearTap = placed.find(
+          (e) => TAP_SYMBOL_IDS.has(e.symbolId) &&
+            Math.sqrt((e.x - x) ** 2 + (e.y - y) ** 2) < BIDET_PROXIMITY,
+        );
+        if (nearTap) showBidetToast(nearTap.id, nearTap.x, nearTap.y);
+      }
     },
-    [addElement, insertElementOnPipe, insertElementOnPipeInline, setPendingTee, setPendingElbow, setPendingFlip, setPendingWaterFittings]
+    [addElement, insertElementOnPipe, insertElementOnPipeInline, setPendingTee, setPendingElbow, setPendingFlip, setPendingWaterFittings, showBidetToast]
   );
+
 
   // Handle drop from symbol palette (desktop drag-drop)
   const handleDrop = useCallback(
@@ -844,12 +1116,46 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     [stageScale, stageOffsetX, stageOffsetY]
   );
 
+  // Right-click on stage → show annotation context menu
+  // Native contextmenu listener — avoids Konva's synthetic event system entirely
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handler = (e: MouseEvent) => {
+      e.preventDefault();
+      const box = el.getBoundingClientRect();
+      const rawX = e.clientX - box.left;
+      const rawY = e.clientY - box.top;
+      const contentX = (rawX + stageOffsetXRef.current) / stageScaleRef.current;
+      const contentY = (rawY + stageOffsetYRef.current) / stageScaleRef.current;
+      setContextMenu({ viewportX: rawX, viewportY: rawY, contentX, contentY });
+    };
+    el.addEventListener('contextmenu', handler);
+    return () => el.removeEventListener('contextmenu', handler);
+  }, []);
+
+  const handleAnnotationSelect = useCallback(
+    (text: string, fontSize: number, maxWidth: number) => {
+      if (!contextMenu) return;
+      addAnnotation({
+        id: crypto.randomUUID(),
+        x: contextMenu.contentX,
+        y: contextMenu.contentY,
+        text,
+        fontSize,
+        color: '#1a1a1a',
+        maxWidth,
+      });
+      setContextMenu(null);
+    },
+    [contextMenu, addAnnotation],
+  );
+
   // Shared rubber band completion — reads from refs so it's safe to call from
   // any event handler without worrying about stale React state closures.
   const completeRubberBand = useCallback(() => {
     const anchor = rubberAnchorRef.current;
     const current = rubberCurrentRef.current;
-    console.log('[rubber] completeRubberBand fired — anchor:', anchor, 'current:', current, 'dragged:', rubberDraggedRef.current);
     if (!anchor || !current) return;
     rubberAnchorRef.current = null;
     rubberCurrentRef.current = null;
@@ -861,26 +1167,39 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       width: Math.abs(current.x - anchor.x),
       height: Math.abs(current.y - anchor.y),
     };
-    console.log('[rubber] rect:', rect, 'dragged:', rubberDraggedRef.current);
     if (rubberDraggedRef.current && rect.width > 5 && rect.height > 5) {
       rubberDraggedRef.current = false;
-      const { elements: els } = useCanvasStore.getState();
-      const inside = els.filter(
+      const { elements: els, pipes, annotations } = useCanvasStore.getState();
+      const insideEls = els.filter(
         (el) =>
           el.x >= rect.x && el.x <= rect.x + rect.width &&
           el.y >= rect.y && el.y <= rect.y + rect.height,
       );
-      console.log('[rubber] elements inside rect:', inside.map((el) => ({ id: el.id, x: el.x, y: el.y })));
-      if (inside.length === 1) {
-        setSelected(inside[0].id);
-      } else if (inside.length > 1) {
-        setSelectedIds(inside.map((el) => el.id));
+      // A pipe is selected only if BOTH endpoints are fully inside the rect.
+      const insidePipes = pipes.filter(
+        (p) =>
+          p.startX >= rect.x && p.startX <= rect.x + rect.width &&
+          p.startY >= rect.y && p.startY <= rect.y + rect.height &&
+          p.endX   >= rect.x && p.endX   <= rect.x + rect.width &&
+          p.endY   >= rect.y && p.endY   <= rect.y + rect.height,
+      );
+      const insideAnns = annotations.filter(
+        (ann) =>
+          ann.x >= rect.x && ann.x <= rect.x + rect.width &&
+          ann.y >= rect.y && ann.y <= rect.y + rect.height,
+      );
+      const total = insideEls.length + insidePipes.length + insideAnns.length;
+      if (total === 1 && insideEls.length === 1) {
+        setSelected(insideEls[0].id);
+      } else if (total === 1 && insideAnns.length === 1) {
+        setSelected(insideAnns[0].id);
+      } else if (total > 1) {
+        setMultiSelection(insideEls.map((el) => el.id), insidePipes.map((p) => p.id), insideAnns.map((a) => a.id));
       }
     } else {
-      console.log('[rubber] skipped — dragged=false or rect too small');
       rubberDraggedRef.current = false;
     }
-  }, [setSelected, setSelectedIds]);
+  }, [setSelected, setMultiSelection]);
 
   // Global window mouseup — fires even when released over scrollbars or outside canvas.
   useEffect(() => {
@@ -891,6 +1210,38 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   // Start rubber band on mousedown on empty canvas (non-pipe modes only)
   const handleStageMouseDown = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
+      // Right mouse button → reserved for context menu, never start rubber band
+      if (e.evt.button === 2) return;
+      // Middle mouse button → pan canvas
+      if (e.evt.button === 1) {
+        e.evt.preventDefault();
+        const startX = e.evt.clientX;
+        const startY = e.evt.clientY;
+        const startOffsetX = stageOffsetXRef.current;
+        const startOffsetY = stageOffsetYRef.current;
+        const container = containerRef.current;
+        if (container) container.style.cursor = 'grabbing';
+        const onMove = (me: MouseEvent) => {
+          const s  = stageScaleRef.current;
+          const vw = virtualWidthRef.current;
+          const vh = virtualHeightRef.current;
+          const cw = canvasSize.width;
+          const ch = canvasSize.height;
+          const minX = vw * s < cw ? -(cw - vw * s) / 2 : 0;
+          const minY = vh * s < ch ? -(ch - vh * s) / 2 : 0;
+          setStageOffsetX(Math.max(minX, Math.min(startOffsetX - (me.clientX - startX), Math.max(0, vw * s - cw))));
+          setStageOffsetY(Math.max(minY, Math.min(startOffsetY - (me.clientY - startY), Math.max(0, vh * s - ch))));
+        };
+        const onUp = (ue: MouseEvent) => {
+          if (ue.button !== 1) return;
+          if (container) container.style.cursor = '';
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        return;
+      }
       if (activeTool === 'pipe' || activeTool === 'cold_pipe' || activeTool === 'hot_pipe') return;
       if (e.target !== e.target.getStage()) return;
       const stage = e.target.getStage();
@@ -904,7 +1255,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       setRubberAnchor(content);
       setRubberCurrent(content);
     },
-    [activeTool, pointerToContent],
+    [activeTool, pointerToContent, virtualWidth, virtualHeight, canvasSize],
   );
 
   // Konva onMouseUp kept as no-op — window listener above handles completion.
@@ -915,7 +1266,6 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
 
   const handleStageClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
-      console.log('[rubber] handleStageClick — rubberDragged:', rubberDraggedRef.current);
       // window.mouseup (completeRubberBand) fires AFTER Konva's onClick, so if
       // rubberDragged is still true here we must NOT reset it — completeRubberBand
       // needs to see it when it runs a moment later.
@@ -1035,6 +1385,10 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       ref={containerRef}
       style={{ width: '100%', height: '100%', cursor: getCursor(), position: 'relative' }}
       onDrop={handleDrop}
+      onMouseMove={(e) => {
+        const pos = getCanvasPos(e.clientX, e.clientY);
+        if (pos) lastMouseCanvasPosRef.current = pos;
+      }}
       onDragOver={(e) => {
         e.preventDefault();
         if (draggingSymbolId) {
@@ -1099,8 +1453,23 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         onMouseDown={handleStageMouseDown}
         onMouseUp={handleStageMouseUp}
         onMouseMove={handleStageMouseMove}
-        style={{ background: '#fff', cursor: pendingSymbol ? 'crosshair' : undefined }}
+        style={{ background: '#b0b8c1', cursor: pendingSymbol ? 'crosshair' : undefined }}
       >
+        {/* White page sheet — must be the very first layer so PDF and content render on top */}
+        <Layer listening={false}>
+          <KonvaRect
+            x={0}
+            y={0}
+            width={virtualWidth}
+            height={virtualHeight}
+            fill="white"
+            shadowColor="rgba(0,0,0,0.25)"
+            shadowBlur={20}
+            shadowOffsetX={0}
+            shadowOffsetY={4}
+          />
+        </Layer>
+
         {pdfBackground && (
           <PdfBackgroundLayer
             dataUrl={pdfBackground.dataUrl}
@@ -1108,7 +1477,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
             y={pdfBackground.y}
             width={pdfBackground.width}
             height={pdfBackground.height}
-            opacity={0.38}
+            opacity={pdfBackground.opacity}
             rotation={pdfBackground.rotation}
             locked={pdfBackground.locked}
             onChange={updatePdfBackground}
@@ -1121,6 +1490,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           lowerMrl={mrlConfig.lowerMrl}
           axisWidth={AXIS_WIDTH}
           floorLevels={floorLevels}
+          floorLevelOpacity={floorLevelOpacity}
         />
         <ElementsLayer
           dragPreview={draggingSymbolId && dragOverPos
@@ -1129,6 +1499,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           onElementClick={handleElementClick}
           rubberBand={rubberBandRect}
         />
+        <AnnotationsLayer />
         <PipeDraftLayer
           anchorPoint={anchorPoint}
           previewEnd={previewEnd}
@@ -1249,7 +1620,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           minWidth: 36,
           textAlign: 'center',
         }}>
-          {Math.round(stageScale * 100)}%
+          {Math.round((stageScale / baseScale) * 100)}%
         </div>
         <button
           onClick={() => zoom(SCALE_STEP)}
@@ -1267,10 +1638,30 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >+</button>
+        <button
+          onClick={fitToScreen}
+          title="Fit to screen"
+          style={{
+            width: 32, height: 32,
+            border: '1px solid #bbb',
+            borderRadius: 4,
+            background: '#fff',
+            cursor: 'pointer',
+            color: '#333',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 0,
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M1 5V1h4M11 1h4v4M1 11v4h4M15 11v4h-4"/>
+          </svg>
+        </button>
       </div>
 
-      {selectedRotatable && (() => {
+      {selectedRotatable && activeTool !== 'pipe' && activeTool !== 'cold_pipe' && activeTool !== 'hot_pipe' && (() => {
         const vp = contentToViewport(selectedRotatable.x, selectedRotatable.y);
+        const halfWidthVp = ((selectedRotatable.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;
         return (
           <RotationPanel
             elementId={selectedRotatable.id}
@@ -1279,6 +1670,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
             y={vp.y}
             currentRotation={selectedRotatable.rotation}
             currentScaleX={selectedRotatable.scaleX ?? 1}
+            elementHalfWidthVp={halfWidthVp}
           />
         );
       })()}
@@ -1309,8 +1701,9 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           onCancel={() => setPendingWaterFittings(null)}
         />
       )}
-      {selectedFitting && (() => {
+      {selectedFitting && activeTool !== 'pipe' && activeTool !== 'cold_pipe' && activeTool !== 'hot_pipe' && (() => {
         const vp = contentToViewport(selectedFitting.x, selectedFitting.y);
+        const halfWidthVp = ((selectedFitting.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;
         return (
           <FittingTypePanel
             elementId={selectedFitting.id}
@@ -1318,31 +1711,50 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
             y={vp.y}
             currentFittingTypeId={selectedFitting.fittingType ?? 'shower_tap'}
             currentEfficiencyRating={selectedFitting.efficiencyRating}
+            elementHalfWidthVp={halfWidthVp}
           />
         );
       })()}
-      {selectedLongBath && (() => {
+      {selectedFixtureMwels && activeTool !== 'pipe' && activeTool !== 'cold_pipe' && activeTool !== 'hot_pipe' && (() => {
+        const vp = contentToViewport(selectedFixtureMwels.x, selectedFixtureMwels.y);
+        const halfWidthVp = ((selectedFixtureMwels.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;
+        return (
+          <FixtureMwelsPanel
+            elementId={selectedFixtureMwels.id}
+            symbolId={selectedFixtureMwels.symbolId}
+            x={vp.x}
+            y={vp.y}
+            currentFittingTypeId={selectedFixtureMwels.fittingType}
+            currentEfficiencyRating={selectedFixtureMwels.efficiencyRating}
+            elementHalfWidthVp={halfWidthVp}
+          />
+        );
+      })()}
+      {selectedLongBath && activeTool !== 'pipe' && activeTool !== 'cold_pipe' && activeTool !== 'hot_pipe' && (() => {
         const vp = contentToViewport(selectedLongBath.x, selectedLongBath.y);
+        const halfWidthVp = ((selectedLongBath.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;
         return (
           <LongBathPanel
             elementId={selectedLongBath.id}
             x={vp.x}
             y={vp.y}
             currentCapacityL={selectedLongBath.longBathCapacityL}
+            elementHalfWidthVp={halfWidthVp}
           />
         );
       })()}
-      {pendingChain && (
-        <PipePropertiesModal
-          pipeId={pendingChain.pipeId}
-          onConfirm={confirmPipe}
-          onDiscard={discardPipe}
-        />
-      )}
       {tankModalId && (
         <WaterTankPropertiesModal
           tankId={tankModalId}
           onClose={() => setTankModalId(null)}
+        />
+      )}
+      {contextMenu && (
+        <AnnotationContextMenu
+          viewportX={contextMenu.viewportX}
+          viewportY={contextMenu.viewportY}
+          onSelect={handleAnnotationSelect}
+          onClose={() => setContextMenu(null)}
         />
       )}
     </div>

@@ -1,0 +1,15 @@
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+ <g>
+  <title>Layer 1</title>
+  <line stroke-linecap="undefined" stroke-linejoin="undefined" id="svg_1" y2="100.99999" x2="253.99999" y1="100.99999" x1="251.99999" stroke="#000" fill="none"/>
+  <path stroke="#000" id="svg_99" opacity="undefined" fill="none"/>
+  <path id="svg_106" opacity="undefined" stroke="#000" fill="none"/>
+  <path id="svg_113" d="m-235.54444,-389.18518c0.09259,6.11111 5.64815,9.62963 5.59259,9.53704c0.05555,0.09259 -5.68519,-15.64815 -5.59259,-9.53704z" opacity="NaN" stroke="#000" fill="none"/>
+  <ellipse stroke-width="2" ry="9.65" rx="10.45" id="svg_255" cy="22" cx="12.45" stroke="#000000" fill="none"/>
+  <ellipse stroke-width="2" ry="9.65" rx="10.45" id="svg_256" cy="22.25" cx="51.65" stroke="#000000" fill="none"/>
+  <line stroke-width="2" id="svg_257" y2="21.3" x2="41.2" y1="21.5" x1="23" stroke="#000000" fill="none"/>
+  <line stroke-width="2" id="svg_258" y2="48.3" x2="32.1" y1="21.2" x1="32.1" stroke="#000000" fill="none"/>
+  <line stroke-width="2" id="svg_259" y2="41.3" x2="40.1" y1="41.3" x1="24.3" stroke="#000000" fill="none"/>
+ </g>
+
+</svg>

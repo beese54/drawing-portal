@@ -1,176 +1,98 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useCanvasStore } from '../../store/canvasStore';
-import {
-  TANK_MATERIAL_OPTIONS,
-  calcTankCapacityLitres,
-  calcWaterLevelAmsl,
-  type TankMaterial,
-} from '../../types';
+import { calcTankCapacityLitres } from '../../types';
 import { WaterTankPropertiesModal } from '../canvas/WaterTankPropertiesModal';
 
-/**
- * Right-sidebar quick-edit panel for the selected Water Tank.
- * Mirrors PipePropertiesPanel.tsx in spirit and styling.
- *
- * Quick fields shown here:
- *   - Material
- *   - Pressure Vessel? (toggle)
- *   - Effective Capacity (read-only, derived from L × W × H in the modal)
- *   - "Edit Advanced Details…" → opens WaterTankPropertiesModal
- */
 export function WaterTankPropertiesPanel() {
-  const { selectedId, elements, updateTankProperties } = useCanvasStore();
+  const { selectedId, elements } = useCanvasStore();
   const [showModal, setShowModal] = useState(false);
 
   const tank = elements.find((el) => el.id === selectedId && el.symbolId === 'water_tank');
   if (!tank) return null;
 
   const props = tank.tankProperties ?? {};
-  const update = (patch: Parameters<typeof updateTankProperties>[1]) =>
-    updateTankProperties(tank.id, patch);
-
   const capacityL = calcTankCapacityLitres(props);
-  const waterLevelAmsl = calcWaterLevelAmsl(props);
 
-  const normalizeMaterial = (raw: string): TankMaterial | undefined => {
-    const trimmed = raw.trim();
-    if (!trimmed) return undefined;
-    const cleaned = trimmed.toLowerCase().replace(/\s+/g, '_');
-    const matched = TANK_MATERIAL_OPTIONS.find(
-      (opt) => opt.value.toLowerCase() === cleaned
-        || opt.label.toLowerCase() === trimmed.toLowerCase()
-    );
-    return matched ? matched.value : trimmed;
-  };
+  const checklist: { label: string; ok: boolean; hint: string }[] = [
+    {
+      label: 'Inlet pipe size indicated',
+      ok: props.inletPipeDiameterM != null,
+      hint: 'Set inlet pipe diameter in advanced details',
+    },
+    {
+      label: 'Overflow pipe size indicated',
+      ok: props.overflowPipeDiameterM != null,
+      hint: 'Set overflow pipe diameter in advanced details',
+    },
+    {
+      label: 'Overflow warning pipe / alarm indicated',
+      ok: props.warningPipeDiameterM != null,
+      hint: 'Set warning pipe diameter in advanced details',
+    },
+    {
+      label: 'Effective capacity annotated',
+      ok: capacityL !== null,
+      hint: 'Fill in Inlet AMSL, Overflow Ø, Floor Level, Outlet→Base, Length and Width',
+    },
+  ];
 
   return (
     <>
       <div style={{
-        border: '1px solid #d1d5db',
-        borderRadius: 6,
-        padding: '10px 12px',
-        marginBottom: 14,
-        background: '#f8fafc',
+        border: '1px solid #d1d5db', borderRadius: 6,
+        padding: '10px 12px', marginBottom: 14, background: '#f8fafc',
       }}>
         <div style={{
-          fontSize: 11,
-          fontWeight: 700,
-          color: '#555',
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-          marginBottom: 10,
+          fontSize: 11, fontWeight: 700, color: '#555',
+          textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10,
         }}>
-          Water Tank Properties
+          Water Tank Checklist
         </div>
 
-        {/* Material */}
-        <label style={{ display: 'block', fontSize: 12, color: '#444', marginBottom: 4 }}>
-          Material
-        </label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-          <input
-            type="text"
-            value={props.material ?? ''}
-            placeholder="e.g. FRP, GRP, SS_316"
-            list="tank-material-options"
-            onChange={(e) => update({ material: normalizeMaterial(e.target.value) })}
+        {checklist.map(({ label, ok, hint }) => (
+          <button
+            key={label}
+            title={ok ? undefined : hint}
+            onClick={ok ? undefined : () => setShowModal(true)}
             style={{
-              flex: 1,
-              padding: '5px 8px',
-              border: '1px solid #ccc',
-              borderRadius: 4,
-              fontSize: 13,
-              background: '#fff',
-              color: '#222',
-              outline: 'none',
+              display: 'flex', alignItems: 'flex-start', gap: 7,
+              width: '100%',
+              background: ok ? '#f0fdf4' : '#fff7ed',
+              border: `1px solid ${ok ? '#bbf7d0' : '#fed7aa'}`,
+              borderRadius: 5, padding: '5px 8px', marginBottom: 4,
+              cursor: ok ? 'default' : 'pointer', textAlign: 'left',
             }}
-          />
-          <datalist id="tank-material-options">
-            {TANK_MATERIAL_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </datalist>
-        </div>
+          >
+            <span style={{
+              fontSize: 13, lineHeight: 1, marginTop: 1,
+              color: ok ? '#16a34a' : '#ea580c', flexShrink: 0,
+            }}>
+              {ok ? '✓' : '✗'}
+            </span>
+            <span style={{ fontSize: 11, color: ok ? '#166534' : '#9a3412', lineHeight: 1.4 }}>
+              {label}
+              {!ok && <span style={{ marginLeft: 4, opacity: 0.6, fontSize: 10 }}>— click to fix</span>}
+            </span>
+          </button>
+        ))}
 
-        {/* Pressure Vessel toggle */}
-        <label style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          fontSize: 12,
-          color: '#444',
-          marginBottom: 12,
-          cursor: 'pointer',
-          userSelect: 'none',
-        }}>
-          <input
-            type="checkbox"
-            checked={props.pressureVesselPresent ?? false}
-            onChange={(e) => update({ pressureVesselPresent: e.target.checked })}
-            style={{ margin: 0 }}
-          />
-          Pressure Vessel Present
-        </label>
-
-        {/* Effective Capacity (read-only) */}
-        <label style={{ display: 'block', fontSize: 12, color: '#444', marginBottom: 4 }}>
-          Effective Capacity
-        </label>
-        <div style={{
-          padding: '5px 8px',
-          border: '1px dashed #cbd5e1',
-          borderRadius: 4,
-          background: '#f1f5f9',
-          fontSize: 13,
-          color: capacityL === null ? '#94a3b8' : '#0f172a',
-          marginBottom: 12,
-          fontFamily: 'monospace',
-        }}>
-          {capacityL === null ? 'Set L × W × H in advanced details' : `${capacityL.toLocaleString()} L`}
-        </div>
-
-        {/* Water Level (read-only) */}
-        <label style={{ display: 'block', fontSize: 12, color: '#444', marginBottom: 4 }}>
-          Water Level AMSL
-        </label>
-        <div style={{
-          padding: '5px 8px',
-          border: '1px dashed #93c5fd',
-          borderRadius: 4,
-          background: '#eff6ff',
-          fontSize: 13,
-          color: waterLevelAmsl === null ? '#94a3b8' : '#1d4ed8',
-          marginBottom: 12,
-          fontFamily: 'monospace',
-          fontWeight: 600,
-        }}>
-          {waterLevelAmsl === null ? 'Set Inlet AMSL + Overflow Ø' : `${waterLevelAmsl} m AMSL`}
-        </div>
-
-        {/* Edit Advanced Details */}
         <button
           onClick={() => setShowModal(true)}
           style={{
-            width: '100%',
-            padding: '7px 0',
-            borderRadius: 5,
-            border: '1px solid #2563eb',
-            background: '#eff6ff',
-            color: '#1d4ed8',
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: 'pointer',
+            width: '100%', marginTop: 6, padding: '7px 0',
+            borderRadius: 5, border: '1px solid #2563eb',
+            background: '#eff6ff', color: '#1d4ed8',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer',
           }}
         >
           Edit Advanced Details…
         </button>
       </div>
 
-      {showModal && (
-        <WaterTankPropertiesModal
-          tankId={tank.id}
-          onClose={() => setShowModal(false)}
-        />
+      {showModal && createPortal(
+        <WaterTankPropertiesModal tankId={tank.id} onClose={() => setShowModal(false)} />,
+        document.body,
       )}
     </>
   );

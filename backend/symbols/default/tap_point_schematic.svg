@@ -1,13 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Supply stub from top -->
-  <line x1="32" y1="0" x2="32" y2="14" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Vertical body -->
-  <line x1="32" y1="14" x2="32" y2="48" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Horizontal T-branch -->
-  <line x1="16" y1="32" x2="48" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Branch end caps -->
-  <line x1="16" y1="27" x2="16" y2="37" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <line x1="48" y1="27" x2="48" y2="37" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Diagonal tap indicator at bottom -->
-  <line x1="32" y1="48" x2="46" y2="60" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+ <g>
+  <title>Layer 1</title>
+  <line stroke-linecap="undefined" stroke-linejoin="undefined" id="svg_1" y2="100.99999" x2="253.99999" y1="100.99999" x1="251.99999" stroke="#000" fill="none"/>
+  <line id="svg_36" y2="40.61084" x2="46.18719" y1="40.61084" x1="18.2069" stroke="#000" fill="none"/>
+  <line id="svg_37" y2="21.30049" x2="32" y1="40.51232" x1="32" stroke="#000" fill="none"/>
+  <line id="svg_38" y2="21.69458" x2="39" y1="21.7931" x1="25" stroke="#000" fill="none"/>
+  <line id="svg_39" y2="45.43843" x2="52.09852" y1="40.41379" x1="45.99015" stroke="#000" fill="none"/>
+ </g>
+
 </svg>

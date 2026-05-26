@@ -1,10 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Connection stubs -->
-  <line x1="0" y1="32" x2="14" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <line x1="50" y1="32" x2="64" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Circle body -->
-  <circle cx="32" cy="32" r="18" stroke="#1a1a1a" stroke-width="2" fill="white"/>
-  <!-- Internal arrow -->
-  <line x1="20" y1="32" x2="40" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <polyline points="34,26 40,32 34,38" stroke="#1a1a1a" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="10.0 0.0 54.0 64.0" width="64" height="64">
+  <!-- Triangle drawn first so circle white fill hides the legs inside the circle -->
+  <polygon points="15,62 32,35 49,62" fill="none" stroke="#1a1a1a" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Circle volute: white fill covers triangle apex + upper legs inside circle -->
+  <circle cx="32" cy="36" r="20" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+  <!-- White mask covers the circle arc inside the casing interior -->
+  <polygon points="12,2 40,2 24,18 12,36" fill="white" stroke="none"/>
+  <!-- Casing: left wall + top wall + diagonal (no right wall) -->
+  <line x1="12" y1="2" x2="12" y2="36" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <line x1="12" y1="2" x2="40" y2="2" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <line x1="40" y1="2" x2="24" y2="18" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- IN connection stub (right midpoint of circle) -->
+  <line x1="52" y1="36" x2="64" y2="36" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
 </svg>

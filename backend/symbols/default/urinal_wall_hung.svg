@@ -1,0 +1,17 @@
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+ <g>
+  <title>Layer 1</title>
+  <line stroke-linecap="undefined" stroke-linejoin="undefined" id="svg_1" y2="100.99999" x2="253.99999" y1="100.99999" x1="251.99999" stroke="#000" fill="none"/>
+  <path stroke="#000" id="svg_99" opacity="undefined" fill="none"/>
+  <path id="svg_106" opacity="undefined" stroke="#000" fill="none"/>
+  <path id="svg_113" d="m-235.54444,-389.18518c0.09259,6.11111 5.64815,9.62963 5.59259,9.53704c0.05555,0.09259 -5.68519,-15.64815 -5.59259,-9.53704z" opacity="NaN" stroke="#000" fill="none"/>
+  <path stroke="#000" id="svg_119" d="m37.30677,46.37897" opacity="NaN" fill="none"/>
+  <path stroke="#000" id="svg_125" d="m22.65765,43.01786c0.08367,0 -0.83665,6.07143 4.60161,6.07143c5.43826,0 2.92829,5.44643 6.19124,5.35714c3.26295,-0.08929 0.43456,-2.85714 4.1327,-5.08929c3.69814,-2.23214 5.66179,3.125 5.57813,-6.16072" opacity="NaN" fill="#ffffff"/>
+  <line stroke="#000" id="svg_126" y2="17.92857" x2="46.29994" y1="17.83929" x1="19.05357" fill="none"/>
+  <line stroke="#000" id="svg_127" y2="17.30357" x2="19.42887" y1="43.46429" x1="19.65404" fill="none"/>
+  <line stroke="#000" id="svg_128" y2="17.66072" x2="45.84959" y1="43.82143" x1="46.07476" fill="none"/>
+  <line stroke="#000" id="svg_129" y2="43.375" x2="46.46429" y1="43.375" x1="42.7864" fill="none"/>
+  <line stroke="#000" id="svg_130" y2="43.01786" x2="23.0783" y1="43.01786" x1="19.40041" fill="none"/>
+ </g>
+
+</svg>

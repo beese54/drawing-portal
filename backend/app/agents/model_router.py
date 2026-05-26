@@ -14,8 +14,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import AsyncIterator
-
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
@@ -119,30 +117,3 @@ async def complete(
         output_tokens=usage.completion_tokens if usage else 0,
     )
 
-
-async def stream_complete(
-    provider: str,
-    messages: list[dict[str, str]],
-    temperature: float = 0.2,
-    max_tokens: int = 2048,
-) -> AsyncIterator[str]:
-    """Stream a chat completion, yielding text deltas as they arrive.
-
-    Usage::
-
-        async for token in stream_complete("openai", messages):
-            await ws.send_text(token)
-    """
-    client, model_id = _get_client(provider)
-
-    async with await client.chat.completions.create(
-        model=model_id,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        stream=True,
-    ) as stream:
-        async for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta

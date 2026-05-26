@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useUiStore } from '../../store/uiStore';
 import { NumberInput } from '../common/NumberInput';
-import { MRL_LOWER_HARD_MIN, MRL_UPPER_HARD_MAX } from '../../types';
+import { MRL_LOWER_HARD_MIN } from '../../types';
 
 export function MrlConfigPanel() {
   const mrlConfig      = useUiStore((s) => s.mrlConfig);
@@ -10,6 +10,9 @@ export function MrlConfigPanel() {
   const addFloorLevel  = useUiStore((s) => s.addFloorLevel);
   const updateFloorLevel = useUiStore((s) => s.updateFloorLevel);
   const removeFloorLevel = useUiStore((s) => s.removeFloorLevel);
+
+  const floorLevelOpacity    = useUiStore((s) => s.floorLevelOpacity);
+  const setFloorLevelOpacity = useUiStore((s) => s.setFloorLevelOpacity);
 
   const [newName, setNewName] = useState('');
   const [newFfl,  setNewFfl]  = useState('');
@@ -30,25 +33,28 @@ export function MrlConfigPanel() {
       </div>
       <div style={{ background: '#f7f8fa', borderRadius: 6, padding: 12, border: '1px solid #e8e8e8' }}>
         <NumberInput
-          label={`Upper elevation  (max ${MRL_UPPER_HARD_MAX}m AMSL)`}
-          value={mrlConfig.upperMrl}
-          min={mrlConfig.lowerMrl + 1}
-          max={MRL_UPPER_HARD_MAX}
-          step={1}
-          unit="m AMSL"
-          onChange={(v) => setMrlConfig({ upperMrl: v })}
-        />
-        <NumberInput
-          label={`Lower elevation (min ${MRL_LOWER_HARD_MIN}m AMSL)`}
+          label={`Lower elevation (min ${MRL_LOWER_HARD_MIN} m AMSL)`}
           value={mrlConfig.lowerMrl}
           min={MRL_LOWER_HARD_MIN}
-          max={mrlConfig.upperMrl - 1}
+          max={999}
           step={1}
           unit="m AMSL"
           onChange={(v) => setMrlConfig({ lowerMrl: v })}
         />
+        <div style={{
+          marginTop: 6,
+          padding: '6px 8px',
+          background: '#eef2ff',
+          border: '1px solid #c7d2fe',
+          borderRadius: 4,
+          fontSize: 11,
+          color: '#3730a3',
+        }}>
+          Upper elevation: <b>{mrlConfig.upperMrl.toFixed(1)} m AMSL</b>
+          <span style={{ color: '#6366f1', marginLeft: 4 }}>(set by paper size + scale)</span>
+        </div>
         <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
-          Range: {mrlConfig.upperMrl - mrlConfig.lowerMrl} m
+          Range: {(mrlConfig.upperMrl - mrlConfig.lowerMrl).toFixed(1)} m
         </div>
       </div>
 
@@ -72,7 +78,7 @@ export function MrlConfigPanel() {
               onChange={(e) => updateFloorLevel(floor.id, { name: e.target.value.toUpperCase() })}
               placeholder="Name"
               style={{
-                flex: 2, fontSize: 11, padding: '4px 6px',
+                flex: 1, minWidth: 0, fontSize: 11, padding: '4px 6px',
                 border: '1px solid #ddd', borderRadius: 4,
                 fontFamily: 'monospace', textTransform: 'uppercase',
               }}
@@ -87,7 +93,7 @@ export function MrlConfigPanel() {
                 if (!isNaN(v)) updateFloorLevel(floor.id, { fflM: v });
               }}
               style={{
-                flex: 1, fontSize: 11, padding: '4px 6px',
+                width: 64, flexShrink: 0, fontSize: 11, padding: '4px 6px',
                 border: '1px solid #ddd', borderRadius: 4, minWidth: 0,
               }}
             />
@@ -114,8 +120,8 @@ export function MrlConfigPanel() {
             placeholder="e.g. 1ST STOREY"
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
             style={{
-              flex: 2, fontSize: 11, padding: '4px 6px',
-              border: '1px solid #bbb', borderRadius: 4, minWidth: 0,
+              flex: 1, minWidth: 0, fontSize: 11, padding: '4px 6px',
+              border: '1px solid #bbb', borderRadius: 4,
             }}
           />
           <input
@@ -123,10 +129,10 @@ export function MrlConfigPanel() {
             value={newFfl}
             step={0.01}
             onChange={(e) => setNewFfl(e.target.value)}
-            placeholder="m AMSL"
+            placeholder="m AM"
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
             style={{
-              flex: 1, fontSize: 11, padding: '4px 6px',
+              width: 64, flexShrink: 0, fontSize: 11, padding: '4px 6px',
               border: '1px solid #bbb', borderRadius: 4, minWidth: 0,
             }}
           />
@@ -144,7 +150,25 @@ export function MrlConfigPanel() {
             +
           </button>
         </div>
-        <div style={{ fontSize: 10, color: '#aaa', marginTop: 6 }}>
+        {/* Opacity slider */}
+        <div style={{ marginTop: 10, borderTop: '1px solid #e8e8e8', paddingTop: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: 11, color: '#555' }}>Line opacity</span>
+            <span style={{ fontSize: 11, color: '#333', fontWeight: 600 }}>{Math.round(floorLevelOpacity * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={floorLevelOpacity}
+            onChange={(e) => setFloorLevelOpacity(parseFloat(e.target.value))}
+            onDragStart={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{ width: '100%', accentColor: '#0066cc' }}
+          />
+        </div>
+        <div style={{ fontSize: 10, color: '#aaa', marginTop: 4 }}>
           FFL lines appear on the canvas as labelled reference lines.
         </div>
       </div>

@@ -4,16 +4,136 @@ import Konva from 'konva';
 import { useCanvasStore } from '../../store/canvasStore';
 import { SymbolNode } from './SymbolNode';
 import { PipeElement } from './PipeElement';
+import { AnnotationNode } from './AnnotationsLayer';
 import { symbolsApi } from '../../api/client';
-import { SYMBOL_PORTS, getPortPosition, rotateOffset, getEffectivePortRole, getEffectivePortLabel } from '../../utils/symbolPorts';
-import { WATER_FITTING_TYPES } from '../../types';
+import { SYMBOL_PORTS, getElementPorts, getPortPosition, rotateOffset, getEffectivePortRole, getEffectivePortLabel, getScaledPortOffset } from '../../utils/symbolPorts';
+import { WATER_FITTING_TYPES, getSymbolSizePx, isBackflowRiskElement, getBackflowRule } from '../../types';
 import type { CanvasElement, PipeElement as PipeElementType, PipeType } from '../../types';
 import { computePortConnectionStatus } from '../../utils/portConnectionStatus';
+import { useUiStore } from '../../store/uiStore';
 
 // Symbols that should be tinted to match their upstream pipe colour
 const TINT_SYMBOL_IDS = new Set(['tee_junction', 'elbow_bend']);
 
-const TINT_MATCH = 20; // px
+// Elements that transform or originate fluid — BFS stops here instead of passing through.
+// Without this, the BFS can cross a water heater from its hot output back to its cold input.
+const FLUID_BOUNDARY_SYMBOLS = new Set([
+  'water_heater', 'pump', 'jockey_pump',
+  'water_tank', 'cold_water_tank', 'pressure_vessel_schematic',
+]);
+
+const TINT_MATCH = 3; // px — kept tight so only exact port-to-endpoint connections trigger the tint
+const PORT_MATCH = 2; // px — same threshold as portConnectionStatus.ts
+
+/**
+ * Build a bidirectional element adjacency map from actual pipe connections and
+ * direct port-to-port snaps. Two elements are adjacent only if a pipe endpoint
+ * (or another element's port) lies within PORT_MATCH px of one of their ports.
+ * Physically nearby but unconnected elements produce no edge.
+ */
+function buildElementAdjacency(
+  elements: CanvasElement[],
+  pipes: PipeElementType[],
+): Map<string, Set<string>> {
+  const adj = new Map<string, Set<string>>();
+  const addEdge = (a: string, b: string) => {
+    if (a === b) return;
+    if (!adj.has(a)) adj.set(a, new Set());
+    if (!adj.has(b)) adj.set(b, new Set());
+    adj.get(a)!.add(b);
+    adj.get(b)!.add(a);
+  };
+
+  // For each pipe, collect all elements whose ports match either endpoint,
+  // then link every pair among them (handles T-splits where one endpoint
+  // touches two adjacent ports).
+  for (const pipe of pipes) {
+    const endpointEls: [string[], string[]] = [[], []];
+    for (const [ei, cx, cy] of [
+      [0, pipe.startX, pipe.startY],
+      [1, pipe.endX,   pipe.endY  ],
+    ] as [number, number, number][]) {
+      for (const el of elements) {
+        for (const port of getElementPorts(el)) {
+          const pos = getPortPosition(el, port);
+          if (Math.hypot(pos.x - cx, pos.y - cy) <= PORT_MATCH) {
+            endpointEls[ei].push(el.id);
+            break;
+          }
+        }
+      }
+    }
+    // Link every element at start with every element at end
+    for (const a of endpointEls[0]) {
+      for (const b of endpointEls[1]) {
+        addEdge(a, b);
+      }
+    }
+  }
+
+  // Port-to-port proximity links (symbols placed directly back-to-back, no pipe drawn)
+  for (let a = 0; a < elements.length; a++) {
+    const portsA = getElementPorts(elements[a]);
+    for (let b = a + 1; b < elements.length; b++) {
+      const portsB = getElementPorts(elements[b]);
+      let linked = false;
+      for (const pA of portsA) {
+        if (linked) break;
+        const posA = getPortPosition(elements[a], pA);
+        for (const pB of portsB) {
+          const posB = getPortPosition(elements[b], pB);
+          if (Math.hypot(posA.x - posB.x, posA.y - posB.y) <= PORT_MATCH) {
+            addEdge(elements[a].id, elements[b].id);
+            linked = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return adj;
+}
+
+/**
+ * BFS through element adjacency from startId.
+ * Applies the correct protection rule for the element:
+ *   double_check_valve  — needs ≥ 2 check_valves reachable (SS636 §6.4 appliances)
+ *   vb_and_check_valve  — needs vacuum_breaker AND check_valve reachable (SS636 §6.5 bidet)
+ */
+function bfsCheckProtectionRule(
+  el: CanvasElement,
+  adj: Map<string, Set<string>>,
+  elemById: Map<string, CanvasElement>,
+  maxHops: number,
+): boolean {
+  const rule = getBackflowRule(el);
+  if (!rule) return true; // no rule — no badge
+
+  const visited = new Set<string>([el.id]);
+  const queue: { id: string; hops: number }[] = [{ id: el.id, hops: 0 }];
+  let checkValveCount = 0;
+  let hasVacuumBreaker = false;
+
+  while (queue.length > 0) {
+    const { id, hops } = queue.shift()!;
+    if (hops > 0) {
+      const sid = elemById.get(id)?.symbolId;
+      if (sid === 'check_valve') checkValveCount++;
+      if (sid === 'vacuum_breaker') hasVacuumBreaker = true;
+    }
+    if (hops >= maxHops) continue;
+    for (const nbr of adj.get(id) ?? []) {
+      if (!visited.has(nbr)) {
+        visited.add(nbr);
+        queue.push({ id: nbr, hops: hops + 1 });
+      }
+    }
+  }
+
+  if (rule === 'double_check_valve') return checkValveCount >= 2;
+  return hasVacuumBreaker && checkValveCount >= 1;
+}
 
 /** BFS backwards through the pipe/element network from a canvas position.
  *  Returns 'cold'|'hot' if a typed pipe is reachable, null otherwise.
@@ -31,11 +151,14 @@ function traceFluidFromPos(
   const visitElementAt = (ex: number, ey: number): PipeType | 'enqueued' | null => {
     for (const upEl of elements) {
       if (upEl.id === originId) continue;
-      for (const upP of SYMBOL_PORTS[upEl.symbolId] ?? []) {
+      for (const upP of getElementPorts(upEl)) {
         const upPos = getPortPosition(upEl, upP);
         if (Math.hypot(upPos.x - ex, upPos.y - ey) < TINT_MATCH) {
           if (upEl.carriesFluid) return upEl.carriesFluid;
-          for (const p2 of SYMBOL_PORTS[upEl.symbolId] ?? []) {
+          // Stop at fluid-transforming elements — traversing through a water heater
+          // from its hot output to its cold input would produce the wrong colour.
+          if (FLUID_BOUNDARY_SYMBOLS.has(upEl.symbolId)) return null;
+          for (const p2 of getElementPorts(upEl)) {
             queue.push(getPortPosition(upEl, p2));
           }
           return 'enqueued';
@@ -76,29 +199,38 @@ function traceFluidFromPos(
 }
 
 /** Returns the fluid type (cold/hot) for a tee/elbow by checking stored property first,
- *  then falling back to a BFS traversal backwards through the pipe network. */
+ *  then falling back to a BFS traversal from each port (upstream first). */
 function getElbowTeeTint(
   el: CanvasElement,
   elements: CanvasElement[],
   pipes: PipeElementType[],
 ): PipeType | null {
-  if (el.carriesFluid) return el.carriesFluid;
+  // Always compute live from the network — carriesFluid on elbows/tees can be
+  // stale (set during placement before pipes were connected or before the pipe
+  // type was changed) and would override the correct BFS result.
+  const ports = getElementPorts(el);
+  if (ports.length === 0) return null;
 
-  const ports = SYMBOL_PORTS[el.symbolId] ?? [];
-  let idx = 0;
+  // Determine which port index is upstream
+  let upstreamIdx = 0;
   if (el.upstreamPortIndices?.length) {
-    idx = el.upstreamPortIndices[0];
+    upstreamIdx = el.upstreamPortIndices[0];
   } else if (el.upstreamPortIndex !== undefined) {
-    idx = el.upstreamPortIndex;
+    upstreamIdx = el.upstreamPortIndex;
   } else {
     const f = ports.findIndex((p) => p.role === 'upstream');
-    if (f >= 0) idx = f;
+    if (f >= 0) upstreamIdx = f;
   }
-  const upPort = ports[idx];
-  if (!upPort) return null;
 
-  const portPos = getPortPosition(el, upPort);
-  return traceFluidFromPos(portPos.x, portPos.y, el.id, elements, pipes);
+  // Try upstream port first, then fall back to all other ports.
+  // This handles rotated/flipped elbows where the cold pipe may enter via any port.
+  const portOrder = [upstreamIdx, ...ports.map((_, i) => i).filter((i) => i !== upstreamIdx)];
+  for (const i of portOrder) {
+    const portPos = getPortPosition(el, ports[i]);
+    const result = traceFluidFromPos(portPos.x, portPos.y, el.id, elements, pipes);
+    if (result) return result;
+  }
+  return null;
 }
 
 interface DragPreview {
@@ -126,15 +258,15 @@ interface ElementsLayerProps {
  */
 function portLabelOffset(relX: number, relY: number): { dx: number; dy: number } {
   if (Math.abs(relX) >= Math.abs(relY)) {
-    // Horizontal port — place label left or right of the dot
+    // Horizontal port — place label just outside the port dot (radius 3)
     return relX < 0
-      ? { dx: -42, dy: -5 }  // left port → label to the left  ("Input" is ~30px wide)
-      : { dx:   8, dy: -5 }; // right port → label to the right
+      ? { dx: -8, dy: -3 }  // left port
+      : { dx:  4, dy: -3 }; // right port
   }
-  // Vertical port — place label above or below the dot
+  // Vertical port
   return relY < 0
-    ? { dx: -10, dy: -16 }   // top port → label above
-    : { dx: -10, dy:   8 };  // bottom port → label below
+    ? { dx: -4, dy: -8 }    // top port
+    : { dx: -4, dy:  4 };   // bottom port
 }
 
 /** Renders the water_fittings text label for an element (or null). */
@@ -163,12 +295,24 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
   const pipes = useCanvasStore((s) => s.pipes);
   const selectedId = useCanvasStore((s) => s.selectedId);
   const selectedIds = useCanvasStore((s) => s.selectedIds);
+  const selectedPipeIds = useCanvasStore((s) => s.selectedPipeIds);
+  const selectedAnnotationIds = useCanvasStore((s) => s.selectedAnnotationIds);
+  const annotations = useCanvasStore((s) => s.annotations);
   const moveMultiple = useCanvasStore((s) => s.moveMultiple);
+  const drawingScale = useUiStore((s) => s.sheetConfig.drawingScale);
+  const symPx = getSymbolSizePx(drawingScale);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const groupRef = useRef<Konva.Group>(null);
 
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const isMultiSelect = selectedIds.length > 1;
+  const selectedPipeIdSet = useMemo(() => new Set(selectedPipeIds), [selectedPipeIds]);
+  const selectedAnnotationIdSet = useMemo(() => new Set(selectedAnnotationIds), [selectedAnnotationIds]);
+
+  const elemById = useMemo(() => new Map(elements.map((el) => [el.id, el])), [elements]);
+  const elementAdj = useMemo(() => buildElementAdjacency(elements, pipes), [elements, pipes]);
+
+  const totalSelected = selectedIds.length + selectedPipeIds.length + selectedAnnotationIds.length;
+  const isMultiSelect = totalSelected > 1;
 
   const groupElements = useMemo(
     () => elements.filter((el) => selectedIdSet.has(el.id)),
@@ -178,19 +322,32 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
     () => elements.filter((el) => !selectedIdSet.has(el.id)),
     [elements, selectedIdSet],
   );
+  const selectedAnnotations = useMemo(
+    () => annotations.filter((ann) => selectedAnnotationIdSet.has(ann.id)),
+    [annotations, selectedAnnotationIdSet],
+  );
 
   // Bounding box for the multi-select Group's transparent hit area
   const groupBBox = useMemo(() => {
-    if (groupElements.length === 0) return null;
+    const selectedPipes = pipes.filter((p) => selectedPipeIdSet.has(p.id));
+    if (groupElements.length === 0 && selectedPipes.length === 0 && selectedAnnotations.length === 0) return null;
     const xs = groupElements.map((el) => el.x);
     const ys = groupElements.map((el) => el.y);
+    for (const p of selectedPipes) {
+      xs.push(p.startX, p.endX);
+      ys.push(p.startY, p.endY);
+    }
+    for (const ann of selectedAnnotations) {
+      xs.push(ann.x, ann.x + ann.maxWidth);
+      ys.push(ann.y);
+    }
     return {
-      minX: Math.min(...xs) - 28,
-      minY: Math.min(...ys) - 28,
-      maxX: Math.max(...xs) + 28,
-      maxY: Math.max(...ys) + 28,
+      minX: Math.min(...xs) - 4,
+      minY: Math.min(...ys) - 4,
+      maxX: Math.max(...xs) + 4,
+      maxY: Math.max(...ys) + 4,
     };
-  }, [groupElements]);
+  }, [groupElements, pipes, selectedPipeIdSet, selectedAnnotations]);
 
   const handleGroupDragEnd = useCallback(() => {
     const group = groupRef.current;
@@ -199,9 +356,9 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
     const dy = group.y();
     group.position({ x: 0, y: 0 });
     if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-      moveMultiple(selectedIds, dx, dy);
+      moveMultiple(selectedIds, dx, dy, selectedPipeIds, selectedAnnotationIds);
     }
-  }, [selectedIds, moveMultiple]);
+  }, [selectedIds, selectedPipeIds, selectedAnnotationIds, moveMultiple]);
 
   return (
     <Layer>
@@ -214,7 +371,7 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
           startY={pipe.startY}
           endX={pipe.endX}
           endY={pipe.endY}
-          isSelected={selectedId === pipe.id}
+          isSelected={selectedId === pipe.id || selectedPipeIdSet.has(pipe.id)}
         />
       ))}
 
@@ -227,6 +384,8 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
             imageUrl={symbolsApi.getImageUrl(el.symbolId)}
             x={el.x}
             y={el.y}
+            width={el.width}
+            height={el.height}
             rotation={el.rotation}
             scaleX={el.scaleX ?? 1}
             isSelected={selectedId === el.id}
@@ -263,20 +422,24 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
             fill="transparent"
           />
           {/* Selection highlight behind each element */}
-          {groupElements.map((el) => (
-            <Rect
-              key={`sel-${el.id}`}
-              x={el.x - 27}
-              y={el.y - 27}
-              width={54}
-              height={54}
-              stroke="#0066cc"
-              strokeWidth={1.5}
-              dash={[4, 3]}
-              fill="rgba(0,102,204,0.07)"
-              listening={false}
-            />
-          ))}
+          {groupElements.map((el) => {
+            const elW = el.width ?? symPx;
+            const elH = el.height ?? symPx;
+            return (
+              <Rect
+                key={`sel-${el.id}`}
+                x={el.x - elW / 2 - 3}
+                y={el.y - elH / 2 - 3}
+                width={elW + 6}
+                height={elH + 6}
+                stroke="#0066cc"
+                strokeWidth={0.7}
+                dash={[4, 3]}
+                fill="rgba(0,102,204,0.07)"
+                listening={false}
+              />
+            );
+          })}
           {/* Selected SymbolNodes — non-draggable (the group handles dragging) */}
           {groupElements.map((el) => (
             <React.Fragment key={el.id}>
@@ -286,6 +449,8 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
                 imageUrl={symbolsApi.getImageUrl(el.symbolId)}
                 x={el.x}
                 y={el.y}
+                width={el.width}
+                height={el.height}
                 rotation={el.rotation}
                 scaleX={el.scaleX ?? 1}
                 isSelected={false}
@@ -298,6 +463,10 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
               <WaterFittingsLabel el={el} />
             </React.Fragment>
           ))}
+          {/* Selected annotations — non-draggable (the group handles dragging) */}
+          {selectedAnnotations.map((ann) => (
+            <AnnotationNode key={ann.id} ann={ann} isSelected={false} draggable={false} />
+          ))}
         </Group>
       )}
 
@@ -305,7 +474,7 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
       {(() => {
         const connStatus = computePortConnectionStatus(elements, pipes);
         return elements.flatMap((el) => {
-          const ports = SYMBOL_PORTS[el.symbolId] ?? [];
+          const ports = getElementPorts(el);
           const elStatus = connStatus.get(el.id) ?? [];
           return ports.map((port, i) => {
             // Exception: water_meter upstream inlet is the mains source — no pipe expected
@@ -315,20 +484,13 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
             const pos = getPortPosition(el, port);
             const connected = elStatus[i] ?? false;
 
-            // Place indicator outward from element centre, past the port dot
-            const relX = pos.x - el.x;
-            const relY = pos.y - el.y;
-            const len = Math.sqrt(relX * relX + relY * relY) || 1;
-            const ix = pos.x + (relX / len) * 11;
-            const iy = pos.y + (relY / len) * 11;
-
             return (
               <Text
                 key={`${el.id}-connstatus-${i}`}
-                x={ix - 5}
-                y={iy - 6}
+                x={pos.x - 1}
+                y={pos.y - 1}
                 text={connected ? '✓' : '✗'}
-                fontSize={9}
+                fontSize={2}
                 fontStyle="bold"
                 fill={connected ? '#22c55e' : '#ef4444'}
                 listening={false}
@@ -338,15 +500,66 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
         });
       })()}
 
+      {/* Long bath >250L capacity badge — amber ! when capacity exceeds the 250L threshold */}
+      {elements.flatMap((el) => {
+        if (el.symbolId !== 'long_bath') return [];
+        if (!el.longBathCapacityL || el.longBathCapacityL <= 250) return [];
+        const halfW = (el.width ?? symPx) / 2;
+        const halfH = (el.height ?? symPx) / 2;
+        const bx = el.x + halfW + 4;
+        const by = el.y - halfH - 4;
+        return [
+          <Circle
+            key={`lb-badge-${el.id}`}
+            x={bx} y={by} radius={4}
+            fill="#f59e0b" stroke="#fff" strokeWidth={1}
+            listening={false}
+          />,
+          <Text
+            key={`lb-text-${el.id}`}
+            x={bx - 3} y={by - 4}
+            text="!" fontSize={8} fontStyle="bold" fill="#fff"
+            listening={false}
+          />,
+        ];
+      })}
+
+      {/* Backflow-risk warning badges — orange ! when no check valve is nearby */}
+      {elements.flatMap((el) => {
+        if (!isBackflowRiskElement(el)) return [];
+        if (bfsCheckProtectionRule(el, elementAdj, elemById, 6)) return [];
+        const halfW = (el.width ?? symPx) / 2;
+        const halfH = (el.height ?? symPx) / 2;
+        const bx = el.x + halfW + 4;
+        const by = el.y - halfH - 4;
+        return [
+          <Circle
+            key={`bf-badge-${el.id}`}
+            x={bx} y={by} radius={4}
+            fill="#f97316" stroke="#fff" strokeWidth={1}
+            listening={false}
+          />,
+          <Text
+            key={`bf-text-${el.id}`}
+            x={bx - 1.3} y={by - 3}
+            text="!" fontSize={8} fontStyle="bold" fill="#fff"
+            listening={false}
+          />,
+        ];
+      })}
+
       {/* Port indicators — shown for the hovered or single-selected element */}
       {elements.flatMap((el) => {
         if (el.id !== hoveredId && el.id !== selectedId) return [];
-        const ports = SYMBOL_PORTS[el.symbolId] ?? [];
+        const ports = getElementPorts(el);
         return ports.map((port, i) => {
           const pos = getPortPosition(el, port);
           const role = getEffectivePortRole(el, i);
           const label = getEffectivePortLabel(el, i);
-          const color = role === 'upstream' ? '#007bff' : '#e63329';
+          const color = label === 'Cold' ? '#007bff'
+            : label === 'Hot' ? '#e63329'
+            : role === 'upstream' ? '#007bff'
+            : '#e63329';
           // Offset label outward from the symbol centre so it doesn't overlap the image
           const relX = pos.x - el.x;
           const relY = pos.y - el.y;
@@ -356,10 +569,10 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
               <Circle
                 x={pos.x}
                 y={pos.y}
-                radius={5}
+                radius={1}
                 fill={color}
                 stroke="#fff"
-                strokeWidth={1.5}
+                strokeWidth={0.5}
                 listening={false}
               />
               {label && (
@@ -367,7 +580,7 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
                   x={pos.x + dx}
                   y={pos.y + dy}
                   text={label}
-                  fontSize={8}
+                  fontSize={2}
                   fill={color}
                   fontStyle="bold"
                   listening={false}
@@ -380,27 +593,39 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
 
       {/* Rubber band selection rectangle + live element highlights */}
       {rubberBand && rubberBand.width > 4 && rubberBand.height > 4 && (() => {
-        const hits = elements.filter(
+        const hitEls = elements.filter(
           (el) =>
             el.x >= rubberBand.x && el.x <= rubberBand.x + rubberBand.width &&
             el.y >= rubberBand.y && el.y <= rubberBand.y + rubberBand.height,
         );
+        const hitPipes = pipes.filter(
+          (p) =>
+            p.startX >= rubberBand.x && p.startX <= rubberBand.x + rubberBand.width &&
+            p.startY >= rubberBand.y && p.startY <= rubberBand.y + rubberBand.height &&
+            p.endX   >= rubberBand.x && p.endX   <= rubberBand.x + rubberBand.width &&
+            p.endY   >= rubberBand.y && p.endY   <= rubberBand.y + rubberBand.height,
+        );
+        const totalHits = hitEls.length + hitPipes.length;
         return (
           <>
             {/* Highlight each element whose centre is inside the band */}
-            {hits.map((el) => (
-              <Rect
-                key={`rb-hit-${el.id}`}
-                x={el.x - 28}
-                y={el.y - 28}
-                width={56}
-                height={56}
-                stroke="#0066cc"
-                strokeWidth={2}
-                fill="rgba(0,102,204,0.15)"
-                listening={false}
-              />
-            ))}
+            {hitEls.map((el) => {
+              const elW = el.width ?? symPx;
+              const elH = el.height ?? symPx;
+              return (
+                <Rect
+                  key={`rb-hit-${el.id}`}
+                  x={el.x - elW / 2 - 4}
+                  y={el.y - elH / 2 - 4}
+                  width={elW + 8}
+                  height={elH + 8}
+                  stroke="#0066cc"
+                  strokeWidth={0.7}
+                  fill="rgba(0,102,204,0.15)"
+                  listening={false}
+                />
+              );
+            })}
             {/* The dashed rubber band rect */}
             <Rect
               x={rubberBand.x}
@@ -408,18 +633,18 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
               width={rubberBand.width}
               height={rubberBand.height}
               stroke="#0066cc"
-              strokeWidth={1}
+              strokeWidth={0.7}
               dash={[5, 3]}
               fill="rgba(0,102,204,0.06)"
               listening={false}
             />
             {/* Count badge */}
-            {hits.length > 0 && (
+            {totalHits > 0 && (
               <Text
                 x={rubberBand.x + rubberBand.width / 2 - 20}
                 y={rubberBand.y + rubberBand.height + 6}
-                text={`${hits.length} selected`}
-                fontSize={11}
+                text={`${totalHits} selected`}
+                fontSize={6}
                 fontStyle="bold"
                 fill="#0066cc"
                 listening={false}
@@ -434,21 +659,21 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
         <Rect
           x={dragPreview.x}
           y={dragPreview.y}
-          width={48}
-          height={48}
-          offsetX={24}
-          offsetY={24}
+          width={symPx}
+          height={symPx}
+          offsetX={symPx / 2}
+          offsetY={symPx / 2}
           stroke="#0066cc"
-          strokeWidth={1.5}
-          dash={[4, 3]}
+          strokeWidth={0.5}
+          dash={[1, 1]}
           fill="rgba(0,102,204,0.06)"
           listening={false}
         />
       )}
       {/* Port preview while dragging from palette */}
       {dragPreview && (SYMBOL_PORTS[dragPreview.symbolId] ?? []).map((port, i) => {
-        // Ports on a freshly-dropped symbol have rotation=0, scaleX=1
-        const { x: rx, y: ry } = rotateOffset(port.offsetX, port.offsetY, 0);
+        const { ox, oy } = getScaledPortOffset(dragPreview.symbolId, port, symPx, symPx, 1);
+        const { x: rx, y: ry } = rotateOffset(ox, oy, 0);
         const px = dragPreview.x + rx;
         const py = dragPreview.y + ry;
         const color = port.role === 'upstream' ? '#007bff' : '#e63329';
@@ -457,8 +682,8 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
           <React.Fragment key={`preview-port-${i}`}>
             <Circle
               x={px} y={py}
-              radius={5} fill={color}
-              stroke="#fff" strokeWidth={1.5}
+              radius={1} fill={color}
+              stroke="#fff" strokeWidth={0.5}
               opacity={0.85}
               listening={false}
             />
@@ -466,7 +691,7 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
               <Text
                 x={px + dx} y={py + dy}
                 text={port.label}
-                fontSize={8} fill={color} fontStyle="bold"
+                fontSize={2} fill={color} fontStyle="bold"
                 opacity={0.85}
                 listening={false}
               />

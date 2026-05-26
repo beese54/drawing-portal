@@ -1,6 +1,5 @@
 import type { EvaluationResponse } from '../../types/evaluation';
-import { ComplianceCheckCard } from '../chat/ComplianceCheckCard';
-import { HydraulicReportCard } from '../chat/HydraulicReportCard';
+import { EvaluationReport } from '../chat/EvaluationReport';
 
 interface Props {
   result: EvaluationResponse;
@@ -25,7 +24,7 @@ export function EvaluationModal({ result, onClose }: Props) {
         style={{
           background: '#0f172a',
           borderRadius: 12,
-          width: 'min(640px, calc(100vw - 32px))',
+          width: 'min(720px, calc(100vw - 32px))',
           maxHeight: '88vh',
           display: 'flex',
           flexDirection: 'column',
@@ -45,10 +44,10 @@ export function EvaluationModal({ result, onClose }: Props) {
         }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0' }}>
-              Compliance Evaluation
+              WSI Compliance Evaluation
             </div>
             <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-              Reg 28 · Supply Mode · MWELS · Tank/Pump · Hydraulics
+              PUB WSI Checklist (Landed) · Sections 3 – 7
             </div>
           </div>
           <button
@@ -68,13 +67,8 @@ export function EvaluationModal({ result, onClose }: Props) {
         </div>
 
         {/* Scrollable results */}
-        <div style={{ overflowY: 'auto', padding: '16px 20px', flex: 1 }}>
-          <ComplianceCheckCard check={result.check1_backflow} />
-          <ComplianceCheckCard check={result.check2_supply_mode} />
-          <ComplianceCheckCard check={result.check3_water_efficiency} />
-          <ComplianceCheckCard check={result.check4_tank_pump} />
-          <ComplianceCheckCard check={result.check5_long_bath} />
-          <HydraulicReportCard report={result.hydraulic_report} llmUsage={null} />
+        <div style={{ overflowY: 'auto', padding: '4px 20px 20px', flex: 1 }}>
+          <EvaluationReport result={result} />
         </div>
       </div>
     </div>

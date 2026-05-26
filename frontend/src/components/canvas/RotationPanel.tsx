@@ -1,7 +1,5 @@
 import { useCanvasStore } from '../../store/canvasStore';
-import { CLOCKWISE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS } from '../../types';
-
-const SYMBOL_SIZE = 48;
+import { CLOCKWISE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, SCHEMATIC_SYMBOL_PX } from '../../types';
 
 interface RotationPanelProps {
   elementId: string;
@@ -10,6 +8,7 @@ interface RotationPanelProps {
   y: number;
   currentRotation: number;
   currentScaleX?: number;
+  elementHalfWidthVp?: number;
 }
 
 const panelStyle: React.CSSProperties = {
@@ -53,14 +52,14 @@ const btnStyle: React.CSSProperties = {
   lineHeight: 1,
 };
 
-export function RotationPanel({ elementId, symbolId, x, y, currentRotation, currentScaleX = 1 }: RotationPanelProps) {
+export function RotationPanel({ elementId, symbolId, x, y, currentRotation, currentScaleX = 1, elementHalfWidthVp = SCHEMATIC_SYMBOL_PX / 2 }: RotationPanelProps) {
   const updateRotation = useCanvasStore((s) => s.updateElementRotation);
   const updateScaleX = useCanvasStore((s) => s.updateElementScaleX);
 
   const posStyle: React.CSSProperties = {
     ...panelStyle,
-    left: x + SYMBOL_SIZE / 2 + 22,
-    top: y - SYMBOL_SIZE / 2,
+    left: x + elementHalfWidthVp + 22,
+    top: y - elementHalfWidthVp,
   };
 
   if ((CLOCKWISE_SYMBOL_IDS as readonly string[]).includes(symbolId)) {
@@ -84,7 +83,7 @@ export function RotationPanel({ elementId, symbolId, x, y, currentRotation, curr
 
   if ((FLIP_ONLY_SYMBOL_IDS as readonly string[]).includes(symbolId)) {
     // water_tank, water_heater, water_meter use scaleX=-1 for mirror; others use rotation=180
-    const isWaterTank = symbolId === 'water_tank' || symbolId === 'water_heater' || symbolId === 'water_meter';
+    const isWaterTank = symbolId === 'water_tank' || symbolId === 'water_heater' || symbolId === 'water_meter' || symbolId === 'pump';
     return (
       <div style={posStyle}>
         <div style={labelStyle}>FLIP</div>

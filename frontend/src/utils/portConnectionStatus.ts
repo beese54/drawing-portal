@@ -1,8 +1,8 @@
 import type { CanvasElement, PipeElement } from '../types';
-import { SYMBOL_PORTS, getPortPosition } from './symbolPorts';
+import { getElementPorts, getPortPosition } from './symbolPorts';
 
 /** Same threshold used by metadataBuilder for port-to-pipe matching. */
-const PORT_MATCH_THRESHOLD = 20; // px
+const PORT_MATCH_THRESHOLD = 2; // px
 
 /**
  * For every element port, determine whether a pipe endpoint lies within
@@ -17,7 +17,7 @@ export function computePortConnectionStatus(
   const status = new Map<string, boolean[]>();
 
   for (const el of elements) {
-    const ports = SYMBOL_PORTS[el.symbolId] ?? [];
+    const ports = getElementPorts(el) ?? [];
     status.set(el.id, new Array(ports.length).fill(false));
   }
 
@@ -28,7 +28,7 @@ export function computePortConnectionStatus(
       [pipe.endX, pipe.endY],
     ] as [number, number][]) {
       for (const el of elements) {
-        const ports = SYMBOL_PORTS[el.symbolId] ?? [];
+        const ports = getElementPorts(el) ?? [];
         const elStatus = status.get(el.id)!;
         for (let i = 0; i < ports.length; i++) {
           const pos = getPortPosition(el, ports[i]);
@@ -44,11 +44,11 @@ export function computePortConnectionStatus(
   // Pass 2: port-to-port proximity (back-to-back symbol connections, no pipe)
   for (let a = 0; a < elements.length; a++) {
     const elA = elements[a];
-    const portsA = SYMBOL_PORTS[elA.symbolId] ?? [];
+    const portsA = getElementPorts(elA);
     const statusA = status.get(elA.id)!;
     for (let b = a + 1; b < elements.length; b++) {
       const elB = elements[b];
-      const portsB = SYMBOL_PORTS[elB.symbolId] ?? [];
+      const portsB = getElementPorts(elB);
       const statusB = status.get(elB.id)!;
       for (let i = 0; i < portsA.length; i++) {
         const posA = getPortPosition(elA, portsA[i]);
@@ -82,7 +82,7 @@ export function getUnconnectedPorts(
   const result: Array<{ elementId: string; elementName: string; portLabel: string }> = [];
 
   for (const el of elements) {
-    const ports = SYMBOL_PORTS[el.symbolId] ?? [];
+    const ports = getElementPorts(el) ?? [];
     const elStatus = status.get(el.id) ?? [];
 
     for (let i = 0; i < ports.length; i++) {

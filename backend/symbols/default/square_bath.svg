@@ -1,0 +1,8 @@
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Supply stub from top -->
+  <line x1="32" y1="0" x2="32" y2="12" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+  <!-- Outer rect -->
+  <rect x="8" y="12" width="48" height="48" stroke="#1a1a1a" stroke-width="2" fill="white"/>
+  <!-- Inner rect -->
+  <rect x="13" y="17" width="38" height="38" stroke="#1a1a1a" stroke-width="1.5" fill="white"/>
+</svg>

@@ -3,11 +3,12 @@ import { Image as KonvaImage } from 'react-konva';
 import useImage from 'use-image';
 import Konva from 'konva';
 import { useCanvasStore } from '../../store/canvasStore';
-import { SYMBOL_PORTS, getPortPosition, rotateOffset } from '../../utils/symbolPorts';
+import { SYMBOL_PORTS, getElementPorts, getPortPosition, getScaledPortOffset, rotateOffset } from '../../utils/symbolPorts';
 import { closestPointOnSegment } from '../../utils/geometry';
 import type { PipeType, PipeElement } from '../../types';
+import { SCHEMATIC_SYMBOL_PX } from '../../types';
 
-const FLUID_MATCH = 20; // px — must match inferFluidFromPipe in DrawingCanvas
+const FLUID_MATCH = 5; // px — slightly above CANVAS_SNAP_THRESHOLD so drag-snapped connections are always detected
 
 /** Same logic as inferFluidFromPipe in DrawingCanvas but runs inside SymbolNode. */
 function inferFluidForElement(
@@ -44,9 +45,7 @@ const TINT_RGB: Record<string, [number, number, number]> = {
   hot:  [230,  51,  41],  // #e63329
 };
 
-const CANVAS_SNAP_THRESHOLD = 20; // px — snap when dragging symbol near another symbol's port
-
-const SYMBOL_SIZE = 48;
+const CANVAS_SNAP_THRESHOLD = 4; // px — snap when dragging symbol near another symbol's port
 
 interface SymbolNodeProps {
   id: string;
@@ -54,6 +53,8 @@ interface SymbolNodeProps {
   imageUrl: string;
   x: number;
   y: number;
+  width?: number;
+  height?: number;
   rotation: number;
   scaleX?: number;
   isSelected: boolean;
@@ -64,7 +65,7 @@ interface SymbolNodeProps {
   onElementClick?: (id: string, symbolId: string) => void;
 }
 
-export function SymbolNode({ id, symbolId, imageUrl, x, y, rotation, scaleX = 1, isSelected, draggable = true, tintPipeType, onHoverEnter, onHoverLeave, onElementClick }: SymbolNodeProps) {
+export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYMBOL_PX, height = SCHEMATIC_SYMBOL_PX, rotation, scaleX = 1, isSelected: _isSelected, draggable = true, tintPipeType, onHoverEnter, onHoverLeave, onElementClick }: SymbolNodeProps) {
   const [image] = useImage(imageUrl, 'anonymous');
   const nodeRef = useRef<Konva.Image>(null);
 
@@ -75,15 +76,17 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, rotation, scaleX = 1,
     const rgb = tintPipeType ? TINT_RGB[tintPipeType] : undefined;
     if (!rgb) return image;
     const [r, g, b] = rgb;
-    const size = SYMBOL_SIZE;
+    // Render at MAX_SCALE (12×) resolution so Konva never upscales the tinted bitmap.
+    const tw = Math.round(width * 12);
+    const th = Math.round(height * 12);
     const offscreen = document.createElement('canvas');
-    offscreen.width = size;
-    offscreen.height = size;
+    offscreen.width = tw;
+    offscreen.height = th;
     const ctx = offscreen.getContext('2d');
     if (!ctx) return image;
     try {
-      ctx.drawImage(image, 0, 0, size, size); // explicit size forces SVG to render
-      const imgData = ctx.getImageData(0, 0, size, size);
+      ctx.drawImage(image, 0, 0, tw, th);
+      const imgData = ctx.getImageData(0, 0, tw, th);
       const d = imgData.data;
       for (let i = 0; i < d.length; i += 4) {
         if (d[i + 3] > 10) { d[i] = r; d[i + 1] = g; d[i + 2] = b; }
@@ -94,13 +97,17 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, rotation, scaleX = 1,
       // CORS taint or other canvas security error — fall back to original image
       return image;
     }
-  }, [image, tintPipeType]);
+  }, [image, tintPipeType, width, height]);
 
   const moveElement = useCanvasStore((s) => s.moveElement);
   const updateCarriesFluid = useCanvasStore((s) => s.updateCarriesFluid);
   const setSelected = useCanvasStore((s) => s.setSelected);
 
-  const half = SYMBOL_SIZE / 2;
+  const halfW = width / 2;
+  const halfH = height / 2;
+
+  // Invisible hit area is at least 14px so tiny symbols remain clickable/draggable
+  const MIN_HIT_PX = 14;
 
   return (
     <>
@@ -109,13 +116,23 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, rotation, scaleX = 1,
         image={tintedImage}
         x={x}
         y={y}
-        width={SYMBOL_SIZE}
-        height={SYMBOL_SIZE}
-        offsetX={half}
-        offsetY={half}
+        width={width}
+        height={height}
+        offsetX={halfW}
+        offsetY={halfH}
         rotation={rotation}
         scaleX={scaleX}
         draggable={draggable}
+        hitFunc={(ctx, shape) => {
+          // Local space origin (0,0) is the image top-left (because offsetX/offsetY shift it).
+          // Center the hit rect at (halfW, halfH) to align with the visible symbol.
+          const hw = Math.max(halfW, MIN_HIT_PX / 5);
+          const hh = Math.max(halfH, MIN_HIT_PX / 5);
+          ctx.beginPath();
+          ctx.rect(halfW - hw, halfH - hh, hw * 2, hh * 2);
+          ctx.closePath();
+          ctx.fillStrokeShape(shape);
+        }}
         onClick={() => { setSelected(id); }}
         onDblClick={() => { setSelected(id); onElementClick?.(id, symbolId); }}
         onTap={() => { setSelected(id); }}
@@ -124,15 +141,15 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, rotation, scaleX = 1,
           const node = e.target as Konva.Node;
           const dragX = node.x();
           const dragY = node.y();
-          const myPorts = SYMBOL_PORTS[symbolId] ?? [];
-          if (myPorts.length === 0) return;
           const { elements, pipes } = useCanvasStore.getState();
+          const thisEl = elements.find((el) => el.id === id);
+          const myPorts = thisEl ? getElementPorts(thisEl) : (SYMBOL_PORTS[symbolId] ?? []);
+          if (myPorts.length === 0) return;
 
           // For tee/elbow: snap via the user-chosen inlet port(s) only.
           // For all others: snap via any port.
           let portsToSnap = myPorts;
           if (symbolId === 'tee_junction' || symbolId === 'elbow_bend') {
-            const thisEl = elements.find((el) => el.id === id);
             if (thisEl?.upstreamPortIndices !== undefined) {
               portsToSnap = thisEl.upstreamPortIndices.map((i) => myPorts[i]).filter(Boolean);
             } else if (thisEl?.upstreamPortIndex !== undefined) {
@@ -143,12 +160,13 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, rotation, scaleX = 1,
 
           // 1. Snap inlet port to another symbol's port
           for (const myPort of portsToSnap) {
-            const rot = rotateOffset(myPort.offsetX * scaleX, myPort.offsetY, rotation);
+            const { ox, oy } = getScaledPortOffset(symbolId, myPort, width, height, scaleX);
+            const rot = rotateOffset(ox, oy, rotation);
             const myPortX = dragX + rot.x;
             const myPortY = dragY + rot.y;
             for (const otherEl of elements) {
               if (otherEl.id === id) continue;
-              const otherPorts = SYMBOL_PORTS[otherEl.symbolId] ?? [];
+              const otherPorts = getElementPorts(otherEl);
               for (const otherPort of otherPorts) {
                 const otherPos = getPortPosition(otherEl, otherPort);
                 const d = Math.sqrt((myPortX - otherPos.x) ** 2 + (myPortY - otherPos.y) ** 2);
@@ -168,7 +186,8 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, rotation, scaleX = 1,
             let bestDy = 0;
             let snapped = false;
             for (const myPort of portsToSnap) {
-              const rot = rotateOffset(myPort.offsetX * scaleX, myPort.offsetY, rotation);
+              const { ox, oy } = getScaledPortOffset(symbolId, myPort, width, height, scaleX);
+              const rot = rotateOffset(ox, oy, rotation);
               const myPortX = dragX + rot.x;
               const myPortY = dragY + rot.y;
               for (const pipe of pipes) {
@@ -193,13 +212,17 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, rotation, scaleX = 1,
         onDragEnd={(e) => {
           const newX = e.target.x();
           const newY = e.target.y();
-          const ports = SYMBOL_PORTS[symbolId] ?? [];
+          const { elements: elsNow } = useCanvasStore.getState();
+          const thisEl = elsNow.find((el) => el.id === id);
+          const ports = thisEl ? getElementPorts(thisEl) : (SYMBOL_PORTS[symbolId] ?? []);
           const oldPorts = ports.map((port) => {
-            const rot = rotateOffset(port.offsetX * scaleX, port.offsetY, rotation);
+            const { ox, oy } = getScaledPortOffset(symbolId, port, width, height, scaleX);
+            const rot = rotateOffset(ox, oy, rotation);
             return { x: x + rot.x, y: y + rot.y };
           });
           const newPorts = ports.map((port) => {
-            const rot = rotateOffset(port.offsetX * scaleX, port.offsetY, rotation);
+            const { ox, oy } = getScaledPortOffset(symbolId, port, width, height, scaleX);
+            const rot = rotateOffset(ox, oy, rotation);
             return { x: newX + rot.x, y: newY + rot.y };
           });
           moveElement(id, newX, newY, oldPorts, newPorts);
@@ -207,7 +230,8 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, rotation, scaleX = 1,
           const { pipes, elements } = useCanvasStore.getState();
           const upstreamPort = ports.find((p) => p.role === 'upstream');
           if (upstreamPort) {
-            const rot = rotateOffset(upstreamPort.offsetX * scaleX, upstreamPort.offsetY, rotation);
+            const { ox, oy } = getScaledPortOffset(symbolId, upstreamPort, width, height, scaleX);
+            const rot = rotateOffset(ox, oy, rotation);
             const fluid = inferFluidForElement(pipes, newX + rot.x, newY + rot.y, elements);
             updateCarriesFluid(id, fluid);
           }

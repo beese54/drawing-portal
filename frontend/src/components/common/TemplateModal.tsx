@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { TEMPLATES } from '../../data/templates';
 import { useCanvasStore } from '../../store/canvasStore';
 
@@ -7,23 +6,13 @@ interface TemplateModalProps {
 }
 
 export function TemplateModal({ onClose }: TemplateModalProps) {
-  const loadTemplate = useCanvasStore((s) => s.loadTemplate);
-  const hasContent = useCanvasStore((s) => s.elements.length > 0 || s.pipes.length > 0);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
-
-  const handleLoad = (templateId: string) => {
-    if (hasContent) {
-      setConfirmId(templateId);
-    } else {
-      applyTemplate(templateId);
-    }
-  };
+  const appendTemplate = useCanvasStore((s) => s.appendTemplate);
 
   const applyTemplate = (templateId: string) => {
     const template = TEMPLATES.find((t) => t.id === templateId);
     if (!template) return;
     const { elements, pipes } = template.generate();
-    loadTemplate(elements, pipes);
+    appendTemplate(elements, pipes);
     onClose();
   };
 
@@ -60,8 +49,8 @@ export function TemplateModal({ onClose }: TemplateModalProps) {
         </div>
 
         <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>
-          Loading a template will replace your current canvas. Remember to fill in pipe
-          sizes, materials, and MRL values for each component after loading.
+          Templates are inserted onto your current canvas. Fill in pipe sizes,
+          materials, and MRL values for each component after loading.
         </p>
 
         {/* Template list */}
@@ -80,45 +69,16 @@ export function TemplateModal({ onClose }: TemplateModalProps) {
               <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.5, marginBottom: 12 }}>
                 {template.description}
               </div>
-
-              {/* Confirmation row */}
-              {confirmId === template.id ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 12, color: '#b45309', flex: 1 }}>
-                    This will replace your current canvas. Continue?
-                  </span>
-                  <button
-                    onClick={() => setConfirmId(null)}
-                    style={{
-                      padding: '5px 12px', border: '1px solid #ccc', borderRadius: 5,
-                      background: '#fff', cursor: 'pointer', fontSize: 12,
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => applyTemplate(template.id)}
-                    style={{
-                      padding: '5px 12px', border: 'none', borderRadius: 5,
-                      background: '#b45309', color: '#fff', cursor: 'pointer',
-                      fontSize: 12, fontWeight: 600,
-                    }}
-                  >
-                    Replace & Load
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => handleLoad(template.id)}
-                  style={{
-                    padding: '6px 16px', border: 'none', borderRadius: 5,
-                    background: '#0066cc', color: '#fff', cursor: 'pointer',
-                    fontSize: 13, fontWeight: 600,
-                  }}
-                >
-                  Load Template
-                </button>
-              )}
+              <button
+                onClick={() => applyTemplate(template.id)}
+                style={{
+                  padding: '6px 16px', border: 'none', borderRadius: 5,
+                  background: '#0066cc', color: '#fff', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600,
+                }}
+              >
+                Insert Template
+              </button>
             </div>
           ))}
         </div>

@@ -1,15 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Supply stub from bottom -->
-  <line x1="32" y1="64" x2="32" y2="52" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Trough body -->
-  <rect x="6" y="30" width="52" height="22" fill="none" stroke="#1a1a1a" stroke-width="2"/>
-  <!-- Four tap crosses above trough -->
-  <line x1="14" y1="26" x2="14" y2="30" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="10" y1="22" x2="18" y2="22" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="25" y1="26" x2="25" y2="30" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="21" y1="22" x2="29" y2="22" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="39" y1="26" x2="39" y2="30" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="35" y1="22" x2="43" y2="22" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="50" y1="26" x2="50" y2="30" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="46" y1="22" x2="54" y2="22" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/>
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg" viewBox="4 22 56 18">
+ <g>
+  <title>Layer 1</title>
+  <line stroke-linecap="undefined" stroke-linejoin="undefined" id="svg_1" y2="100.99999" x2="253.99999" y1="100.99999" x1="251.99999" stroke="#000" fill="none"/>
+  <line stroke="#000" id="svg_65" y2="31.09005" x2="19.48815" y1="31.09005" x1="10.76777" fill="none"/>
+  <path transform="rotate(-1.41522 14.9858 29.4787)" stroke="#000" id="svg_66" d="m15.12796,25.21327l-0.28436,8.53081" opacity="undefined" fill="none"/>
+  <rect stroke="#000" id="svg_68" height="13.36493" width="50.52133" y="24.73934" x="6.9763" fill="none"/>
+  <line stroke="#000" id="svg_73" y2="31.09005" x2="31.62085" y1="31.09005" x1="22.90047" fill="none"/>
+  <path transform="rotate(-1.41522 27.1185 29.4787)" stroke="#000" id="svg_74" d="m27.26066,25.21327l-0.28436,8.53081" opacity="undefined" fill="none"/>
+  <line stroke="#000" id="svg_75" y2="31.09005" x2="43.09005" y1="31.09005" x1="34.36967" fill="none"/>
+  <path transform="rotate(-1.41522 38.5877 29.4787)" stroke="#000" id="svg_76" d="m38.72985,25.21327l-0.28436,8.53081" opacity="undefined" fill="none"/>
+  <line stroke="#000" id="svg_77" y2="31.09005" x2="53.99052" y1="31.09005" x1="45.27014" fill="none"/>
+  <path transform="rotate(-1.41522 49.4881 29.4787)" stroke="#000" id="svg_78" d="m49.63032,25.21327l-0.28436,8.53081" opacity="undefined" fill="none"/>
+ </g>
+
 </svg>

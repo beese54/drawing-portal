@@ -12,27 +12,29 @@ import {
   SupplyMode,
   TankProperties,
   calcTankCapacityLitres,
+  AcknowledgmentFlags,
+  FIXTURE_MWELS_CATEGORY,
 } from '../types';
 import { pixelToMrl } from './mrlMapping';
 import { distance, angleDeg } from './geometry';
-import { SYMBOL_PORTS, getPortPosition, getEffectivePortRole, getEffectivePortLabel } from './symbolPorts';
+import { getElementPorts, getPortPosition, getEffectivePortRole, getEffectivePortLabel } from './symbolPorts';
 
 // ─── Symbol ID → hydraulic node type ─────────────────────────────────────────
 
 const NODE_TYPE_MAP: Record<string, NodeType> = {
-  water_tank:      'source',
-  pump:            'pressure_booster',
-  gate_valve:      'isolation_valve',
-  check_valve:     'check_valve',
-  tee_junction:    'junction',
-  water_heater:    'heat_exchanger',
-  elbow_bend:      'bend',
-  reducer:         'reducer',
-  flow_meter:      'flow_meter',
-  water_meter:     'flow_meter',
-  water_fittings:  'water_fitting',
-  fire_hydrant:    'outlet',
-  sump_manhole:    'outlet',
+  water_tank:            'source',
+  pump:                  'pressure_booster',
+  gate_valve:            'isolation_valve',
+  check_valve:           'check_valve',
+  tee_junction:          'junction',
+  water_heater:          'heat_exchanger',
+  elbow_bend:            'bend',
+  flow_meter:            'flow_meter',
+  water_meter:           'flow_meter',
+  water_fittings:        'water_fitting',
+  pressure_relief_valve: 'check_valve',
+  vacuum_breaker:        'check_valve',
+  bidet_spray:           'water_fitting',
 };
 
 function nodeTypeFor(symbolId: string): NodeType {
@@ -61,13 +63,15 @@ function exportTankProperties(props: TankProperties | undefined): ExportedTankPr
     support_height_m:           num(p.supportHeightM),
     effective_capacity_l:       calcTankCapacityLitres(p),
     is_sunken_tank:             typeof p.isSunkenTank === 'boolean' ? p.isSunkenTank : null,
+    occupants:                  typeof p.occupants === 'number' ? p.occupants : null,
+    daily_demand_m3:            typeof p.occupants === 'number' ? Math.round(p.occupants * 141) / 1000 : null,
   };
 }
 
 // ─── Connectivity helpers ─────────────────────────────────────────────────────
 
 /** Max px a pipe endpoint can be from a port and still count as connected. */
-const PORT_MATCH_THRESHOLD = 20;
+const PORT_MATCH_THRESHOLD = 4;
 
 interface PortMatch {
   elementId: string;
@@ -89,7 +93,7 @@ function findPortMatch(
   let bestDist = PORT_MATCH_THRESHOLD;
 
   for (const el of elements) {
-    const ports = SYMBOL_PORTS[el.symbolId] ?? [];
+    const ports = getElementPorts(el) ?? [];
     for (let i = 0; i < ports.length; i++) {
       const pos = getPortPosition(el, ports[i]);
       const d = distance(px, py, pos.x, pos.y);
@@ -268,6 +272,16 @@ function buildSupplyModes(
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
+const DEFAULT_ACKS: AcknowledgmentFlags = {
+  materialsAcknowledged: false,
+  pumpHeadAcknowledged: false,
+  pumpDischargeMaterialAcknowledged: false,
+  heaterTypeAcknowledged: false,
+  applianceCheckValveAcknowledged: false,
+  bidetVacuumBreakerAcknowledged: false,
+  tankPositionAcknowledged: false,
+};
+
 export function buildMetadata(
   elements: CanvasElement[],
   pipes: PipeElement[],
@@ -275,6 +289,7 @@ export function buildMetadata(
   canvasWidth: number,
   canvasHeight: number,
   sourcePressureBar: number | null = null,
+  acks: AcknowledgmentFlags = DEFAULT_ACKS,
 ): DrawingMetadata {
   const { upperMrl, lowerMrl } = mrlConfig;
 
@@ -330,11 +345,8 @@ export function buildMetadata(
       flow_from_port_index,
       flow_to_element_id,
       flow_to_port_index,
-      length_px:       Math.round(len * 100) / 100,
-      rotation_deg:    Math.round(angleDeg(p.startX, p.startY, p.endX, p.endY) * 100) / 100,
-      length_m:        p.lengthM        ?? null,
-      nominal_size_mm: p.nominalSizeMm  ?? null,
-      material:        p.material       ?? null,
+      length_px:    Math.round(len * 100) / 100,
+      rotation_deg: Math.round(angleDeg(p.startX, p.startY, p.endX, p.endY) * 100) / 100,
     };
   });
 
@@ -351,7 +363,7 @@ export function buildMetadata(
 
   // ── Pass 2: build elements with per-port detail ────────────────────────────
   const exportedElements: ExportedElement[] = elements.map((el) => {
-    const portDefs = SYMBOL_PORTS[el.symbolId] ?? [];
+    const portDefs = getElementPorts(el) ?? [];
 
     const ports: ExportedPort[] = portDefs.map((portDef, i) => {
       const pos   = getPortPosition(el, portDef);
@@ -401,6 +413,11 @@ export function buildMetadata(
       connected_pipe_ids: connectedPipeIds,
       ...(el.symbolId === 'water_fittings' && el.fittingType
         ? { fitting_type: el.fittingType, efficiency_rating: el.efficiencyRating ?? null }
+        : el.symbolId in FIXTURE_MWELS_CATEGORY
+        ? {
+            fitting_type: FIXTURE_MWELS_CATEGORY[el.symbolId] ?? el.fittingType ?? null,
+            efficiency_rating: el.efficiencyRating ?? null,
+          }
         : {}),
       ...(el.symbolId === 'water_tank'
         ? { tank_properties: exportTankProperties(el.tankProperties) }
@@ -572,6 +589,13 @@ export function buildMetadata(
     },
     canvas: { width_px: canvasWidth, height_px: canvasHeight },
     source_pressure_bar: sourcePressureBar,
+    materials_acknowledged: acks.materialsAcknowledged,
+    pump_head_acknowledged: acks.pumpHeadAcknowledged,
+    pump_discharge_material_acknowledged: acks.pumpDischargeMaterialAcknowledged,
+    heater_type_acknowledged: acks.heaterTypeAcknowledged,
+    appliance_check_valve_acknowledged: acks.applianceCheckValveAcknowledged,
+    bidet_vacuum_breaker_acknowledged: acks.bidetVacuumBreakerAcknowledged,
+    tank_position_acknowledged: acks.tankPositionAcknowledged,
     elements: exportedElements,
     pipes: exportedPipes,
     hydraulic_context,

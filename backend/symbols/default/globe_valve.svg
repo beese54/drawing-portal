@@ -1,11 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Connection stubs -->
-  <line x1="0" y1="32" x2="12" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <line x1="52" y1="32" x2="64" y2="32" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- Gate valve triangles -->
-  <polygon points="12,14 12,50 32,32" stroke="#1a1a1a" stroke-width="2" fill="white" stroke-linejoin="round"/>
-  <polygon points="52,14 52,50 32,32" stroke="#1a1a1a" stroke-width="2" fill="white" stroke-linejoin="round"/>
-  <line x1="32" y1="14" x2="32" y2="50" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
-  <!-- Filled center dot (globe distinguisher) -->
-  <circle cx="32" cy="32" r="4" fill="#1a1a1a"/>
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+ <g>
+  <title>Layer 1</title>
+  <line fill="none" stroke="#000" x1="251.99999" y1="100.99999" x2="253.99999" y2="100.99999" id="svg_1" stroke-linejoin="undefined" stroke-linecap="undefined"/>
+  <path fill="none" stroke="#000" opacity="NaN" d="m-235.54444,-389.18518c0.09259,6.11111 5.64815,9.62963 5.59259,9.53704c0.05555,0.09259 -5.68519,-15.64815 -5.59259,-9.53704z" id="svg_113"/>
+  <g transform="rotate(90 32.0748 30.4293)" id="svg_6">
+   <path id="svg_2" d="m17.81949,57.82288l14.46806,-22.65954l14.46806,22.65954l-28.93612,0z" stroke="#000" fill="#fff"/>
+   <path transform="rotate(180 31.862 14.3655)" id="svg_4" d="m17.39396,25.69528l14.46806,-22.65954l14.46806,22.65954l-28.93612,0z" stroke="#000" fill="#fff"/>
+   <ellipse ry="6.70212" rx="7.60637" id="svg_5" cy="30.65948" cx="32.05319" stroke="#000" fill="#000000"/>
+  </g>
+  <line stroke="#000" id="svg_7" y2="31.19139" x2="4.97876" y1="31.19139" x1="0.19154" fill="none"/>
+  <line id="svg_8" y2="30.23395" x2="64.02123" y1="30.12757" x1="59.44677" stroke="#000" fill="none"/>
+ </g>
+
 </svg>
