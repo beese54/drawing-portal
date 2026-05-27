@@ -1,5 +1,5 @@
 {
   "framework": "container",
-  "handle": "soar/sdp-fe",
+  "handle": "soar/spd-fe-2",
   "port": 3000
 }
