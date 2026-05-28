@@ -3,10 +3,8 @@ import { SymbolPalette } from '../panel/SymbolPalette';
 import { ActionPanel } from '../panel/ActionPanel';
 import { SchematicSettingsPanel } from '../panel/SchematicSettingsPanel';
 import { WaterTankPropertiesPanel } from '../panel/WaterTankPropertiesPanel';
-import { DualSupplyPropertiesPanel } from '../panel/DualSupplyPropertiesPanel';
 import { useSymbols } from '../../hooks/useSymbols';
 import { useCanvasStore } from '../../store/canvasStore';
-import { DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
 
 interface ControlPaneProps {
   canvasWidth: number;
@@ -18,7 +16,6 @@ export function ControlPane({ canvasWidth, canvasHeight }: ControlPaneProps) {
   const { selectedId, elements } = useCanvasStore();
   const selectedEl = elements.find((el) => el.id === selectedId);
   const isTankSelected = selectedEl?.symbolId === 'water_tank';
-  const isDualSupplySymbol = selectedEl ? DUAL_SUPPLY_SYMBOLS.has(selectedEl.symbolId) : false;
 
   return (
     <div style={{
@@ -34,7 +31,6 @@ export function ControlPane({ canvasWidth, canvasHeight }: ControlPaneProps) {
     }}>
       <SchematicSettingsPanel />
       {isTankSelected && <WaterTankPropertiesPanel />}
-      {isDualSupplySymbol && <DualSupplyPropertiesPanel />}
       <MrlConfigPanel />
       <SymbolPalette {...symbolsState} />
       <ActionPanel canvasWidth={canvasWidth} canvasHeight={canvasHeight} />

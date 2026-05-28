@@ -12,8 +12,8 @@ import { ElbowBendPortDialog } from './ElbowBendPortDialog';
 import { FlipOrientationDialog } from './FlipOrientationDialog';
 import { WaterFittingsDialog } from './WaterFittingsDialog';
 import { FittingTypePanel } from './FittingTypePanel';
-import { FixtureMwelsPanel } from './FixtureMwelsPanel';
 import { LongBathPanel } from './LongBathPanel';
+import { SymbolPropertiesModal } from './SymbolPropertiesModal';
 import { PdfBackgroundLayer } from './PdfBackgroundLayer';
 import { WaterTankPropertiesModal } from './WaterTankPropertiesModal';
 import { useUiStore } from '../../store/uiStore';
@@ -22,7 +22,7 @@ import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, PAPER_SIZES_MM, SHEET_PX_PER_MM, TITLE_BLOCK_MM, SCHEMATIC_SYMBOL_PX, AXIS_WIDTH, getSymbolSizePx, FIXTURE_MWELS_CATEGORY } from '../../types';
 import { symbolsApi } from '../../api/client';
 import { closestPointOnSegment, distance } from '../../utils/geometry';
-import { SYMBOL_PORTS, rotateOffset, getPortPosition, getEffectivePortRole } from '../../utils/symbolPorts';
+import { SYMBOL_PORTS, rotateOffset, getPortPosition, getEffectivePortRole, DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
 import { renderPdfPageToDataUrl } from '../../utils/pdfRenderer';
 
 const SNAP_THRESHOLD = 4;
@@ -292,6 +292,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
 
   // Water tank: id of the tank whose properties modal is open
   const [tankModalId, setTankModalId] = useState<string | null>(null);
+  const [symbolPropertiesModalId, setSymbolPropertiesModalId] = useState<string | null>(null);
   const tankModalOpenRef = useRef(false);
   tankModalOpenRef.current = !!tankModalId;
 
@@ -522,12 +523,6 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     return el?.symbolId === 'water_fittings' ? el : null;
   });
 
-  // Show MWELS tick panel when a dedicated fixture symbol is selected
-  const selectedFixtureMwels = useCanvasStore((s) => {
-    const el = s.elements.find((e) => e.id === s.selectedId);
-    return el && el.symbolId in FIXTURE_MWELS_CATEGORY ? el : null;
-  });
-
   // Show long bath capacity panel when a long_bath element is selected
   const selectedLongBath = useCanvasStore((s) => {
     const el = s.elements.find((e) => e.id === s.selectedId);
@@ -595,6 +590,13 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     setStageOffsetX(offsetX);
     setStageOffsetY(offsetY);
   }, [virtualWidth, virtualHeight]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Prevent browser page zoom on Ctrl+scroll — canvas should be the only thing that zooms
+  useEffect(() => {
+    const prevent = (e: WheelEvent) => { if (e.ctrlKey) e.preventDefault(); };
+    window.addEventListener('wheel', prevent, { passive: false });
+    return () => window.removeEventListener('wheel', prevent);
+  }, []);
 
   // Wheel scroll — must be non-passive to call preventDefault
   useEffect(() => {
@@ -675,10 +677,12 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     [stageScale, stageOffsetX, stageOffsetY, virtualHeight]
   );
 
-  // Open water tank modal on click
+  // Open properties modal on double-click
   const handleElementClick = useCallback((_id: string, symbolId: string) => {
     if (symbolId === 'water_tank') {
       setTankModalId(_id);
+    } else if (DUAL_SUPPLY_SYMBOLS.has(symbolId) || symbolId in FIXTURE_MWELS_CATEGORY) {
+      setSymbolPropertiesModalId(_id);
     }
   }, []);
 
@@ -1497,6 +1501,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
             ? { symbolId: draggingSymbolId, x: dragOverPos.x, y: dragOverPos.y }
             : null}
           onElementClick={handleElementClick}
+          onElementDblClick={(id) => setSymbolPropertiesModalId(id)}
           rubberBand={rubberBandRect}
         />
         <AnnotationsLayer />
@@ -1715,18 +1720,18 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           />
         );
       })()}
-      {selectedFixtureMwels && activeTool !== 'pipe' && activeTool !== 'cold_pipe' && activeTool !== 'hot_pipe' && (() => {
-        const vp = contentToViewport(selectedFixtureMwels.x, selectedFixtureMwels.y);
-        const halfWidthVp = ((selectedFixtureMwels.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;
+      {symbolPropertiesModalId && (() => {
+        const el = useCanvasStore.getState().elements.find((e) => e.id === symbolPropertiesModalId);
+        if (!el) return null;
+        const vp = contentToViewport(el.x, el.y);
+        const halfWidthVp = ((el.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;
         return (
-          <FixtureMwelsPanel
-            elementId={selectedFixtureMwels.id}
-            symbolId={selectedFixtureMwels.symbolId}
+          <SymbolPropertiesModal
+            elementId={symbolPropertiesModalId}
             x={vp.x}
             y={vp.y}
-            currentFittingTypeId={selectedFixtureMwels.fittingType}
-            currentEfficiencyRating={selectedFixtureMwels.efficiencyRating}
             elementHalfWidthVp={halfWidthVp}
+            onClose={() => setSymbolPropertiesModalId(null)}
           />
         );
       })()}

@@ -103,15 +103,15 @@ export type WaterFittingTypeId = (typeof WATER_FITTING_TYPES)[number]['id'];
  */
 export const FIXTURE_MWELS_CATEGORY: Record<string, WaterFittingTypeId | null> = {
   shower_head:            'shower_tap',
-  multiple_shower_unit:   'shower_tap',
+  multiple_show_unit:     'shower_tap',
   shower_bath:            'shower_tap',
   wash_basin_rectangular: 'basin_tap',
   sink:                   'sink_tap',
   water_closet:           'dual_flushing_cistern',
-  urinal_wall_hung:       'urinal_flush',
-  single_tap:             null,
-  twin_tap:               null,
-  single_tap_combined:    null,
+  urinal_wall:            'urinal_flush',
+  single_tap:             'basin_tap',
+  twin_tap:               'basin_tap',
+  single_tap_combined:    'basin_tap',
 };
 
 /** MWELS category options presented for ambiguous fixture symbols. */

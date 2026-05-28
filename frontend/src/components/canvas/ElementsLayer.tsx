@@ -7,7 +7,7 @@ import { PipeElement } from './PipeElement';
 import { AnnotationNode } from './AnnotationsLayer';
 import { symbolsApi } from '../../api/client';
 import { SYMBOL_PORTS, getElementPorts, getPortPosition, rotateOffset, getEffectivePortRole, getEffectivePortLabel, getScaledPortOffset } from '../../utils/symbolPorts';
-import { WATER_FITTING_TYPES, getSymbolSizePx, isBackflowRiskElement, getBackflowRule } from '../../types';
+import { WATER_FITTING_TYPES, getSymbolSizePx, isBackflowRiskElement, getBackflowRule, FIXTURE_MWELS_CATEGORY } from '../../types';
 import type { CanvasElement, PipeElement as PipeElementType, PipeType } from '../../types';
 import { computePortConnectionStatus } from '../../utils/portConnectionStatus';
 import { useUiStore } from '../../store/uiStore';
@@ -249,6 +249,7 @@ interface RubberBandRect {
 interface ElementsLayerProps {
   dragPreview?: DragPreview | null;
   onElementClick?: (id: string, symbolId: string) => void;
+  onElementDblClick?: (id: string) => void;
   rubberBand?: RubberBandRect | null;
 }
 
@@ -290,7 +291,7 @@ function WaterFittingsLabel({ el }: { el: CanvasElement }) {
   );
 }
 
-export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: ElementsLayerProps) {
+export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, rubberBand }: ElementsLayerProps) {
   const elements = useCanvasStore((s) => s.elements);
   const pipes = useCanvasStore((s) => s.pipes);
   const selectedId = useCanvasStore((s) => s.selectedId);
@@ -299,9 +300,11 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
   const selectedAnnotationIds = useCanvasStore((s) => s.selectedAnnotationIds);
   const annotations = useCanvasStore((s) => s.annotations);
   const moveMultiple = useCanvasStore((s) => s.moveMultiple);
+  const setSelected = useCanvasStore((s) => s.setSelected);
   const drawingScale = useUiStore((s) => s.sheetConfig.drawingScale);
   const symPx = getSymbolSizePx(drawingScale);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [warningTooltip, setWarningTooltip] = useState<{ x: number; y: number; lines: string[] } | null>(null);
   const groupRef = useRef<Konva.Group>(null);
 
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -500,24 +503,23 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
         });
       })()}
 
-      {/* Long bath >250L capacity badge — amber ! when capacity exceeds the 250L threshold */}
+      {/* Long bath >250L capacity badge */}
       {elements.flatMap((el) => {
         if (el.symbolId !== 'long_bath') return [];
         if (!el.longBathCapacityL || el.longBathCapacityL <= 250) return [];
-        const halfW = (el.width ?? symPx) / 2;
-        const halfH = (el.height ?? symPx) / 2;
-        const bx = el.x + halfW + 4;
-        const by = el.y - halfH - 4;
+        const bx = el.x + symPx / 2 + 4;
+        const by = el.y - symPx / 2 - 4;
         return [
           <Circle
             key={`lb-badge-${el.id}`}
             x={bx} y={by} radius={4}
-            fill="#f59e0b" stroke="#fff" strokeWidth={1}
-            listening={false}
+            fill="#f97316" stroke="#fff" strokeWidth={1}
+            onMouseEnter={() => setWarningTooltip({ x: bx, y: by, lines: ['Capacity exceeds 250 L limit (SS636 §6.2)'] })}
+            onMouseLeave={() => setWarningTooltip(null)}
           />,
           <Text
             key={`lb-text-${el.id}`}
-            x={bx - 3} y={by - 4}
+            x={bx - 1.3} y={by - 3}
             text="!" fontSize={8} fontStyle="bold" fill="#fff"
             listening={false}
           />,
@@ -532,15 +534,46 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
         const halfH = (el.height ?? symPx) / 2;
         const bx = el.x + halfW + 4;
         const by = el.y - halfH - 4;
+        const rule = getBackflowRule(el);
+        const ttLines = rule === 'vb_and_check_valve'
+          ? ['Backflow Risk (SS636 §6.5)', 'Requires a vacuum breaker and check valve connected in series']
+          : ['Backflow Risk (SS636 §6.4)', 'Requires 2 check valves connected in series upstream'];
         return [
           <Circle
             key={`bf-badge-${el.id}`}
             x={bx} y={by} radius={4}
             fill="#f97316" stroke="#fff" strokeWidth={1}
-            listening={false}
+            onMouseEnter={() => setWarningTooltip({ x: bx, y: by, lines: ttLines })}
+            onMouseLeave={() => setWarningTooltip(null)}
           />,
           <Text
             key={`bf-text-${el.id}`}
+            x={bx - 1.3} y={by - 3}
+            text="!" fontSize={8} fontStyle="bold" fill="#fff"
+            listening={false}
+          />,
+        ];
+      })}
+
+      {/* MWELS efficiency rating missing badges — orange ! when no rating ticks set */}
+      {elements.flatMap((el) => {
+        const isMwelsFixture = el.symbolId in FIXTURE_MWELS_CATEGORY;
+        const isMwelsFitting = el.symbolId === 'water_fittings' && !!el.fittingType;
+        if (!isMwelsFixture && !isMwelsFitting) return [];
+        if (el.efficiencyRating) return [];
+        const bx = el.x + symPx / 2 + 4;
+        const by = el.y - symPx / 2 - 4;
+        return [
+          <Circle
+            key={`mwels-badge-${el.id}`}
+            x={bx} y={by} radius={4}
+            fill="#f97316" stroke="#fff" strokeWidth={1}
+            onMouseEnter={() => setWarningTooltip({ x: bx, y: by, lines: ['MWELS Rating Missing', 'Double-click symbol to set efficiency ticks'] })}
+            onMouseLeave={() => setWarningTooltip(null)}
+            onClick={() => { setWarningTooltip(null); setSelected(el.id); onElementDblClick?.(el.id); }}
+          />,
+          <Text
+            key={`mwels-text-${el.id}`}
             x={bx - 1.3} y={by - 3}
             text="!" fontSize={8} fontStyle="bold" fill="#fff"
             listening={false}
@@ -699,6 +732,35 @@ export function ElementsLayer({ dragPreview, onElementClick, rubberBand }: Eleme
           </React.Fragment>
         );
       })}
+      {/* Warning tooltip — shown on hover over ! badges */}
+      {warningTooltip && (() => {
+        const PAD = 1.5;
+        const LINE_H = 2.5;
+        const W = 36;
+        const H = warningTooltip.lines.length * LINE_H + PAD * 2;
+        return (
+          <Group x={warningTooltip.x + 8} y={warningTooltip.y - H - 6} listening={false}>
+            <Rect
+              x={0} y={0} width={W} height={H}
+              fill="#1f2937" cornerRadius={3} opacity={0.93}
+              shadowColor="black" shadowBlur={6} shadowOpacity={0.25} shadowOffsetY={1}
+            />
+            {warningTooltip.lines.map((line, i) => (
+              <Text
+                key={i}
+                x={PAD} y={PAD + i * LINE_H}
+                text={line}
+                fontSize={1}
+                fill={i === 0 ? '#fbbf24' : '#d1d5db'}
+                fontStyle={i === 0 ? 'bold' : 'normal'}
+                width={W - PAD * 2}
+                wrap="word"
+                listening={false}
+              />
+            ))}
+          </Group>
+        );
+      })()}
     </Layer>
   );
 }
