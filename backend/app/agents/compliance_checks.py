@@ -82,15 +82,12 @@ NON_MWELS_FITTING_IDS = {"dishwasher", "water_dispenser", "washing_machine", "la
 # Value is the fixed category string, or None when the user must pick basin_tap / sink_tap.
 FIXTURE_MWELS_SYMBOLS: dict[str, str | None] = {
     "shower_head":            "shower_tap",
-    "multiple_shower_unit":   "shower_tap",
+    "multiple_show_unit":     "shower_tap",
     "shower_bath":            "shower_tap",
     "wash_basin_rectangular": "basin_tap",
     "sink":                   "sink_tap",
     "water_closet":           "dual_flushing_cistern",
-    "urinal_wall_hung":       "urinal_flush",
-    "single_tap":             None,
-    "twin_tap":               None,
-    "single_tap_combined":    None,
+    "urinal_wall":            "urinal_flush",
 }
 
 # Design demand (L/s) for network solver — use 2-tick max converted to L/s

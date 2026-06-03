@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { Stage, Layer, Rect as KonvaRect } from 'react-konva';
 import Konva from 'konva';
 import { GridLayer } from './GridLayer';
+import { TitleBlockLayer } from './TitleBlockLayer';
 import { ElementsLayer } from './ElementsLayer';
 import { AnnotationsLayer } from './AnnotationsLayer';
 import { AnnotationContextMenu } from './AnnotationContextMenu';
@@ -19,7 +20,7 @@ import { WaterTankPropertiesModal } from './WaterTankPropertiesModal';
 import { useUiStore } from '../../store/uiStore';
 import { useCanvasStore } from '../../store/canvasStore';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
-import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, PAPER_SIZES_MM, SHEET_PX_PER_MM, TITLE_BLOCK_MM, SCHEMATIC_SYMBOL_PX, AXIS_WIDTH, getSymbolSizePx, FIXTURE_MWELS_CATEGORY } from '../../types';
+import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, PAPER_SIZES_MM, SHEET_PX_PER_MM, SCHEMATIC_SYMBOL_PX, AXIS_WIDTH, getSymbolSizePx, FIXTURE_MWELS_CATEGORY } from '../../types';
 import { symbolsApi } from '../../api/client';
 import { closestPointOnSegment, distance } from '../../utils/geometry';
 import { SYMBOL_PORTS, rotateOffset, getPortPosition, getEffectivePortRole, DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
@@ -321,143 +322,44 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     contentY: number;
   } | null>(null);
 
-  // Register JPG export function — captures the full virtual canvas (entire MRL range)
+  // Register JPG export — title block is part of the stage, so just capture the full virtual canvas
   useEffect(() => {
     registerExportJpg(() => {
       const stage = stageRef.current;
       if (!stage) return;
 
-      // Save current transform
       const prevX      = stage.x();
       const prevY      = stage.y();
       const prevScaleX = stage.scaleX();
       const prevScaleY = stage.scaleY();
+      const prevWidth  = stage.width();
       const prevHeight = stage.height();
-      const vHeight    = PAPER_SIZES_MM[sheetConfig.paperSize].h * SHEET_PX_PER_MM;
 
-      // Reset to full-canvas view at scale=1 — must zero x too so centered offset
-      // (negative stageOffsetX) doesn't shift the exported image
       stage.x(0);
       stage.y(0);
       stage.scaleX(1);
       stage.scaleY(1);
-      stage.height(vHeight);
+      stage.width(virtualWidth);
+      stage.height(virtualHeight);
       stage.draw();
 
-      // Export as PNG first (preserves transparency), then composite onto white
-      const pngUrl = stage.toDataURL({ mimeType: 'image/png', pixelRatio: 2 });
+      const jpgUrl = stage.toDataURL({ mimeType: 'image/jpeg', quality: 0.95, pixelRatio: 2 });
 
-      // Restore immediately so the UI isn't frozen waiting for the image to load
       stage.x(prevX);
       stage.y(prevY);
       stage.scaleX(prevScaleX);
       stage.scaleY(prevScaleY);
+      stage.width(prevWidth);
       stage.height(prevHeight);
       stage.draw();
 
-      const img = new Image();
-      img.onload = () => {
-        const pixelRatio = 2;
-        const tbPx = Math.round(TITLE_BLOCK_MM * SHEET_PX_PER_MM * pixelRatio);
-
-        const offscreen = document.createElement('canvas');
-        offscreen.width = img.width + tbPx;
-        offscreen.height = img.height;
-        const ctx = offscreen.getContext('2d')!;
-
-        // White background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-        ctx.drawImage(img, 0, 0);
-
-        // Title block strip
-        ctx.fillStyle = '#f8fafc';
-        ctx.fillRect(img.width, 0, tbPx, img.height);
-
-        // Left border of title block
-        ctx.strokeStyle = '#1a3a5c';
-        ctx.lineWidth = 2 * pixelRatio;
-        ctx.beginPath();
-        ctx.moveTo(img.width, 0);
-        ctx.lineTo(img.width, img.height);
-        ctx.stroke();
-
-        // Title block content
-        const tbX = img.width + 14 * pixelRatio;
-        const tbRight = img.width + tbPx - 10 * pixelRatio;
-        const { titleBlock, drawingScale } = sheetConfig;
-
-        // Header
-        ctx.fillStyle = '#1a3a5c';
-        ctx.font = `bold ${13 * pixelRatio}px Arial, sans-serif`;
-        ctx.fillText('SCHEMATIC DRAWING', tbX, 22 * pixelRatio);
-        ctx.strokeStyle = '#1a3a5c';
-        ctx.lineWidth = 1 * pixelRatio;
-        ctx.beginPath();
-        ctx.moveTo(img.width + 10 * pixelRatio, 26 * pixelRatio);
-        ctx.lineTo(tbRight, 26 * pixelRatio);
-        ctx.stroke();
-
-        const drawField = (label: string, value: string, y: number) => {
-          ctx.font = `${8 * pixelRatio}px Arial, sans-serif`;
-          ctx.fillStyle = '#6b7280';
-          ctx.fillText(label.toUpperCase(), tbX, y);
-          ctx.font = `${11 * pixelRatio}px Arial, sans-serif`;
-          ctx.fillStyle = '#111827';
-          ctx.fillText(value || '—', tbX, y + 11 * pixelRatio);
-          ctx.strokeStyle = '#e5e7eb';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(img.width + 10 * pixelRatio, y + 18 * pixelRatio);
-          ctx.lineTo(tbRight, y + 18 * pixelRatio);
-          ctx.stroke();
-        };
-
-        let y = 38 * pixelRatio;
-        const step = 22 * pixelRatio;
-        drawField('Project', titleBlock.projectName, y); y += step;
-        drawField('Drawing No.', titleBlock.drawingNo, y); y += step;
-        drawField('Scale', `1:${drawingScale}`, y); y += step;
-        drawField('Date', titleBlock.date, y); y += step;
-        drawField('Drawn By', titleBlock.drawnBy, y); y += step;
-        drawField('Checked By', titleBlock.checkedBy, y); y += step;
-        drawField('Rev.', titleBlock.rev, y); y += step + 6 * pixelRatio;
-
-        // LP/PE stamp image
-        if (titleBlock.stampImage) {
-          const stampImg = new Image();
-          stampImg.onload = () => {
-            const maxW = (tbPx - 24) * pixelRatio;
-            const maxH = 60 * pixelRatio;
-            const scale = Math.min(maxW / stampImg.width, maxH / stampImg.height, 1);
-            const sw = stampImg.width * scale;
-            const sh = stampImg.height * scale;
-            // Label
-            ctx.font = `${8 * pixelRatio}px Arial, sans-serif`;
-            ctx.fillStyle = '#6b7280';
-            ctx.fillText('LP / PE STAMP & SIGNATURE', tbX, y);
-            // Stamp box
-            const boxY = y + 4 * pixelRatio;
-            const boxW = tbPx - 20 * pixelRatio;
-            const boxH = maxH + 8 * pixelRatio;
-            ctx.strokeStyle = '#e5e7eb';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(img.width + 10 * pixelRatio, boxY, boxW, boxH);
-            // Draw stamp centred in box
-            ctx.drawImage(stampImg, img.width + 10 * pixelRatio + (boxW - sw) / 2, boxY + (boxH - sh) / 2, sw, sh);
-          };
-          stampImg.src = titleBlock.stampImage;
-        }
-
-        const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
-        const a = document.createElement('a');
-        a.href = offscreen.toDataURL('image/jpeg', 0.95);
-        a.download = `schematic_${ts}.jpg`;
-        a.click();
-      };
-      img.src = pngUrl;
+      const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+      const a = document.createElement('a');
+      a.href = jpgUrl;
+      a.download = `schematic_${ts}.jpg`;
+      a.click();
     });
-  }, [registerExportJpg, canvasSize.height, sheetConfig]);
+  }, [registerExportJpg, virtualWidth, virtualHeight]);
 
   // Delete selected element or pipe with Delete/Backspace key; Escape clears pending placement
   useEffect(() => {
@@ -1496,6 +1398,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           floorLevels={floorLevels}
           floorLevelOpacity={floorLevelOpacity}
         />
+        <TitleBlockLayer sheetConfig={sheetConfig} />
         <ElementsLayer
           dragPreview={draggingSymbolId && dragOverPos
             ? { symbolId: draggingSymbolId, x: dragOverPos.x, y: dragOverPos.y }

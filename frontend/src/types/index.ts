@@ -51,12 +51,20 @@ export function getPxPerMetre(drawingScale: DrawingScale): number {
 }
 
 export interface TitleBlockData {
-  projectName: string;
-  drawingNo:   string;
-  drawnBy:     string;
-  checkedBy:   string;
-  date:        string;
-  rev:         string;
+  // Free-form block sections (textarea — line breaks preserved)
+  ownerDeveloper?:     string;
+  lpEngineer?:         string;
+  projectName:         string;
+  mainContractor?:     string;
+  plumbingContractor?: string;
+  // Short structured fields (bottom table)
+  drawingNo:  string;
+  drawnBy:    string;
+  checkedBy:  string;
+  date:       string;
+  rev:        string;
+  /** Base64 data-URL of the owner/developer signature image */
+  ownerStamp?: string;
   /** Base64 data-URL of the LP/PE stamp/signature image */
   stampImage?: string;
 }
@@ -71,12 +79,16 @@ export const DEFAULT_SHEET_CONFIG: SheetConfig = {
   paperSize:    'A3',
   drawingScale: 50,
   titleBlock: {
-    projectName: '',
-    drawingNo:   '',
-    drawnBy:     '',
-    checkedBy:   '',
-    date:        new Date().toISOString().slice(0, 10),
-    rev:         '-',
+    ownerDeveloper:     '',
+    lpEngineer:         '',
+    projectName:        '',
+    mainContractor:     '',
+    plumbingContractor: '',
+    drawingNo:          '',
+    drawnBy:            '',
+    checkedBy:          '',
+    date:               new Date().toISOString().slice(0, 10),
+    rev:                '-',
   },
 };
 export type PipeType = 'generic' | 'cold' | 'hot';
@@ -109,9 +121,6 @@ export const FIXTURE_MWELS_CATEGORY: Record<string, WaterFittingTypeId | null> =
   sink:                   'sink_tap',
   water_closet:           'dual_flushing_cistern',
   urinal_wall:            'urinal_flush',
-  single_tap:             'basin_tap',
-  twin_tap:               'basin_tap',
-  single_tap_combined:    'basin_tap',
 };
 
 /** MWELS category options presented for ambiguous fixture symbols. */

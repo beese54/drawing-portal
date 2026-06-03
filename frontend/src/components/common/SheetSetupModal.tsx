@@ -206,62 +206,117 @@ export function SheetSetupModal() {
 
           {/* ── Title Block tab ───────────────────────────── */}
           {tab === 'titleblock' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
+              {/* ── Block sections ── */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+                Block Sections
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                <div>
+                  <TextAreaField
+                    label="Owner / Developer"
+                    hint="Name, address, email, phone"
+                    value={draft.titleBlock.ownerDeveloper ?? ''}
+                    onChange={(v) => setTB('ownerDeveloper', v)}
+                  />
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Stamp / Signature Image</div>
+                    {draft.titleBlock.ownerStamp ? (
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                        <div style={{ border: '1px solid #d1d5db', borderRadius: 5, padding: 6, background: '#f9fafb' }}>
+                          <img src={draft.titleBlock.ownerStamp} alt="Owner stamp" style={{ maxWidth: 140, maxHeight: 60, display: 'block', objectFit: 'contain' }} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          <StampButton label="Replace" onClick={() => triggerStampUpload((v) => setTB('ownerStamp', v))} />
+                          <StampButton label="Remove"  danger onClick={() => setTB('ownerStamp', '')} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => triggerStampUpload((v) => setTB('ownerStamp', v))}
+                        style={{ border: '2px dashed #d1d5db', borderRadius: 6, padding: '12px 16px', textAlign: 'center', cursor: 'pointer', background: '#fafafa' }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#2563eb'; (e.currentTarget as HTMLDivElement).style.background = '#eff6ff'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
+                      >
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>⬆ Upload stamp / signature</div>
+                        <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>PNG, JPG or WebP · transparent background recommended</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <TextAreaField
+                    label="LP / PE Engineer"
+                    hint="Name, company, address, email, phone"
+                    value={draft.titleBlock.lpEngineer ?? ''}
+                    onChange={(v) => setTB('lpEngineer', v)}
+                  />
+                  {/* Stamp upload inline below LP/PE textarea */}
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Stamp / Signature Image</div>
+                    {draft.titleBlock.stampImage ? (
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                        <div style={{ border: '1px solid #d1d5db', borderRadius: 5, padding: 6, background: '#f9fafb' }}>
+                          <img src={draft.titleBlock.stampImage} alt="Stamp" style={{ maxWidth: 140, maxHeight: 60, display: 'block', objectFit: 'contain' }} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          <StampButton label="Replace" onClick={() => triggerStampUpload((v) => setTB('stampImage', v))} />
+                          <StampButton label="Remove"  danger onClick={() => setTB('stampImage', '')} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => triggerStampUpload((v) => setTB('stampImage', v))}
+                        style={{ border: '2px dashed #d1d5db', borderRadius: 6, padding: '12px 16px', textAlign: 'center', cursor: 'pointer', background: '#fafafa' }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#2563eb'; (e.currentTarget as HTMLDivElement).style.background = '#eff6ff'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
+                      >
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>⬆ Upload stamp / signature</div>
+                        <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>PNG, JPG or WebP · transparent background recommended</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <TextAreaField
+                  label="Project Title"
+                  hint="Full project description"
+                  value={draft.titleBlock.projectName}
+                  onChange={(v) => setTB('projectName', v)}
+                />
+
+                <TextAreaField
+                  label="Main Contractor"
+                  hint="Company name, address, phone"
+                  value={draft.titleBlock.mainContractor ?? ''}
+                  onChange={(v) => setTB('mainContractor', v)}
+                />
+
+                <TextAreaField
+                  label="Plumbing Contractor"
+                  hint="Company name, address, phone, email"
+                  value={draft.titleBlock.plumbingContractor ?? ''}
+                  onChange={(v) => setTB('plumbingContractor', v)}
+                />
+              </div>
+
+              {/* ── Drawing Info ── */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 22, marginBottom: 12, paddingTop: 18, borderTop: '1px solid #e5e7eb' }}>
+                Drawing Info
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <Field label="Project Name" value={draft.titleBlock.projectName} onChange={(v) => setTB('projectName', v)} />
+                <Field label="Drawn By"    value={draft.titleBlock.drawnBy}   onChange={(v) => setTB('drawnBy', v)} />
+                <Field label="Checked By"  value={draft.titleBlock.checkedBy} onChange={(v) => setTB('checkedBy', v)} />
+                <Field label="Date"        value={draft.titleBlock.date}      onChange={(v) => setTB('date', v)} type="date" />
+                <Field label="Rev."        value={draft.titleBlock.rev}       onChange={(v) => setTB('rev', v)} />
+              </div>
+              <div style={{ marginTop: 10 }}>
                 <Field label="Drawing No." value={draft.titleBlock.drawingNo} onChange={(v) => setTB('drawingNo', v)} />
-                <Field label="Drawn By"    value={draft.titleBlock.drawnBy}    onChange={(v) => setTB('drawnBy', v)} />
-                <Field label="Checked By"  value={draft.titleBlock.checkedBy}  onChange={(v) => setTB('checkedBy', v)} />
-                <Field label="Date"        value={draft.titleBlock.date}       onChange={(v) => setTB('date', v)} type="date" />
-                <Field label="Rev."        value={draft.titleBlock.rev}        onChange={(v) => setTB('rev', v)} />
               </div>
 
-              {/* Stamp upload */}
-              <div>
-                <div style={LABEL}>LP / PE Stamp &amp; Signature</div>
-                {draft.titleBlock.stampImage ? (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    <div style={{
-                      border: '1px solid #d1d5db', borderRadius: 6, padding: 8,
-                      background: '#f9fafb', display: 'inline-block',
-                    }}>
-                      <img
-                        src={draft.titleBlock.stampImage}
-                        alt="Stamp preview"
-                        style={{ maxWidth: 180, maxHeight: 80, display: 'block', objectFit: 'contain' }}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <StampButton label="Replace" onClick={() => triggerStampUpload((v) => setTB('stampImage', v))} />
-                      <StampButton label="Remove"  danger onClick={() => setTB('stampImage', '')} />
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => triggerStampUpload((v) => setTB('stampImage', v))}
-                    style={{
-                      border: '2px dashed #d1d5db', borderRadius: 8,
-                      padding: '20px 16px', textAlign: 'center',
-                      cursor: 'pointer', background: '#fafafa',
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.borderColor = '#2563eb';
-                      (e.currentTarget as HTMLDivElement).style.background = '#eff6ff';
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db';
-                      (e.currentTarget as HTMLDivElement).style.background = '#fafafa';
-                    }}
-                  >
-                    <div style={{ fontSize: 22, marginBottom: 4, color: '#9ca3af' }}>⬆</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 2 }}>
-                      Upload stamp / signature
-                    </div>
-                    <div style={{ fontSize: 11, color: '#9ca3af' }}>PNG, JPG or WebP · transparent background recommended</div>
-                  </div>
-                )}
-              </div>
             </div>
           )}
         </div>
@@ -344,6 +399,30 @@ function Field({ label, value, onChange, type = 'text' }: {
         style={{
           width: '100%', padding: '7px 9px', border: '1px solid #d1d5db',
           borderRadius: 5, fontSize: 13, outline: 'none', boxSizing: 'border-box',
+        }}
+      />
+    </div>
+  );
+}
+
+function TextAreaField({ label, hint, value, onChange }: {
+  label: string; hint?: string; value: string; onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
+        <label style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{label}</label>
+        {hint && <span style={{ fontSize: 10, color: '#9ca3af' }}>{hint}</span>}
+      </div>
+      <textarea
+        value={value}
+        rows={4}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={hint}
+        style={{
+          width: '100%', padding: '7px 9px', border: '1px solid #d1d5db',
+          borderRadius: 5, fontSize: 12, outline: 'none', boxSizing: 'border-box',
+          resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, color: '#111',
         }}
       />
     </div>

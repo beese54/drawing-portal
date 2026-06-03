@@ -177,11 +177,6 @@ def run_checks(
     ----------
     metadata : dict
         DrawingMetadata JSON from the frontend.
-    velocities : dict, optional
-        pipe_id → velocity (m/s) from hydraulic engine.
-    node_pressures : dict, optional
-        node_id → pressure (bar) from hydraulic engine.
-
     Returns
     -------
     RulesReport
