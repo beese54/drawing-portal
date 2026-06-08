@@ -274,7 +274,7 @@ export function WaterTankPropertiesModal({ tankId, onClose }: Props) {
             {/* Supports + Occupants on one row */}
             <SectionHead title="Other" />
             <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-              <NumField label="Support Height"   unit="m"       placeholder="default 0.6" value={draft.supportHeightM} onChange={(v) => setField('supportHeightM', v)} />
+              <NumField label="Support Height" unit="m" placeholder="blank = 0.6 m" inputWidth={110} value={draft.supportHeightM} onChange={(v) => setField('supportHeightM', v)} />
               <NumField
                 label="Occupants" unit="persons"
                 value={draft.occupants} placeholder="e.g. 120"
@@ -598,9 +598,10 @@ interface NumFieldProps {
   onChange: (raw: string) => void;
   error?: string;
   hint?: string;
+  inputWidth?: number;
 }
 
-function NumField({ label, unit, value, placeholder, onChange, error, hint }: NumFieldProps) {
+function NumField({ label, unit, value, placeholder, onChange, error, hint, inputWidth = 80 }: NumFieldProps) {
   return (
     <div style={{ marginBottom: 6 }}>
       <label style={{ display: 'block', fontSize: 11, color: error ? '#dc2626' : '#475569', marginBottom: 3 }}>
@@ -612,7 +613,7 @@ function NumField({ label, unit, value, placeholder, onChange, error, hint }: Nu
           value={value ?? ''} placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
           style={{
-            width: 80, minWidth: 0, padding: '5px 7px',
+            width: inputWidth, minWidth: 0, padding: '5px 7px',
             border: `1px solid ${error ? '#dc2626' : '#d1d5db'}`,
             borderRadius: 4, fontSize: 13,
             background: error ? '#fef2f2' : '#fff',
