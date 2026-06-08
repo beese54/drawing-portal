@@ -83,8 +83,9 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
 
   const LEGEND_ROW_H = 12;
   const LEGEND_HDR_H = 14;
-  const LEGEND_MAX_ROWS = 10;
-  const legendRows = Math.min(uniqueSymbols.length, LEGEND_MAX_ROWS);
+  const LEGEND_COLS = 2;
+  const LEGEND_MAX_ROWS = 12; // max rows per column (= 24 symbols total)
+  const legendRows = Math.min(Math.ceil(uniqueSymbols.length / LEGEND_COLS), LEGEND_MAX_ROWS);
   const legendH = uniqueSymbols.length > 0 ? LEGEND_HDR_H + legendRows * LEGEND_ROW_H + 4 : 0;
 
   // ── Fixed heights ──────────────────────────────────────────────
@@ -224,8 +225,12 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
                 listening={false} />
           <Line points={[tbX, yLegend + LEGEND_HDR_H - 1, tbX + tbW, yLegend + LEGEND_HDR_H - 1]}
                 stroke={BORDER} strokeWidth={0.5} listening={false} />
-          {uniqueSymbols.slice(0, LEGEND_MAX_ROWS).map(({ symbolId, symbolName }, i) => {
-            const rowY = yLegend + LEGEND_HDR_H + i * LEGEND_ROW_H;
+          {uniqueSymbols.slice(0, LEGEND_MAX_ROWS * LEGEND_COLS).map(({ symbolId, symbolName }, i) => {
+            const col = i % LEGEND_COLS;
+            const row = Math.floor(i / LEGEND_COLS);
+            const colW = Math.floor(tbW / LEGEND_COLS);
+            const rowY = yLegend + LEGEND_HDR_H + row * LEGEND_ROW_H;
+            const colX = tbX + col * colW;
             const img = legendImgs.get(symbolId);
             const iconSize = LEGEND_ROW_H - 2;
             return (
@@ -233,7 +238,7 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
                 {img && (
                   <KonvaImage
                     image={img}
-                    x={tbX + PAD}
+                    x={colX + PAD}
                     y={rowY + 1}
                     width={iconSize}
                     height={iconSize}
@@ -241,19 +246,25 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
                   />
                 )}
                 <Text
-                  x={tbX + PAD + iconSize + 3}
+                  x={colX + PAD + iconSize + 3}
                   y={rowY + 2}
                   text={symbolName}
                   fontSize={7}
                   fill={VAL_CLR}
                   listening={false}
-                  width={tbW - PAD * 2 - iconSize - 3}
+                  width={colW - PAD * 2 - iconSize - 3}
                   ellipsis
                   wrap="none"
                 />
               </React.Fragment>
             );
           })}
+          {LEGEND_COLS > 1 && legendH > 0 && (
+            <Line
+              points={[tbX + Math.floor(tbW / LEGEND_COLS), yLegend + LEGEND_HDR_H, tbX + Math.floor(tbW / LEGEND_COLS), yLegend + legendH]}
+              stroke={BORDER} strokeWidth={0.5} listening={false}
+            />
+          )}
         </>
       )}
 

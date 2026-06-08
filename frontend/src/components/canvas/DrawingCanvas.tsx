@@ -1716,7 +1716,12 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         />
       )}
       {editingAnnotation && (
-        <div style={{ position: 'fixed', left: editingAnnotation.screenX, top: editingAnnotation.screenY, zIndex: 3000 }}>
+        <div
+          style={{ position: 'fixed', left: editingAnnotation.screenX, top: editingAnnotation.screenY, zIndex: 3000 }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           <textarea
             autoFocus
             defaultValue={editingAnnotation.text}
@@ -1725,7 +1730,13 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
               width: 220, padding: '4px 6px', fontSize: 11, fontFamily: 'inherit',
               border: '2px solid #0066cc', borderRadius: 4, outline: 'none',
               background: '#fffde7', resize: 'both', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+              cursor: 'text',
             }}
+            onFocus={(e) => {
+              const len = e.target.value.length;
+              e.target.setSelectionRange(len, len);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
             onBlur={(e) => {
               if (e.target.value.trim()) updateAnnotation(editingAnnotation.id, e.target.value.trim());
               setEditingAnnotation(null);
