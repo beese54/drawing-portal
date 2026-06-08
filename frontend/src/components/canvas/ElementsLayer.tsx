@@ -503,7 +503,31 @@ export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, 
         });
       })()}
 
-      {/* Long bath >250L capacity badge */}
+      {/* Long bath — capacity not set badge (PUB requirement: must be indicated on drawing) */}
+      {elements.flatMap((el) => {
+        if (el.symbolId !== 'long_bath') return [];
+        if (el.longBathCapacityL) return []; // capacity is set — no badge
+        const bx = el.x + symPx / 2 + 4;
+        const by = el.y - symPx / 2 - 4;
+        return [
+          <Circle
+            key={`lb-nocap-badge-${el.id}`}
+            x={bx} y={by} radius={4}
+            fill="#f97316" stroke="#fff" strokeWidth={1}
+            onMouseEnter={() => setWarningTooltip({ x: bx, y: by, lines: ['Long Bath Capacity Not Set', 'Capacity must be indicated on drawing (PUB requirement)', 'Double-click symbol to enter capacity'] })}
+            onMouseLeave={() => setWarningTooltip(null)}
+            onClick={() => { setWarningTooltip(null); setSelected(el.id); onElementDblClick?.(el.id); }}
+          />,
+          <Text
+            key={`lb-nocap-text-${el.id}`}
+            x={bx - 1.3} y={by - 3}
+            text="!" fontSize={8} fontStyle="bold" fill="#fff"
+            listening={false}
+          />,
+        ];
+      })}
+
+      {/* Long bath >250L capacity badge — recycling facilities required */}
       {elements.flatMap((el) => {
         if (el.symbolId !== 'long_bath') return [];
         if (!el.longBathCapacityL || el.longBathCapacityL <= 250) return [];
@@ -514,7 +538,7 @@ export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, 
             key={`lb-badge-${el.id}`}
             x={bx} y={by} radius={4}
             fill="#f97316" stroke="#fff" strokeWidth={1}
-            onMouseEnter={() => setWarningTooltip({ x: bx, y: by, lines: ['Capacity exceeds 250 L limit (SS636 §6.2)'] })}
+            onMouseEnter={() => setWarningTooltip({ x: bx, y: by, lines: ['Capacity exceeds 250 L (SS636 §6.2)', 'Recycling facilities required — no drain plug, full recirculation, backwash to sewer'] })}
             onMouseLeave={() => setWarningTooltip(null)}
           />,
           <Text

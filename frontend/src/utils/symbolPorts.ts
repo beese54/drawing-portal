@@ -55,8 +55,8 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'downstream', offsetX:   0, offsetY:  24, label: 'out' },
   ],
   water_tank: [
-    { role: 'upstream',   offsetX: -12, offsetY: -18, label: 'Input'  },  // top-left  (inlet) — -18 aligns with SVG body top (y=8 in 64px viewBox → -24*(48/64) = -18 in 48px ref)
-    { role: 'downstream', offsetX:  12, offsetY:  18, label: 'Output' },  // bottom-right (outlet)
+    { role: 'upstream',   offsetX: -22, offsetY: -18, label: 'Input'  },  // top-left  (inlet) — -18 aligns with SVG body top (y=8 in 64px viewBox → -24*(48/64) = -18 in 48px ref)
+    { role: 'downstream', offsetX:  22, offsetY:  18, label: 'Output' },  // bottom-right (outlet)
   ],
   water_heater: [
     { role: 'upstream',   offsetX: -24, offsetY:   0, label: 'Input'  },  // left side (inlet)
@@ -211,8 +211,8 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'downstream', offsetX:   0, offsetY: 24, label: 'Branch'  },
   ],
   sampling_tap: [
-    { role: 'upstream',   offsetX:   -12, offsetY: 20, label: 'Input'  },
-    { role: 'downstream', offsetX:  20, offsetY:  0, label: 'Output' },
+    { role: 'upstream',   offsetX:   -16, offsetY: 20, label: 'Input'  },
+    { role: 'downstream', offsetX:  18, offsetY:  0, label: 'Output' },
   ],
 
   y_type_strainer: [
@@ -338,7 +338,24 @@ export function getPortPosition(
   port: SymbolPortDef
 ): { x: number; y: number } {
   const sx = element.scaleX ?? 1;
-  const { ox, oy } = getScaledPortOffset(element.symbolId, port, element.width, element.height, sx);
+  const w = element.width ?? SYMBOL_SIZE;
+  const h = element.height ?? SYMBOL_SIZE;
+
+  // Water tank: pin Input to the AMSL ceiling (element top = -h/2),
+  // Output to the AMSL floor (element bottom = +h/2).
+  // element.height = heightM × pxPerM so these are exact AMSL positions.
+  if (element.symbolId === 'water_tank') {
+    const ox = port.offsetX * (w / SYMBOL_SIZE) * sx;
+    let fixedOy: number | null = null;
+    if (port.label === 'Input')  fixedOy = -h / 2;
+    if (port.label === 'Output') fixedOy =  h / 2;
+    if (fixedOy !== null) {
+      const { x: rx, y: ry } = rotateOffset(ox, fixedOy, element.rotation);
+      return { x: element.x + rx, y: element.y + ry };
+    }
+  }
+
+  const { ox, oy } = getScaledPortOffset(element.symbolId, port, w, h, sx);
   const { x: rx, y: ry } = rotateOffset(ox, oy, element.rotation);
   return { x: element.x + rx, y: element.y + ry };
 }
