@@ -325,12 +325,12 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     contentY: number;
   } | null>(null);
 
-  // Annotation inline editing state
-  const [editingAnnotation, setEditingAnnotation] = useState<{
+  // Annotation edit — reuses the context menu popup
+  const [editAnnotationMenu, setEditAnnotationMenu] = useState<{
     id: string;
     text: string;
-    screenX: number;
-    screenY: number;
+    viewportX: number;
+    viewportY: number;
   } | null>(null);
 
   // Register JPG export — title block is part of the stage, so just capture the full virtual canvas
@@ -1078,11 +1078,10 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
 
   const handleAnnotationDblClick = useCallback(
     (id: string, x: number, y: number, text: string) => {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const screenX = (x - stageOffsetX) * stageScale + rect.left;
-      const screenY = (y - stageOffsetY) * stageScale + rect.top;
-      setEditingAnnotation({ id, text, screenX, screenY });
+      // Viewport-relative coords (container-relative) for the context menu
+      const viewportX = (x - stageOffsetX) * stageScale;
+      const viewportY = (y - stageOffsetY) * stageScale;
+      setEditAnnotationMenu({ id, text, viewportX, viewportY });
     },
     [stageOffsetX, stageOffsetY, stageScale],
   );
@@ -1715,43 +1714,15 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           onClose={() => setContextMenu(null)}
         />
       )}
-      {editingAnnotation && (
-        <div
-          style={{ position: 'fixed', left: editingAnnotation.screenX, top: editingAnnotation.screenY, zIndex: 3000 }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <textarea
-            autoFocus
-            defaultValue={editingAnnotation.text}
-            rows={3}
-            style={{
-              width: 220, padding: '4px 6px', fontSize: 11, fontFamily: 'inherit',
-              border: '2px solid #0066cc', borderRadius: 4, outline: 'none',
-              background: '#fffde7', resize: 'both', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-              cursor: 'text',
-            }}
-            onFocus={(e) => {
-              const len = e.target.value.length;
-              e.target.setSelectionRange(len, len);
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-            onBlur={(e) => {
-              if (e.target.value.trim()) updateAnnotation(editingAnnotation.id, e.target.value.trim());
-              setEditingAnnotation(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') { setEditingAnnotation(null); return; }
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if (e.currentTarget.value.trim()) updateAnnotation(editingAnnotation.id, e.currentTarget.value.trim());
-                setEditingAnnotation(null);
-              }
-            }}
-          />
-          <div style={{ fontSize: 9, color: '#666', marginTop: 2 }}>Enter to save · Esc to cancel · Shift+Enter for newline</div>
-        </div>
+      {editAnnotationMenu && (
+        <AnnotationContextMenu
+          viewportX={editAnnotationMenu.viewportX}
+          viewportY={editAnnotationMenu.viewportY}
+          initialText={editAnnotationMenu.text}
+          onEdit={(text) => { updateAnnotation(editAnnotationMenu.id, text); }}
+          onSelect={() => {}}
+          onClose={() => setEditAnnotationMenu(null)}
+        />
       )}
     </div>
   );

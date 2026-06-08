@@ -14,12 +14,15 @@ interface AnnotationContextMenuProps {
   viewportY: number;
   onSelect: (text: string, fontSize: number, maxWidth: number) => void;
   onClose: () => void;
+  initialText?: string;
+  onEdit?: (text: string) => void;
 }
 
-export function AnnotationContextMenu({ viewportX, viewportY, onSelect, onClose }: AnnotationContextMenuProps) {
+export function AnnotationContextMenu({ viewportX, viewportY, onSelect, onClose, initialText, onEdit }: AnnotationContextMenuProps) {
+  const isEditMode = !!onEdit;
   const [size, setSize] = useState<AnnotationSize>('M');
-  const [customMode, setCustomMode] = useState(false);
-  const [customText, setCustomText] = useState('');
+  const [customMode, setCustomMode] = useState(isEditMode);
+  const [customText, setCustomText] = useState(initialText ?? '');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -40,8 +43,12 @@ export function AnnotationContextMenu({ viewportX, viewportY, onSelect, onClose 
   }, [onClose]);
 
   const place = (text: string) => {
-    const { fontSize, maxWidth } = SIZE_CONFIG[size];
-    onSelect(text, fontSize, maxWidth);
+    if (isEditMode) {
+      onEdit!(text);
+    } else {
+      const { fontSize, maxWidth } = SIZE_CONFIG[size];
+      onSelect(text, fontSize, maxWidth);
+    }
     onClose();
   };
 
@@ -64,9 +71,9 @@ export function AnnotationContextMenu({ viewportX, viewportY, onSelect, onClose 
       {/* Header + size selector */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px 6px', borderBottom: '1px solid #eee', marginBottom: 2 }}>
         <span style={{ fontSize: 9, fontWeight: 700, color: '#888', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-          Insert annotation
+          {isEditMode ? 'Edit annotation' : 'Insert annotation'}
         </span>
-        <div style={{ display: 'flex', gap: 2 }}>
+        {!isEditMode && <div style={{ display: 'flex', gap: 2 }}>
           {(['S', 'M', 'L'] as AnnotationSize[]).map((s) => (
             <button
               key={s}
@@ -88,11 +95,11 @@ export function AnnotationContextMenu({ viewportX, viewportY, onSelect, onClose 
               {s}
             </button>
           ))}
-        </div>
+        </div>}
       </div>
 
       {/* Template rows */}
-      {!customMode && ANNOTATION_TEMPLATES.map((t) => (
+      {!customMode && !isEditMode && ANNOTATION_TEMPLATES.map((t) => (
         <div
           key={t.id}
           onClick={(e) => { e.stopPropagation(); place(t.text); }}
@@ -145,7 +152,7 @@ export function AnnotationContextMenu({ viewportX, viewportY, onSelect, onClose 
               disabled={!customText.trim()}
               style={{ fontSize: 11, padding: '3px 10px', border: '1px solid #0066cc', borderRadius: 3, background: '#0066cc', color: '#fff', cursor: 'pointer', opacity: customText.trim() ? 1 : 0.5 }}
             >
-              Place
+              {isEditMode ? 'Update' : 'Place'}
             </button>
           </div>
         </div>

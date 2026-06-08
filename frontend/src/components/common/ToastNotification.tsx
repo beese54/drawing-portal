@@ -140,7 +140,7 @@ export function ToastNotification() {
 export function DcvToastNotification() {
   const toast = useUiStore((s) => s.dcvToast);
   const dismiss = useUiStore((s) => s.dismissDcvToast);
-  const { addElement, elements } = useCanvasStore();
+  const { addElement, elements, updatePipeEndpoints } = useCanvasStore();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -155,7 +155,14 @@ export function DcvToastNotification() {
 
   const handleInsert = () => {
     const existing = elements.find((e) => e.id === toast.elementId);
-    const { elementX, elementY } = toast;
+    const { elementX, elementY, pipeId } = toast;
+
+    // Shorten the triggering pipe so it ends at CV2's upstream port instead of the fitting
+    const pipes = useCanvasStore.getState().pipes;
+    const triggerPipe = pipes.find((p) => p.id === pipeId);
+    if (triggerPipe) {
+      updatePipeEndpoints(pipeId, triggerPipe.startX, triggerPipe.startY, triggerPipe.endX, triggerPipe.endY - 2 * STEP);
+    }
     // Strip tank-specific and long-bath-specific fields from base props
     const baseProps = existing
       ? (({ tankProperties: _t, longBathCapacityL: _l, dualSupply: _d, swapDualSupply: _s, ...rest }) => rest)(existing as typeof existing & { tankProperties?: unknown; longBathCapacityL?: unknown; dualSupply?: unknown; swapDualSupply?: unknown })

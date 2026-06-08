@@ -24,6 +24,7 @@ export interface DcvToast {
   elementId: string;
   elementX: number;
   elementY: number;
+  pipeId: string;
 }
 
 interface UiStore {
@@ -58,7 +59,7 @@ interface UiStore {
   closeSheetSetup: () => void;
   showBidetToast: (tapElementId: string, tapX: number, tapY: number) => void;
   dismissBidetToast: () => void;
-  showDcvToast: (elementId: string, elementX: number, elementY: number) => void;
+  showDcvToast: (elementId: string, elementX: number, elementY: number, pipeId: string) => void;
   dismissDcvToast: () => void;
   setFloorLevelOpacity: (opacity: number) => void;
 }
@@ -105,7 +106,7 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   closeSheetSetup: () => set({ sheetSetupOpen: false }),
   showBidetToast: (tapElementId, tapX, tapY) => set({ bidetToast: { tapElementId, tapX, tapY } }),
   dismissBidetToast: () => set({ bidetToast: null }),
-  showDcvToast: (elementId, elementX, elementY) => set({ dcvToast: { elementId, elementX, elementY } }),
+  showDcvToast: (elementId, elementX, elementY, pipeId) => set({ dcvToast: { elementId, elementX, elementY, pipeId } }),
   dismissDcvToast: () => set({ dcvToast: null }),
   setFloorLevelOpacity: (opacity) => set({ floorLevelOpacity: Math.max(0, Math.min(1, opacity)) }),
 

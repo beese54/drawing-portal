@@ -123,7 +123,7 @@ export function useCanvasInteraction() {
         if (nearPort && nearPort.role === 'upstream') {
           const snappedEl = elements.find((e) => e.id === nearPort.elementId);
           if (snappedEl && isBackflowRiskElement(snappedEl)) {
-            useUiStore.getState().showDcvToast(snappedEl.id, snappedEl.x, snappedEl.y);
+            useUiStore.getState().showDcvToast(snappedEl.id, snappedEl.x, snappedEl.y, pipe.id);
           }
         }
 

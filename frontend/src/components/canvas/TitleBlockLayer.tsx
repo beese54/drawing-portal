@@ -83,8 +83,9 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
 
   const LEGEND_ROW_H = 12;
   const LEGEND_HDR_H = 14;
-  const LEGEND_COLS = 2;
-  const LEGEND_MAX_ROWS = 12; // max rows per column (= 24 symbols total)
+  const LEGEND_MAX_ROWS = 10;
+  // Use 3 cols for large symbol sets so the legend stays compact
+  const LEGEND_COLS = uniqueSymbols.length > 20 ? 3 : 2;
   const legendRows = Math.min(Math.ceil(uniqueSymbols.length / LEGEND_COLS), LEGEND_MAX_ROWS);
   const legendH = uniqueSymbols.length > 0 ? LEGEND_HDR_H + legendRows * LEGEND_ROW_H + 4 : 0;
 
@@ -259,12 +260,13 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
               </React.Fragment>
             );
           })}
-          {LEGEND_COLS > 1 && legendH > 0 && (
+          {legendH > 0 && Array.from({ length: LEGEND_COLS - 1 }, (_, ci) => (
             <Line
-              points={[tbX + Math.floor(tbW / LEGEND_COLS), yLegend + LEGEND_HDR_H, tbX + Math.floor(tbW / LEGEND_COLS), yLegend + legendH]}
+              key={`legend-div-${ci}`}
+              points={[tbX + Math.floor(tbW * (ci + 1) / LEGEND_COLS), yLegend + LEGEND_HDR_H, tbX + Math.floor(tbW * (ci + 1) / LEGEND_COLS), yLegend + legendH]}
               stroke={BORDER} strokeWidth={0.5} listening={false}
             />
-          )}
+          ))}
         </>
       )}
 
