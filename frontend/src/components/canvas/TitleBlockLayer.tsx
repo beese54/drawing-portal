@@ -7,6 +7,7 @@ import {
 
 interface Props {
   sheetConfig: SheetConfig;
+  onTitleBlockClick?: () => void;
 }
 
 const BORDER  = '#2a2a2a';
@@ -14,10 +15,9 @@ const LBL_CLR = '#555';
 const VAL_CLR = '#111';
 const LBL_SZ  = 5.5;
 const VAL_SZ  = 6.5;
-const LINE_H  = 8.5;   // px per text line at VAL_SZ with spacing
+const LINE_H  = 8.5;
 const PAD     = 6;
 
-// Estimate rendered height for a block section
 function blockH(text: string | undefined, minH: number, hasSign = false): number {
   const lines = text?.trim() ? text.split('\n').length : 0;
   const textH = lines * LINE_H;
@@ -25,13 +25,13 @@ function blockH(text: string | undefined, minH: number, hasSign = false): number
   return Math.max(minH, PAD + LBL_SZ + 6 + textH + signH + PAD);
 }
 
-export function TitleBlockLayer({ sheetConfig }: Props) {
+export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
   const { titleBlock, paperSize, drawingScale } = sheetConfig;
 
   const paperW = PAPER_SIZES_MM[paperSize].w * SHEET_PX_PER_MM;
   const paperH = PAPER_SIZES_MM[paperSize].h * SHEET_PX_PER_MM;
   const tbW    = TITLE_BLOCK_MM * SHEET_PX_PER_MM;
-  const tbX    = AXIS_WIDTH + paperW - tbW;
+  const tbX    = AXIS_WIDTH + paperW;
 
   const [ownerStampImg, setOwnerStampImg] = useState<HTMLImageElement | null>(null);
   useEffect(() => {
@@ -41,13 +41,13 @@ export function TitleBlockLayer({ sheetConfig }: Props) {
     img.src = titleBlock.ownerStamp;
   }, [titleBlock.ownerStamp]);
 
-  const [stampImg, setStampImg] = useState<HTMLImageElement | null>(null);
+  const [structuralStampImg, setStructuralStampImg] = useState<HTMLImageElement | null>(null);
   useEffect(() => {
-    if (!titleBlock.stampImage) { setStampImg(null); return; }
+    if (!titleBlock.structuralEngineerStamp) { setStructuralStampImg(null); return; }
     const img = new window.Image();
-    img.onload = () => setStampImg(img);
-    img.src = titleBlock.stampImage;
-  }, [titleBlock.stampImage]);
+    img.onload = () => setStructuralStampImg(img);
+    img.src = titleBlock.structuralEngineerStamp;
+  }, [titleBlock.structuralEngineerStamp]);
 
   // ── Fixed heights ──────────────────────────────────────────────
   const headerH = 34;
@@ -56,165 +56,180 @@ export function TitleBlockLayer({ sheetConfig }: Props) {
   const bottomH = dtRowH + 3 * btRowH;
 
   // ── Natural heights per block ──────────────────────────────────
-  const ownerStampExtraH = ownerStampImg ? 50 : 0;
-  const stampExtraH      = stampImg      ? 50 : 0;
-  const natOwner  = blockH(titleBlock.ownerDeveloper, 38, true) + ownerStampExtraH;
-  const natLp     = blockH(titleBlock.lpEngineer,         38, true) + stampExtraH;
-  const natProj   = blockH(titleBlock.projectName,        32);
-  const natMain   = blockH(titleBlock.mainContractor,     32);
-  const natPlumb  = blockH(titleBlock.plumbingContractor, 32);
+  const ownerStampExtraH      = ownerStampImg      ? 50 : 0;
+  const structuralStampExtraH = structuralStampImg ? 50 : 0;
+  const natOwner      = blockH(titleBlock.ownerDeveloper,     38, true) + ownerStampExtraH;
+  const natStructural = blockH(titleBlock.structuralEngineer, 38, true) + structuralStampExtraH;
+  const natProj       = blockH(titleBlock.projectName,        32);
+  const natMain       = blockH(titleBlock.mainContractor,     32);
+  const natPlumb      = blockH(titleBlock.plumbingContractor, 32);
 
   const available = paperH - headerH - bottomH;
-  const totalNat  = natOwner + natLp + natProj + natMain + natPlumb;
+  const totalNat  = natOwner + natStructural + natProj + natMain + natPlumb;
 
-  // Scale down proportionally if content overflows; distribute surplus evenly
   const scale = totalNat > available ? available / totalNat : 1;
   const bonus = totalNat < available ? (available - totalNat) / 5 : 0;
 
-  const ownerH = Math.round(natOwner * scale + bonus);
-  const lpH    = Math.round(natLp    * scale + bonus);
-  const projH  = Math.round(natProj  * scale + bonus);
-  const mainH  = Math.round(natMain  * scale + bonus);
-  const plumbH = available - ownerH - lpH - projH - mainH;
+  const ownerH      = Math.round(natOwner      * scale + bonus);
+  const structuralH = Math.round(natStructural * scale + bonus);
+  const projH       = Math.round(natProj       * scale + bonus);
+  const mainH       = Math.round(natMain       * scale + bonus);
+  const plumbH      = available - ownerH - structuralH - projH - mainH;
 
   // ── Y anchors ──────────────────────────────────────────────────
-  const yH      = 0;
-  const yOwner  = headerH;
-  const yLp     = yOwner + ownerH;
-  const yProj   = yLp    + lpH;
-  const yMain   = yProj  + projH;
-  const yPlumb  = yMain  + mainH;
-  const yBottom = paperH - bottomH;
-  const yDt     = yBottom;
-  const yRow1   = yDt   + dtRowH;
-  const yRow2   = yRow1 + btRowH;
-  const yRow3   = yRow2 + btRowH;
+  const yOwner      = headerH;
+  const yStructural = yOwner      + ownerH;
+  const yProj       = yStructural + structuralH;
+  const yMain       = yProj       + projH;
+  const yPlumb      = yMain       + mainH;
+  const yBottom     = paperH      - bottomH;
+  const yDt         = yBottom;
+  const yRow1       = yDt   + dtRowH;
+  const yRow2       = yRow1 + btRowH;
+  const yRow3       = yRow2 + btRowH;
 
-  const col1W = Math.round(tbW * 0.55);
-  const col2W = tbW - col1W;
-  const bw    = 0.75;
+  // ── Bottom table column widths (3 columns) ──────────────────────
+  const c1W = Math.round(tbW * 0.45);
+  const c2W = Math.round(tbW * 0.28);
+  const c3W = tbW - c1W - c2W;
+  const bw  = 0.75;
 
-  // Helper: renders label + multiline value inside a cell
   const BlockText = (x: number, y: number, label: string, text: string | undefined) => [
     <Text key={`lbl-${label}`} x={x + PAD} y={y + PAD}
-          text={label} fontSize={LBL_SZ} fill={LBL_CLR} />,
+          text={label} fontSize={LBL_SZ} fill={LBL_CLR} listening={false} />,
     <Text key={`val-${label}`}
           x={x + PAD} y={y + PAD + LBL_SZ + 4}
           width={tbW - PAD * 2}
           text={text || ''}
           fontSize={VAL_SZ} fill={VAL_CLR}
-          lineHeight={1.35} wrap="word" />,
+          lineHeight={1.35} wrap="word" listening={false} />,
   ];
 
+  const renderStamp = (
+    img: HTMLImageElement | null,
+    extraH: number,
+    blockY: number,
+    bH: number,
+    key: string,
+  ) => {
+    if (!img) return null;
+    const maxW = tbW - PAD * 4;
+    const maxH = Math.min(extraH - 4, bH - 40);
+    if (maxH <= 0) return null;
+    const s  = Math.min(maxW / img.width, maxH / img.height, 1);
+    const sw = img.width  * s;
+    const sh = img.height * s;
+    return (
+      <KonvaImage
+        key={key}
+        image={img}
+        x={tbX + (tbW - sw) / 2}
+        y={blockY + bH - extraH + (extraH - sh) / 2 - 4}
+        width={sw} height={sh}
+        listening={false}
+      />
+    );
+  };
+
   return (
-    <Layer listening={false}>
-      <Rect x={tbX} y={0} width={tbW} height={paperH} fill="#fff" />
-      <Line points={[tbX, 0, tbX, paperH]} stroke={BORDER} strokeWidth={1.5} />
+    <Layer>
+      <Rect x={tbX} y={0} width={tbW} height={paperH} fill="#fff" listening={false} />
+      <Line points={[tbX, 0, tbX, paperH]} stroke={BORDER} strokeWidth={1.5} listening={false} />
 
       {/* ═══ HEADER ══════════════════════════════════════════════ */}
-      <Rect x={tbX} y={yH} width={tbW} height={headerH}
-            fill="#fff" stroke={BORDER} strokeWidth={bw} />
-      <Text x={tbX} y={yH} width={tbW} height={headerH}
+      <Rect x={tbX} y={0} width={tbW} height={headerH}
+            fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
+      <Text x={tbX} y={0} width={tbW} height={headerH}
             text="SCHEMATIC DRAWING"
             fontSize={11} fontStyle="bold" fill="#111"
-            align="center" verticalAlign="middle" />
+            align="center" verticalAlign="middle" listening={false} />
 
       {/* ═══ OWNER / DEVELOPER ═══════════════════════════════════ */}
       <Rect x={tbX} y={yOwner} width={tbW} height={ownerH}
-            fill="#fff" stroke={BORDER} strokeWidth={bw} />
+            fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
       {BlockText(tbX, yOwner, 'OWNER / DEVELOPER :', titleBlock.ownerDeveloper)}
-      {ownerStampImg && (() => {
-        const maxW = tbW - PAD * 4;
-        const maxH = Math.min(ownerStampExtraH - 4, ownerH - 40);
-        if (maxH <= 0) return null;
-        const s  = Math.min(maxW / ownerStampImg.width, maxH / ownerStampImg.height, 1);
-        const sw = ownerStampImg.width  * s;
-        const sh = ownerStampImg.height * s;
-        return (
-          <KonvaImage
-            key="owner-stamp"
-            image={ownerStampImg}
-            x={tbX + (tbW - sw) / 2}
-            y={yOwner + ownerH - ownerStampExtraH + (ownerStampExtraH - sh) / 2 - 4}
-            width={sw} height={sh}
-          />
-        );
-      })()}
+      {renderStamp(ownerStampImg, ownerStampExtraH, yOwner, ownerH, 'owner-stamp')}
       <Text x={tbX + PAD} y={yOwner + ownerH - 13}
-            text="SIGN :" fontSize={LBL_SZ} fill={LBL_CLR} />
+            text="SIGN :" fontSize={LBL_SZ} fill={LBL_CLR} listening={false} />
 
-      {/* ═══ LP / PE ENGINEER ════════════════════════════════════ */}
-      <Rect x={tbX} y={yLp} width={tbW} height={lpH}
-            fill="#fff" stroke={BORDER} strokeWidth={bw} />
-      {BlockText(tbX, yLp, 'LP / PE ENGINEER :', titleBlock.lpEngineer)}
-      {stampImg && (() => {
-        const maxW = tbW - PAD * 4;
-        const maxH = Math.min(stampExtraH - 4, lpH - 40);
-        if (maxH <= 0) return null;
-        const s  = Math.min(maxW / stampImg.width, maxH / stampImg.height, 1);
-        const sw = stampImg.width  * s;
-        const sh = stampImg.height * s;
-        return (
-          <KonvaImage
-            key="stamp"
-            image={stampImg}
-            x={tbX + (tbW - sw) / 2}
-            y={yLp + lpH - stampExtraH + (stampExtraH - sh) / 2 - 4}
-            width={sw} height={sh}
-          />
-        );
-      })()}
-      <Text x={tbX + PAD} y={yLp + lpH - 13}
-            text="SIGN :" fontSize={LBL_SZ} fill={LBL_CLR} />
+      {/* ═══ STRUCTURAL ENGINEER ═════════════════════════════════ */}
+      <Rect x={tbX} y={yStructural} width={tbW} height={structuralH}
+            fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
+      {BlockText(tbX, yStructural, 'STRUCTURAL ENGINEER :', titleBlock.structuralEngineer)}
+      {renderStamp(structuralStampImg, structuralStampExtraH, yStructural, structuralH, 'structural-stamp')}
+      <Text x={tbX + PAD} y={yStructural + structuralH - 13}
+            text="SIGN :" fontSize={LBL_SZ} fill={LBL_CLR} listening={false} />
 
       {/* ═══ PROJECT TITLE ════════════════════════════════════════ */}
       <Rect x={tbX} y={yProj} width={tbW} height={projH}
-            fill="#fff" stroke={BORDER} strokeWidth={bw} />
+            fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
       {BlockText(tbX, yProj, 'PROJECT TITLE', titleBlock.projectName)}
 
       {/* ═══ MAIN CON ═════════════════════════════════════════════ */}
       <Rect x={tbX} y={yMain} width={tbW} height={mainH}
-            fill="#fff" stroke={BORDER} strokeWidth={bw} />
+            fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
       {BlockText(tbX, yMain, 'MAIN CON :', titleBlock.mainContractor)}
 
       {/* ═══ PLUMBING CONTRACTOR ══════════════════════════════════ */}
       <Rect x={tbX} y={yPlumb} width={tbW} height={plumbH}
-            fill="#fff" stroke={BORDER} strokeWidth={bw} />
+            fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
       {BlockText(tbX, yPlumb, 'PLUMBING CONTRACTOR', titleBlock.plumbingContractor)}
 
       {/* ═══ DRAWING TITLE ════════════════════════════════════════ */}
       <Rect x={tbX} y={yDt} width={tbW} height={dtRowH}
-            fill="#fff" stroke={BORDER} strokeWidth={bw} />
+            fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
       <Text x={tbX + PAD} y={yDt + 3}
-            text="DRAWING TITLE" fontSize={5} fill={LBL_CLR} />
+            text="DRAWING TITLE" fontSize={5} fill={LBL_CLR} listening={false} />
       <Text x={tbX + PAD} y={yDt + 11}
             text="SCHEMATIC PLUMBING DRAWING"
-            fontSize={6} fontStyle="bold" fill={VAL_CLR} />
+            fontSize={6} fontStyle="bold" fill={VAL_CLR} listening={false} />
 
-      {/* ═══ Row 1 — DRAWN BY | DATE ══════════════════════════════ */}
-      <Rect x={tbX}        y={yRow1} width={col1W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} />
-      <Text x={tbX + PAD}  y={yRow1 + 2}  text="DRAWN BY"               fontSize={5}    fill={LBL_CLR} />
-      <Text x={tbX + PAD}  y={yRow1 + 10} text={titleBlock.drawnBy || '—'} fontSize={VAL_SZ} fill={VAL_CLR} />
-      <Rect x={tbX + col1W} y={yRow1} width={col2W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} />
-      <Text x={tbX + col1W + PAD} y={yRow1 + 2}  text="DATE"             fontSize={5}    fill={LBL_CLR} />
-      <Text x={tbX + col1W + PAD} y={yRow1 + 10} text={titleBlock.date || '—'} fontSize={VAL_SZ} fill={VAL_CLR} />
+      {/* ═══ Row 1 — Drawn By | Date | Tenure of Land (spans rows 1+2) */}
+      <Rect x={tbX}       y={yRow1} width={c1W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
+      <Text x={tbX + PAD} y={yRow1 + 2}  text="DRAWN BY"                    fontSize={5}    fill={LBL_CLR} listening={false} />
+      <Text x={tbX + PAD} y={yRow1 + 10} text={titleBlock.drawnBy || '—'}   fontSize={VAL_SZ} fill={VAL_CLR} listening={false} />
 
-      {/* ═══ Row 2 — CHECKED | SCALE ══════════════════════════════ */}
-      <Rect x={tbX}        y={yRow2} width={col1W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} />
-      <Text x={tbX + PAD}  y={yRow2 + 2}  text="CHECKED"                  fontSize={5}    fill={LBL_CLR} />
-      <Text x={tbX + PAD}  y={yRow2 + 10} text={titleBlock.checkedBy || '—'} fontSize={VAL_SZ} fill={VAL_CLR} />
-      <Rect x={tbX + col1W} y={yRow2} width={col2W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} />
-      <Text x={tbX + col1W + PAD} y={yRow2 + 2}  text="SCALE"             fontSize={5}    fill={LBL_CLR} />
-      <Text x={tbX + col1W + PAD} y={yRow2 + 10} text={`1:${drawingScale}`} fontSize={VAL_SZ} fill={VAL_CLR} />
+      <Rect x={tbX + c1W}       y={yRow1} width={c2W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
+      <Text x={tbX + c1W + PAD} y={yRow1 + 2}  text="DATE"                      fontSize={5}    fill={LBL_CLR} listening={false} />
+      <Text x={tbX + c1W + PAD} y={yRow1 + 10} text={titleBlock.date || '—'}    fontSize={VAL_SZ} fill={VAL_CLR} listening={false} />
 
-      {/* ═══ Row 3 — DRAWING NO. | REV. ══════════════════════════ */}
-      <Rect x={tbX}        y={yRow3} width={col1W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} />
-      <Text x={tbX + PAD}  y={yRow3 + 2}  text="DRAWING NO."               fontSize={5}    fill={LBL_CLR} />
-      <Text x={tbX + PAD}  y={yRow3 + 10} text={titleBlock.drawingNo || '—'} fontSize={VAL_SZ} fill={VAL_CLR} />
-      <Rect x={tbX + col1W} y={yRow3} width={col2W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} />
-      <Text x={tbX + col1W + PAD} y={yRow3 + 2}  text="REV."               fontSize={5}    fill={LBL_CLR} />
-      <Text x={tbX + col1W + PAD} y={yRow3 + 10} text={titleBlock.rev || '—'} fontSize={VAL_SZ} fill={VAL_CLR} />
+      {/* Tenure of Land — spans rows 1+2 */}
+      <Rect x={tbX + c1W + c2W} y={yRow1} width={c3W} height={btRowH * 2} fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
+      <Text x={tbX + c1W + c2W + PAD} y={yRow1 + 2}  text="TENURE OF LAND"                    fontSize={5}    fill={LBL_CLR} listening={false} />
+      <Text x={tbX + c1W + c2W + PAD} y={yRow1 + 10} text={titleBlock.tenureOfLand || '—'}    fontSize={VAL_SZ} fill={VAL_CLR} wrap="word" width={c3W - PAD * 2} listening={false} />
 
+      {/* ═══ Row 2 — Checked | Scale (Tenure col already drawn above) */}
+      <Rect x={tbX}       y={yRow2} width={c1W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
+      <Text x={tbX + PAD} y={yRow2 + 2}  text="CHECKED"                      fontSize={5}    fill={LBL_CLR} listening={false} />
+      <Text x={tbX + PAD} y={yRow2 + 10} text={titleBlock.checkedBy || '—'}  fontSize={VAL_SZ} fill={VAL_CLR} listening={false} />
+
+      <Rect x={tbX + c1W}       y={yRow2} width={c2W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
+      <Text x={tbX + c1W + PAD} y={yRow2 + 2}  text="SCALE"                     fontSize={5}    fill={LBL_CLR} listening={false} />
+      <Text x={tbX + c1W + PAD} y={yRow2 + 10} text={`1:${drawingScale}`}        fontSize={VAL_SZ} fill={VAL_CLR} listening={false} />
+
+      {/* ═══ Row 3 — Drawing No. | Project No. | Rev. */}
+      <Rect x={tbX}       y={yRow3} width={c1W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
+      <Text x={tbX + PAD} y={yRow3 + 2}  text="DRAWING NO."                   fontSize={5}    fill={LBL_CLR} listening={false} />
+      <Text x={tbX + PAD} y={yRow3 + 10} text={titleBlock.drawingNo || '—'}   fontSize={VAL_SZ} fill={VAL_CLR} listening={false} />
+
+      <Rect x={tbX + c1W}       y={yRow3} width={c2W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
+      <Text x={tbX + c1W + PAD} y={yRow3 + 2}  text="PROJECT NO."                     fontSize={5}    fill={LBL_CLR} listening={false} />
+      <Text x={tbX + c1W + PAD} y={yRow3 + 10} text={titleBlock.projectNo || '—'}     fontSize={VAL_SZ} fill={VAL_CLR} listening={false} />
+
+      <Rect x={tbX + c1W + c2W}       y={yRow3} width={c3W} height={btRowH} fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
+      <Text x={tbX + c1W + c2W + PAD} y={yRow3 + 2}  text="REV."                    fontSize={5}    fill={LBL_CLR} listening={false} />
+      <Text x={tbX + c1W + c2W + PAD} y={yRow3 + 10} text={titleBlock.rev || '—'}   fontSize={VAL_SZ} fill={VAL_CLR} listening={false} />
+
+      {/* ═══ Transparent click overlay — must be last (on top) ═══ */}
+      {onTitleBlockClick && (
+        <Rect
+          x={tbX} y={0} width={tbW} height={paperH}
+          fill="#ffffff" opacity={0}
+          onClick={onTitleBlockClick}
+          onTap={onTitleBlockClick}
+          style={{ cursor: 'pointer' } as React.CSSProperties}
+        />
+      )}
     </Layer>
   );
 }

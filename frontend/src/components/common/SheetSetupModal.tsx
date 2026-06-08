@@ -32,10 +32,10 @@ function getSeriesOf(size: PaperSize): PaperSeries {
 }
 
 export function SheetSetupModal() {
-  const { sheetConfig, mrlConfig, setSheetConfig, setMrlConfig, closeSheetSetup } = useUiStore();
+  const { sheetConfig, mrlConfig, setSheetConfig, setMrlConfig, closeSheetSetup, sheetSetupInitialTab } = useUiStore();
   const [draft, setDraft] = useState<SheetConfig>({ ...sheetConfig });
   const [lowerMrlDraft, setLowerMrlDraft] = useState<string>(String(mrlConfig.lowerMrl));
-  const [tab, setTab] = useState<'sheet' | 'titleblock'>('sheet');
+  const [tab, setTab] = useState<'sheet' | 'titleblock'>(sheetSetupInitialTab);
   const [series, setSeries] = useState<PaperSeries>(getSeriesOf(sheetConfig.paperSize));
 
   const parsedLowerMrl = Math.max(MRL_LOWER_HARD_MIN, parseFloat(lowerMrlDraft) || 0);
@@ -249,27 +249,26 @@ export function SheetSetupModal() {
 
                 <div>
                   <TextAreaField
-                    label="LP / PE Engineer"
+                    label="Structural Engineer"
                     hint="Name, company, address, email, phone"
-                    value={draft.titleBlock.lpEngineer ?? ''}
-                    onChange={(v) => setTB('lpEngineer', v)}
+                    value={draft.titleBlock.structuralEngineer ?? ''}
+                    onChange={(v) => setTB('structuralEngineer', v)}
                   />
-                  {/* Stamp upload inline below LP/PE textarea */}
                   <div style={{ marginTop: 8 }}>
                     <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Stamp / Signature Image</div>
-                    {draft.titleBlock.stampImage ? (
+                    {draft.titleBlock.structuralEngineerStamp ? (
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                         <div style={{ border: '1px solid #d1d5db', borderRadius: 5, padding: 6, background: '#f9fafb' }}>
-                          <img src={draft.titleBlock.stampImage} alt="Stamp" style={{ maxWidth: 140, maxHeight: 60, display: 'block', objectFit: 'contain' }} />
+                          <img src={draft.titleBlock.structuralEngineerStamp} alt="Stamp" style={{ maxWidth: 140, maxHeight: 60, display: 'block', objectFit: 'contain' }} />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                          <StampButton label="Replace" onClick={() => triggerStampUpload((v) => setTB('stampImage', v))} />
-                          <StampButton label="Remove"  danger onClick={() => setTB('stampImage', '')} />
+                          <StampButton label="Replace" onClick={() => triggerStampUpload((v) => setTB('structuralEngineerStamp', v))} />
+                          <StampButton label="Remove"  danger onClick={() => setTB('structuralEngineerStamp', '')} />
                         </div>
                       </div>
                     ) : (
                       <div
-                        onClick={() => triggerStampUpload((v) => setTB('stampImage', v))}
+                        onClick={() => triggerStampUpload((v) => setTB('structuralEngineerStamp', v))}
                         style={{ border: '2px dashed #d1d5db', borderRadius: 6, padding: '12px 16px', textAlign: 'center', cursor: 'pointer', background: '#fafafa' }}
                         onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#2563eb'; (e.currentTarget as HTMLDivElement).style.background = '#eff6ff'; }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
@@ -303,18 +302,48 @@ export function SheetSetupModal() {
                 />
               </div>
 
+              {/* ── LP/PE Stamp ── */}
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 22, marginBottom: 8, paddingTop: 18, borderTop: '1px solid #e5e7eb' }}>
+                LP / PE Stamp
+              </div>
+              <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
+                Uploaded stamp is placed directly on the canvas — drag it to position.
+              </div>
+              {draft.titleBlock.lpPeStamp ? (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ border: '1px solid #d1d5db', borderRadius: 5, padding: 6, background: '#f9fafb' }}>
+                    <img src={draft.titleBlock.lpPeStamp} alt="LP/PE stamp" style={{ maxWidth: 140, maxHeight: 80, display: 'block', objectFit: 'contain' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <StampButton label="Replace" onClick={() => triggerStampUpload((v) => setTB('lpPeStamp', v))} />
+                    <StampButton label="Remove"  danger onClick={() => { setTB('lpPeStamp', ''); }} />
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => triggerStampUpload((v) => setTB('lpPeStamp', v))}
+                  style={{ border: '2px dashed #d1d5db', borderRadius: 6, padding: '12px 16px', textAlign: 'center', cursor: 'pointer', background: '#fafafa' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#2563eb'; (e.currentTarget as HTMLDivElement).style.background = '#eff6ff'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>⬆ Upload LP/PE stamp</div>
+                  <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>PNG, JPG or WebP · transparent background recommended</div>
+                </div>
+              )}
+
               {/* ── Drawing Info ── */}
               <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 22, marginBottom: 12, paddingTop: 18, borderTop: '1px solid #e5e7eb' }}>
                 Drawing Info
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <Field label="Drawn By"    value={draft.titleBlock.drawnBy}   onChange={(v) => setTB('drawnBy', v)} />
-                <Field label="Checked By"  value={draft.titleBlock.checkedBy} onChange={(v) => setTB('checkedBy', v)} />
-                <Field label="Date"        value={draft.titleBlock.date}      onChange={(v) => setTB('date', v)} type="date" />
-                <Field label="Rev."        value={draft.titleBlock.rev}       onChange={(v) => setTB('rev', v)} />
-              </div>
-              <div style={{ marginTop: 10 }}>
-                <Field label="Drawing No." value={draft.titleBlock.drawingNo} onChange={(v) => setTB('drawingNo', v)} />
+                <Field label="Drawn By"       value={draft.titleBlock.drawnBy}      onChange={(v) => setTB('drawnBy', v)} />
+                <Field label="Checked By"     value={draft.titleBlock.checkedBy}    onChange={(v) => setTB('checkedBy', v)} />
+                <Field label="Date"           value={draft.titleBlock.date}         onChange={(v) => setTB('date', v)} type="date" />
+                <Field label="Scale"          value={`1:${draft.drawingScale}`}     onChange={() => {}} disabled />
+                <Field label="Drawing No."    value={draft.titleBlock.drawingNo}    onChange={(v) => setTB('drawingNo', v)} />
+                <Field label="Project No."    value={draft.titleBlock.projectNo ?? ''}    onChange={(v) => setTB('projectNo', v)} />
+                <Field label="Rev."           value={draft.titleBlock.rev}          onChange={(v) => setTB('rev', v)} />
+                <Field label="Tenure of Land" value={draft.titleBlock.tenureOfLand ?? ''} onChange={(v) => setTB('tenureOfLand', v)} />
               </div>
 
             </div>
@@ -384,8 +413,8 @@ const LABEL: React.CSSProperties = {
   textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8,
 };
 
-function Field({ label, value, onChange, type = 'text' }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string;
+function Field({ label, value, onChange, type = 'text', disabled }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; disabled?: boolean;
 }) {
   return (
     <div>
@@ -396,9 +425,12 @@ function Field({ label, value, onChange, type = 'text' }: {
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
         style={{
           width: '100%', padding: '7px 9px', border: '1px solid #d1d5db',
           borderRadius: 5, fontSize: 13, outline: 'none', boxSizing: 'border-box',
+          background: disabled ? '#f3f4f6' : undefined,
+          color: disabled ? '#9ca3af' : undefined,
         }}
       />
     </div>

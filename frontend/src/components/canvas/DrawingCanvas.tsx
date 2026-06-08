@@ -3,6 +3,7 @@ import { Stage, Layer, Rect as KonvaRect } from 'react-konva';
 import Konva from 'konva';
 import { GridLayer } from './GridLayer';
 import { TitleBlockLayer } from './TitleBlockLayer';
+import { LpPeStampLayer } from './LpPeStampLayer';
 import { ElementsLayer } from './ElementsLayer';
 import { AnnotationsLayer } from './AnnotationsLayer';
 import { AnnotationContextMenu } from './AnnotationContextMenu';
@@ -20,7 +21,7 @@ import { WaterTankPropertiesModal } from './WaterTankPropertiesModal';
 import { useUiStore } from '../../store/uiStore';
 import { useCanvasStore } from '../../store/canvasStore';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
-import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, PAPER_SIZES_MM, SHEET_PX_PER_MM, SCHEMATIC_SYMBOL_PX, AXIS_WIDTH, getSymbolSizePx, FIXTURE_MWELS_CATEGORY } from '../../types';
+import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, PAPER_SIZES_MM, SHEET_PX_PER_MM, SCHEMATIC_SYMBOL_PX, AXIS_WIDTH, TITLE_BLOCK_MM, getSymbolSizePx, FIXTURE_MWELS_CATEGORY } from '../../types';
 import { symbolsApi } from '../../api/client';
 import { closestPointOnSegment, distance } from '../../utils/geometry';
 import { SYMBOL_PORTS, rotateOffset, getPortPosition, getEffectivePortRole, DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
@@ -144,7 +145,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
 
   // Content dimensions are fixed to the selected paper size — independent of viewport
   const virtualHeight = PAPER_SIZES_MM[sheetConfig.paperSize].h * SHEET_PX_PER_MM;
-  const virtualWidth  = AXIS_WIDTH + PAPER_SIZES_MM[sheetConfig.paperSize].w * SHEET_PX_PER_MM;
+  const virtualWidth  = AXIS_WIDTH + PAPER_SIZES_MM[sheetConfig.paperSize].w * SHEET_PX_PER_MM + TITLE_BLOCK_MM * SHEET_PX_PER_MM;
   // Stable refs so the one-time ResizeObserver callback can read the latest values
   const virtualHeightRef = useRef(virtualHeight);
   const virtualWidthRef  = useRef(virtualWidth);
@@ -294,6 +295,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   // Water tank: id of the tank whose properties modal is open
   const [tankModalId, setTankModalId] = useState<string | null>(null);
   const [symbolPropertiesModalId, setSymbolPropertiesModalId] = useState<string | null>(null);
+  const [longBathPanelId, setLongBathPanelId] = useState<string | null>(null);
   const tankModalOpenRef = useRef(false);
   tankModalOpenRef.current = !!tankModalId;
 
@@ -425,11 +427,10 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     return el?.symbolId === 'water_fittings' ? el : null;
   });
 
-  // Show long bath capacity panel when a long_bath element is selected
-  const selectedLongBath = useCanvasStore((s) => {
-    const el = s.elements.find((e) => e.id === s.selectedId);
-    return el?.symbolId === 'long_bath' ? el : null;
-  });
+  // Show long bath panel when double-clicked
+  const longBathElement = useCanvasStore((s) =>
+    s.elements.find((e) => e.id === longBathPanelId && e.symbolId === 'long_bath') ?? null
+  );
 
   const {
     isDrawingPipe,
@@ -582,9 +583,18 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   // Open properties modal on double-click
   const handleElementClick = useCallback((_id: string, symbolId: string) => {
     if (symbolId === 'water_tank') {
+      setSymbolPropertiesModalId(null);
+      setLongBathPanelId(null);
       setTankModalId(_id);
+    } else if (symbolId === 'long_bath') {
+      setSymbolPropertiesModalId(null);
+      setLongBathPanelId(_id);
     } else if (DUAL_SUPPLY_SYMBOLS.has(symbolId) || symbolId in FIXTURE_MWELS_CATEGORY) {
+      setLongBathPanelId(null);
       setSymbolPropertiesModalId(_id);
+    } else {
+      setSymbolPropertiesModalId(null);
+      setLongBathPanelId(null);
     }
   }, []);
 
@@ -1398,13 +1408,24 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           floorLevels={floorLevels}
           floorLevelOpacity={floorLevelOpacity}
         />
-        <TitleBlockLayer sheetConfig={sheetConfig} />
+        <TitleBlockLayer
+          sheetConfig={sheetConfig}
+          onTitleBlockClick={() => useUiStore.getState().openSheetSetupAtTitleBlock()}
+        />
+        <LpPeStampLayer sheetConfig={sheetConfig} />
         <ElementsLayer
           dragPreview={draggingSymbolId && dragOverPos
             ? { symbolId: draggingSymbolId, x: dragOverPos.x, y: dragOverPos.y }
             : null}
           onElementClick={handleElementClick}
-          onElementDblClick={(id) => setSymbolPropertiesModalId(id)}
+          onElementDblClick={(id) => {
+            const el = useCanvasStore.getState().elements.find((e) => e.id === id);
+            if (!el) return;
+            const hasDual  = DUAL_SUPPLY_SYMBOLS.has(el.symbolId);
+            const hasMwels = el.symbolId in FIXTURE_MWELS_CATEGORY
+              || (el.symbolId === 'water_fittings' && !!el.fittingType);
+            if (hasDual || hasMwels) setSymbolPropertiesModalId(id);
+          }}
           rubberBand={rubberBandRect}
         />
         <AnnotationsLayer />
@@ -1626,6 +1647,12 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       {symbolPropertiesModalId && (() => {
         const el = useCanvasStore.getState().elements.find((e) => e.id === symbolPropertiesModalId);
         if (!el) return null;
+        const hasDual  = DUAL_SUPPLY_SYMBOLS.has(el.symbolId);
+        const hasMwels = el.symbolId in FIXTURE_MWELS_CATEGORY
+          || (el.symbolId === 'water_fittings' && !!el.fittingType);
+        if (!hasDual && !hasMwels) return null;
+        // long_bath uses LongBathPanel (combined); water_fittings uses FittingTypePanel
+        if (el.symbolId === 'long_bath' || el.symbolId === 'water_fittings') return null;
         const vp = contentToViewport(el.x, el.y);
         const halfWidthVp = ((el.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;
         return (
@@ -1638,16 +1665,19 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           />
         );
       })()}
-      {selectedLongBath && activeTool !== 'pipe' && activeTool !== 'cold_pipe' && activeTool !== 'hot_pipe' && (() => {
-        const vp = contentToViewport(selectedLongBath.x, selectedLongBath.y);
-        const halfWidthVp = ((selectedLongBath.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;
+      {longBathElement && activeTool !== 'pipe' && activeTool !== 'cold_pipe' && activeTool !== 'hot_pipe' && (() => {
+        const vp = contentToViewport(longBathElement.x, longBathElement.y);
+        const halfWidthVp = ((longBathElement.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;
         return (
           <LongBathPanel
-            elementId={selectedLongBath.id}
+            elementId={longBathElement.id}
             x={vp.x}
             y={vp.y}
-            currentCapacityL={selectedLongBath.longBathCapacityL}
+            currentCapacityL={longBathElement.longBathCapacityL}
+            dualSupply={longBathElement.dualSupply}
+            swapDualSupply={longBathElement.swapDualSupply}
             elementHalfWidthVp={halfWidthVp}
+            onClose={() => setLongBathPanelId(null)}
           />
         );
       })()}

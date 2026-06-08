@@ -52,21 +52,29 @@ export function getPxPerMetre(drawingScale: DrawingScale): number {
 
 export interface TitleBlockData {
   // Free-form block sections (textarea — line breaks preserved)
-  ownerDeveloper?:     string;
-  lpEngineer?:         string;
-  projectName:         string;
-  mainContractor?:     string;
-  plumbingContractor?: string;
+  ownerDeveloper?:       string;
+  structuralEngineer?:   string;
+  projectName:           string;
+  mainContractor?:       string;
+  plumbingContractor?:   string;
   // Short structured fields (bottom table)
-  drawingNo:  string;
-  drawnBy:    string;
-  checkedBy:  string;
-  date:       string;
-  rev:        string;
+  drawingNo:    string;
+  drawnBy:      string;
+  checkedBy:    string;
+  date:         string;
+  rev:          string;
+  projectNo?:   string;
+  tenureOfLand?: string;
   /** Base64 data-URL of the owner/developer signature image */
   ownerStamp?: string;
-  /** Base64 data-URL of the LP/PE stamp/signature image */
-  stampImage?: string;
+  /** Base64 data-URL of the structural engineer stamp/signature image */
+  structuralEngineerStamp?: string;
+  /** Base64 data-URL of the LP/PE stamp placed freely on the canvas */
+  lpPeStamp?: string;
+  /** Canvas-space position and size of the LP/PE stamp overlay */
+  lpPeStampX?: number;
+  lpPeStampY?: number;
+  lpPeStampSize?: number;
 }
 
 export interface SheetConfig {
@@ -79,16 +87,18 @@ export const DEFAULT_SHEET_CONFIG: SheetConfig = {
   paperSize:    'A3',
   drawingScale: 50,
   titleBlock: {
-    ownerDeveloper:     '',
-    lpEngineer:         '',
-    projectName:        '',
-    mainContractor:     '',
-    plumbingContractor: '',
-    drawingNo:          '',
-    drawnBy:            '',
-    checkedBy:          '',
-    date:               new Date().toISOString().slice(0, 10),
-    rev:                '-',
+    ownerDeveloper:       '',
+    structuralEngineer:   '',
+    projectName:          '',
+    mainContractor:       '',
+    plumbingContractor:   '',
+    drawingNo:            '',
+    drawnBy:              '',
+    checkedBy:            '',
+    date:                 new Date().toISOString().slice(0, 10),
+    rev:                  '-',
+    projectNo:            '',
+    tenureOfLand:         '',
   },
 };
 export type PipeType = 'generic' | 'cold' | 'hot';

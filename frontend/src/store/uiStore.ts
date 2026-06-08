@@ -31,6 +31,7 @@ interface UiStore {
   pdfImportFn: ((file: File) => Promise<void>) | null;
   sheetConfig: SheetConfig;
   sheetSetupOpen: boolean;
+  sheetSetupInitialTab: 'sheet' | 'titleblock';
   bidetToast: BidetToast | null;
   floorLevelOpacity: number;
   setActiveTool: (tool: ActiveTool) => void;
@@ -46,6 +47,7 @@ interface UiStore {
   registerPdfImport: (fn: (file: File) => Promise<void>) => void;
   setSheetConfig: (cfg: SheetConfig) => void;
   openSheetSetup: () => void;
+  openSheetSetupAtTitleBlock: () => void;
   closeSheetSetup: () => void;
   showBidetToast: (tapElementId: string, tapX: number, tapY: number) => void;
   dismissBidetToast: () => void;
@@ -66,6 +68,7 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   pdfImportFn: null,
   sheetConfig: DEFAULT_SHEET_CONFIG,
   sheetSetupOpen: true,
+  sheetSetupInitialTab: 'sheet' as const,
   bidetToast: null,
   floorLevelOpacity: 1,
 
@@ -87,7 +90,8 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
     }
     set({ sheetConfig: cfg, mrlConfig: { lowerMrl: mrlConfig.lowerMrl, upperMrl: getUpperMrl(mrlConfig.lowerMrl, cfg) } });
   },
-  openSheetSetup: () => set({ sheetSetupOpen: true }),
+  openSheetSetup: () => set({ sheetSetupOpen: true, sheetSetupInitialTab: 'sheet' }),
+  openSheetSetupAtTitleBlock: () => set({ sheetSetupOpen: true, sheetSetupInitialTab: 'titleblock' }),
   closeSheetSetup: () => set({ sheetSetupOpen: false }),
   showBidetToast: (tapElementId, tapX, tapY) => set({ bidetToast: { tapElementId, tapX, tapY } }),
   dismissBidetToast: () => set({ bidetToast: null }),

@@ -288,77 +288,73 @@ export function WaterTankPropertiesModal({ tankId, onClose }: Props) {
           </div>
 
           {/* ── RIGHT: outputs ───────────────────────────── */}
-          <div style={{ padding: '16px 18px', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ padding: '12px 14px', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={OUTPUT_LABEL}>Summary</div>
 
-            {/* Effective capacity */}
-            <OutputCard title="Effective Capacity" accent="#1d4ed8" bg="#eff6ff" border="#bfdbfe">
-              <div style={{ fontSize: 18, fontWeight: 700, color: capacityL == null ? '#94a3b8' : '#1d4ed8', fontFamily: 'monospace' }}>
-                {capacityL == null ? '— L' : `${capacityL.toLocaleString()} L`}
-              </div>
-              {capacityL == null && (
-                <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4, lineHeight: 1.4 }}>
-                  Needs: Inlet AMSL, Overflow Ø, Floor Level, Outlet→Base, L &amp; W
+            {/* Capacity + Water Level — compact side by side */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              <div style={{ padding: '6px 8px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Capacity</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: capacityL == null ? '#94a3b8' : '#1d4ed8', fontFamily: 'monospace' }}>
+                  {capacityL == null ? '—' : `${capacityL.toLocaleString()} L`}
                 </div>
-              )}
-            </OutputCard>
+              </div>
+              <div style={{ padding: '6px 8px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 3 }}>Water Level</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: waterLevelAmsl == null ? '#94a3b8' : '#0369a1', fontFamily: 'monospace' }}>
+                  {waterLevelAmsl == null ? '—' : `${waterLevelAmsl} m`}
+                </div>
+              </div>
+            </div>
 
-            {/* Water level */}
-            <OutputCard title="Calculated Water Level" accent="#0369a1" bg="#f0f9ff" border="#bae6fd">
-              <div style={{ fontSize: 15, fontWeight: 700, color: waterLevelAmsl == null ? '#94a3b8' : '#0369a1', fontFamily: 'monospace' }}>
-                {waterLevelAmsl == null ? '— m AMSL' : `${waterLevelAmsl} m AMSL`}
-              </div>
-              <div style={{ fontSize: 10, color: '#64748b', marginTop: 3 }}>
-                = Inlet AMSL − Overflow Ø − 0.075
-              </div>
-            </OutputCard>
-
-            {/* Demand bar */}
-            {demandL != null && (
-              <OutputCard title="Water Requirement" accent="#374151" bg="#f9fafb" border="#e5e7eb">
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#475569', marginBottom: 3 }}>
-                  <span>Daily demand</span>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#111' }}>
-                    {demandL.toLocaleString()} L
-                  </span>
+            {/* Demand bar — compact */}
+            {demandL != null && pct != null && (
+              <div style={{ padding: '6px 8px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#475569', marginBottom: 4 }}>
+                  <span>vs {demandL.toLocaleString()} L demand</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: barColor }}>{pct}%</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#475569', marginBottom: 6 }}>
-                  <span>Per-capita rate</span>
-                  <span style={{ fontFamily: 'monospace' }}>141 L/person/day</span>
+                <div style={{ height: 5, borderRadius: 3, background: '#e2e8f0', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min(pct, 150)}%`, background: barColor, borderRadius: 3, transition: 'width 0.2s' }} />
                 </div>
-                {pct != null && (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-                      <span style={{ color: '#475569' }}>Capacity vs demand</span>
-                      <span style={{ fontFamily: 'monospace', fontWeight: 700, color: barColor }}>{pct}%</span>
-                    </div>
-                    <div style={{ height: 6, borderRadius: 3, background: '#e2e8f0', overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%', width: `${Math.min(pct, 150)}%`,
-                        background: barColor, borderRadius: 3, transition: 'width 0.2s ease',
-                      }} />
-                    </div>
-                    <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 3 }}>Target: 100–120% of daily demand</div>
-                  </>
-                )}
-              </OutputCard>
+                <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 2 }}>Target: 100–120% of daily demand</div>
+              </div>
             )}
+
+            {/* Tank cross-section diagram */}
+            <div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                Cross Section
+              </div>
+              <TankDiagram draft={draft} waterLevelAmsl={waterLevelAmsl} />
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 10px', marginTop: 4 }}>
+                {([
+                  { lbl: 'IN Inlet',       color: '#16a34a' },
+                  { lbl: 'OV Overflow',    color: '#ea580c' },
+                  { lbl: 'WN Warning',     color: '#d97706' },
+                  { lbl: 'OUT Outlet',     color: '#2563eb' },
+                  { lbl: 'WL Water level', color: '#1d4ed8' },
+                ] as const).map(({ lbl, color }) => (
+                  <span key={lbl} style={{ fontSize: 9, color, fontWeight: 600 }}>{lbl}</span>
+                ))}
+              </div>
+            </div>
 
             {/* Validation alerts */}
             {hasAlerts && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={OUTPUT_LABEL}>Alerts</div>
                 {errors.waterLevelWarning && (
                   <Alert color="#dc2626" bg="#fef2f2" border="#fca5a5">{errors.waterLevelWarning}</Alert>
                 )}
                 {errors.capacityShortfallL != null && (
                   <Alert color="#9a3412" bg="#fff7ed" border="#fed7aa">
-                    Capacity is <strong>{errors.capacityShortfallL.toLocaleString()} L short</strong> of the required 1-day storage.
+                    Capacity <strong>{errors.capacityShortfallL.toLocaleString()} L short</strong> of 1-day storage.
                   </Alert>
                 )}
                 {errors.capacityOverageL != null && (
                   <Alert color="#854d0e" bg="#fefce8" border="#fde047">
-                    Capacity exceeds 120% of daily demand (surplus: <strong>{errors.capacityOverageL.toLocaleString()} L</strong>) — confirm oversizing is intentional.
+                    Surplus <strong>{errors.capacityOverageL.toLocaleString()} L</strong> — confirm oversizing.
                   </Alert>
                 )}
               </div>
@@ -379,6 +375,123 @@ export function WaterTankPropertiesModal({ tankId, onClose }: Props) {
     </div>
   );
 }
+
+// ─── Tank cross-section diagram ──────────────────────────────────────────────
+
+function TankDiagram({ draft, waterLevelAmsl }: { draft: TankProperties; waterLevelAmsl: number | null }) {
+  const W = 202;
+  const H = 175;
+  const L_PAD = 26; // left: inlet label
+  const R_PAD = 36; // right: outlet/overflow/warning labels
+  const tankL = L_PAD;
+  const tankR = W - R_PAD;
+  const tankTop = 10;
+  const tankBot = H - 22;
+  const tankHpx = tankBot - tankTop;
+  const tankWpx = tankR - tankL;
+
+  const floorM  = draft.floorLevelMAmsl ?? null;
+  const heightM = draft.heightM ?? null;
+  const hasGeo  = floorM != null && heightM != null && heightM > 0;
+
+  const toY = (amsl: number) => {
+    if (!hasGeo) return tankBot;
+    const frac = Math.max(0, Math.min(1, (amsl - floorM!) / heightM!));
+    return tankBot - frac * tankHpx;
+  };
+  const toYBase = (dist: number) => floorM != null ? toY(floorM + dist) : tankBot;
+  const cl = (y: number) => Math.max(tankTop + 1, Math.min(tankBot - 1, y));
+
+  const waterY    = waterLevelAmsl != null && hasGeo ? cl(toY(waterLevelAmsl))                     : null;
+  const inletY    = draft.inletPipeMAmsl != null && hasGeo      ? cl(toY(draft.inletPipeMAmsl))    : null;
+  const outletY   = draft.distanceOutletToBaseM != null && hasGeo ? cl(toYBase(draft.distanceOutletToBaseM)) : null;
+  const overflowY = draft.overflowPipeMAmsl != null && hasGeo   ? cl(toY(draft.overflowPipeMAmsl)) : null;
+  const warningY  = draft.warningPipeMAmsl != null && hasGeo    ? cl(toY(draft.warningPipeMAmsl))  : null;
+
+  const PIPE_LEN = 14;
+
+  return (
+    <svg width={W} height={H} style={{ display: 'block', overflow: 'visible' }}>
+      {/* Water fill */}
+      {waterY != null && (
+        <rect x={tankL + 1.5} y={waterY} width={tankWpx - 3} height={Math.max(0, tankBot - waterY)}
+              fill="#bfdbfe" fillOpacity={0.85} />
+      )}
+
+      {/* Tank body */}
+      <rect x={tankL} y={tankTop} width={tankWpx} height={tankHpx}
+            fill="none" stroke="#334155" strokeWidth={2} />
+
+      {/* Ground line */}
+      <line x1={tankL - 6} y1={tankBot + 1} x2={tankR + 6} y2={tankBot + 1}
+            stroke="#94a3b8" strokeWidth={1} />
+
+      {/* Floor label */}
+      <text x={tankL + tankWpx / 2} y={tankBot + 14}
+            textAnchor="middle" fontSize={7.5} fill="#64748b">
+        {floorM != null ? `${floorM} m AMSL` : 'Floor —'}
+      </text>
+
+      {/* Water level dashed line */}
+      {waterY != null && (
+        <>
+          <line x1={tankL + 2} y1={waterY} x2={tankR - 2} y2={waterY}
+                stroke="#1d4ed8" strokeWidth={1} strokeDasharray="4 2" />
+          <text x={tankL + tankWpx / 2} y={waterY - 3}
+                textAnchor="middle" fontSize={7} fill="#1d4ed8">
+            WL {waterLevelAmsl!.toFixed(3)} m
+          </text>
+        </>
+      )}
+
+      {/* Inlet — left side, arrow pointing right into tank */}
+      {inletY != null && (
+        <g>
+          <line x1={tankL - PIPE_LEN} y1={inletY} x2={tankL} y2={inletY} stroke="#16a34a" strokeWidth={2.5} />
+          <polygon points={`${tankL - 5},${inletY - 4} ${tankL - 5},${inletY + 4} ${tankL + 1},${inletY}`} fill="#16a34a" />
+          <text x={tankL - PIPE_LEN - 2} y={inletY + 3} textAnchor="end" fontSize={8} fill="#16a34a" fontWeight="700">IN</text>
+        </g>
+      )}
+
+      {/* Outlet — right side, arrow pointing right out of tank */}
+      {outletY != null && (
+        <g>
+          <line x1={tankR} y1={outletY} x2={tankR + PIPE_LEN} y2={outletY} stroke="#2563eb" strokeWidth={2.5} />
+          <polygon points={`${tankR + PIPE_LEN - 5},${outletY - 4} ${tankR + PIPE_LEN - 5},${outletY + 4} ${tankR + PIPE_LEN + 1},${outletY}`} fill="#2563eb" />
+          <text x={tankR + PIPE_LEN + 3} y={outletY + 3} textAnchor="start" fontSize={8} fill="#2563eb" fontWeight="700">OUT</text>
+        </g>
+      )}
+
+      {/* Overflow — right side */}
+      {overflowY != null && (
+        <g>
+          <line x1={tankR} y1={overflowY} x2={tankR + PIPE_LEN} y2={overflowY} stroke="#ea580c" strokeWidth={2.5} />
+          <polygon points={`${tankR + PIPE_LEN - 5},${overflowY - 4} ${tankR + PIPE_LEN - 5},${overflowY + 4} ${tankR + PIPE_LEN + 1},${overflowY}`} fill="#ea580c" />
+          <text x={tankR + PIPE_LEN + 3} y={overflowY + 3} textAnchor="start" fontSize={8} fill="#ea580c" fontWeight="700">OV</text>
+        </g>
+      )}
+
+      {/* Warning — right side, dashed */}
+      {warningY != null && (
+        <g>
+          <line x1={tankR} y1={warningY} x2={tankR + PIPE_LEN} y2={warningY}
+                stroke="#d97706" strokeWidth={2} strokeDasharray="3 2" />
+          <text x={tankR + PIPE_LEN + 3} y={warningY + 3} textAnchor="start" fontSize={8} fill="#d97706" fontWeight="700">WN</text>
+        </g>
+      )}
+
+      {/* Placeholder when no geometry */}
+      {!hasGeo && (
+        <text x={W / 2} y={H / 2 - 4} textAnchor="middle" fontSize={9.5} fill="#94a3b8">
+          Enter floor level &amp; height
+        </text>
+      )}
+    </svg>
+  );
+}
+
+// Legend below diagram (HTML so it's easy to read)
+// Rendered inline in JSX as a small colour key
 
 // ─── Presentational helpers ───────────────────────────────────────────────────
 
