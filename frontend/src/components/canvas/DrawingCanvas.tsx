@@ -315,6 +315,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   const insertElementOnPipeInline = useCanvasStore((s) => s.insertElementOnPipeInline);
   const addAnnotation = useCanvasStore((s) => s.addAnnotation);
   const removeAnnotation = useCanvasStore((s) => s.removeAnnotation);
+  const updateAnnotation = useCanvasStore((s) => s.updateAnnotation);
 
   // Right-click context menu for annotation templates
   const [contextMenu, setContextMenu] = useState<{
@@ -322,6 +323,14 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     viewportY: number;
     contentX: number;
     contentY: number;
+  } | null>(null);
+
+  // Annotation inline editing state
+  const [editingAnnotation, setEditingAnnotation] = useState<{
+    id: string;
+    text: string;
+    screenX: number;
+    screenY: number;
   } | null>(null);
 
   // Register JPG export — title block is part of the stage, so just capture the full virtual canvas
@@ -1067,6 +1076,17 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     [contextMenu, addAnnotation],
   );
 
+  const handleAnnotationDblClick = useCallback(
+    (id: string, x: number, y: number, text: string) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const screenX = (x - stageOffsetX) * stageScale + rect.left;
+      const screenY = (y - stageOffsetY) * stageScale + rect.top;
+      setEditingAnnotation({ id, text, screenX, screenY });
+    },
+    [stageOffsetX, stageOffsetY, stageScale],
+  );
+
   // Shared rubber band completion — reads from refs so it's safe to call from
   // any event handler without worrying about stale React state closures.
   const completeRubberBand = useCallback(() => {
@@ -1428,7 +1448,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           }}
           rubberBand={rubberBandRect}
         />
-        <AnnotationsLayer />
+        <AnnotationsLayer onAnnotationDblClick={handleAnnotationDblClick} />
         <PipeDraftLayer
           anchorPoint={anchorPoint}
           previewEnd={previewEnd}
@@ -1694,6 +1714,33 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           onSelect={handleAnnotationSelect}
           onClose={() => setContextMenu(null)}
         />
+      )}
+      {editingAnnotation && (
+        <div style={{ position: 'fixed', left: editingAnnotation.screenX, top: editingAnnotation.screenY, zIndex: 3000 }}>
+          <textarea
+            autoFocus
+            defaultValue={editingAnnotation.text}
+            rows={3}
+            style={{
+              width: 220, padding: '4px 6px', fontSize: 11, fontFamily: 'inherit',
+              border: '2px solid #0066cc', borderRadius: 4, outline: 'none',
+              background: '#fffde7', resize: 'both', boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            }}
+            onBlur={(e) => {
+              if (e.target.value.trim()) updateAnnotation(editingAnnotation.id, e.target.value.trim());
+              setEditingAnnotation(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') { setEditingAnnotation(null); return; }
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (e.currentTarget.value.trim()) updateAnnotation(editingAnnotation.id, e.currentTarget.value.trim());
+                setEditingAnnotation(null);
+              }
+            }}
+          />
+          <div style={{ fontSize: 9, color: '#666', marginTop: 2 }}>Enter to save · Esc to cancel · Shift+Enter for newline</div>
+        </div>
       )}
     </div>
   );

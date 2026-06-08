@@ -20,6 +20,12 @@ export interface BidetToast {
   tapY: number;
 }
 
+export interface DcvToast {
+  elementId: string;
+  elementX: number;
+  elementY: number;
+}
+
 interface UiStore {
   activeTool: ActiveTool;
   mrlConfig: MrlConfig;
@@ -33,6 +39,7 @@ interface UiStore {
   sheetSetupOpen: boolean;
   sheetSetupInitialTab: 'sheet' | 'titleblock';
   bidetToast: BidetToast | null;
+  dcvToast: DcvToast | null;
   floorLevelOpacity: number;
   setActiveTool: (tool: ActiveTool) => void;
   setMrlConfig: (config: Partial<MrlConfig>) => void;
@@ -51,6 +58,8 @@ interface UiStore {
   closeSheetSetup: () => void;
   showBidetToast: (tapElementId: string, tapX: number, tapY: number) => void;
   dismissBidetToast: () => void;
+  showDcvToast: (elementId: string, elementX: number, elementY: number) => void;
+  dismissDcvToast: () => void;
   setFloorLevelOpacity: (opacity: number) => void;
 }
 
@@ -70,6 +79,7 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   sheetSetupOpen: true,
   sheetSetupInitialTab: 'sheet' as const,
   bidetToast: null,
+  dcvToast: null,
   floorLevelOpacity: 1,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
@@ -95,6 +105,8 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   closeSheetSetup: () => set({ sheetSetupOpen: false }),
   showBidetToast: (tapElementId, tapX, tapY) => set({ bidetToast: { tapElementId, tapX, tapY } }),
   dismissBidetToast: () => set({ bidetToast: null }),
+  showDcvToast: (elementId, elementX, elementY) => set({ dcvToast: { elementId, elementX, elementY } }),
+  dismissDcvToast: () => set({ dcvToast: null }),
   setFloorLevelOpacity: (opacity) => set({ floorLevelOpacity: Math.max(0, Math.min(1, opacity)) }),
 
   addFloorLevel: (floor) =>

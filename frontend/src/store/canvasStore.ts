@@ -62,6 +62,7 @@ interface CanvasStore {
   addAnnotation: (ann: AnnotationElement) => void;
   moveAnnotation: (id: string, x: number, y: number) => void;
   removeAnnotation: (id: string) => void;
+  updateAnnotation: (id: string, text: string) => void;
 
   // Scale change — resize all content proportionally, anchored to canvas bottom (lowerMRL)
   rescaleAll: (oldScale: number, newScale: number, virtualHeight: number) => void;
@@ -352,6 +353,11 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
     moveAnnotation: (id, x, y) =>
       set((state) => ({
         annotations: state.annotations.map((a) => a.id === id ? { ...a, x, y } : a),
+      })),
+
+    updateAnnotation: (id, text) =>
+      set((state) => ({
+        annotations: state.annotations.map((a) => a.id === id ? { ...a, text } : a),
       })),
 
     removeAnnotation: (id) => {

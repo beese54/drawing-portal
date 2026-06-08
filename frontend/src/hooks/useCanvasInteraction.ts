@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useUiStore } from '../store/uiStore';
 import { useCanvasStore } from '../store/canvasStore';
-import { PipeElement, PipeType } from '../types';
+import { PipeElement, PipeType, isBackflowRiskElement } from '../types';
 import { findNearestPort } from '../utils/symbolPorts';
 
 const PORT_SNAP_THRESHOLD = 4; // px — user clicks near a port dot to connect
@@ -118,6 +118,15 @@ export function useCanvasInteraction() {
         };
         addPipe(pipe);
         setSelected(pipe.id);
+
+        // Offer DCV insertion if the pipe endpoint snapped to a backflow-risk element's upstream port
+        if (nearPort && nearPort.role === 'upstream') {
+          const snappedEl = elements.find((e) => e.id === nearPort.elementId);
+          if (snappedEl && isBackflowRiskElement(snappedEl)) {
+            useUiStore.getState().showDcvToast(snappedEl.id, snappedEl.x, snappedEl.y);
+          }
+        }
+
         // Resume chaining immediately from the end point
         setAnchorPoint(end);
         setPreviewEnd(end);

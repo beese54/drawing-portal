@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Layer, Rect, Text, Line, Image as KonvaImage } from 'react-konva';
 import {
   TITLE_BLOCK_MM, SHEET_PX_PER_MM, PAPER_SIZES_MM, AXIS_WIDTH,
   type SheetConfig,
 } from '../../types';
+import { useCanvasStore } from '../../store/canvasStore';
+import { symbolsApi } from '../../api/client';
 
 interface Props {
   sheetConfig: SheetConfig;
@@ -49,6 +51,42 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
     img.src = titleBlock.structuralEngineerStamp;
   }, [titleBlock.structuralEngineerStamp]);
 
+  // ── Legend: unique symbols on canvas ──────────────────────────
+  const elements = useCanvasStore((s) => s.elements);
+  const uniqueSymbols = useMemo(() => {
+    const seen = new Set<string>();
+    const result: { symbolId: string; symbolName: string }[] = [];
+    for (const el of elements) {
+      if (!seen.has(el.symbolId)) {
+        seen.add(el.symbolId);
+        result.push({ symbolId: el.symbolId, symbolName: el.symbolName });
+      }
+    }
+    return result.sort((a, b) => a.symbolName.localeCompare(b.symbolName));
+  }, [elements]);
+
+  const [legendImgs, setLegendImgs] = useState<Map<string, HTMLImageElement>>(new Map());
+  const symbolKey = uniqueSymbols.map((s) => s.symbolId).join(',');
+  useEffect(() => {
+    if (uniqueSymbols.length === 0) { setLegendImgs(new Map()); return; }
+    const map = new Map<string, HTMLImageElement>();
+    let pending = uniqueSymbols.length;
+    uniqueSymbols.forEach(({ symbolId }) => {
+      const img = new window.Image();
+      const done = () => { pending--; if (pending === 0) setLegendImgs(new Map(map)); };
+      img.onload = () => { map.set(symbolId, img); done(); };
+      img.onerror = done;
+      img.src = symbolsApi.getImageUrl(symbolId);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbolKey]);
+
+  const LEGEND_ROW_H = 12;
+  const LEGEND_HDR_H = 14;
+  const LEGEND_MAX_ROWS = 10;
+  const legendRows = Math.min(uniqueSymbols.length, LEGEND_MAX_ROWS);
+  const legendH = uniqueSymbols.length > 0 ? LEGEND_HDR_H + legendRows * LEGEND_ROW_H + 4 : 0;
+
   // ── Fixed heights ──────────────────────────────────────────────
   const headerH = 34;
   const btRowH  = 20;
@@ -64,7 +102,7 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
   const natMain       = blockH(titleBlock.mainContractor,     32);
   const natPlumb      = blockH(titleBlock.plumbingContractor, 32);
 
-  const available = paperH - headerH - bottomH;
+  const available = paperH - headerH - bottomH - legendH;
   const totalNat  = natOwner + natStructural + natProj + natMain + natPlumb;
 
   const scale = totalNat > available ? available / totalNat : 1;
@@ -82,6 +120,7 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
   const yProj       = yStructural + structuralH;
   const yMain       = yProj       + projH;
   const yPlumb      = yMain       + mainH;
+  const yLegend     = yPlumb      + plumbH;
   const yBottom     = paperH      - bottomH;
   const yDt         = yBottom;
   const yRow1       = yDt   + dtRowH;
@@ -174,6 +213,49 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
       <Rect x={tbX} y={yPlumb} width={tbW} height={plumbH}
             fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
       {BlockText(tbX, yPlumb, 'PLUMBING CONTRACTOR', titleBlock.plumbingContractor)}
+
+      {/* ═══ LEGEND ══════════════════════════════════════════════ */}
+      {legendH > 0 && (
+        <>
+          <Rect x={tbX} y={yLegend} width={tbW} height={legendH}
+                fill="#f8fafc" stroke={BORDER} strokeWidth={bw} listening={false} />
+          <Text x={tbX + PAD} y={yLegend + 3}
+                text="LEGEND" fontSize={LBL_SZ} fontStyle="bold" fill={LBL_CLR}
+                listening={false} />
+          <Line points={[tbX, yLegend + LEGEND_HDR_H - 1, tbX + tbW, yLegend + LEGEND_HDR_H - 1]}
+                stroke={BORDER} strokeWidth={0.5} listening={false} />
+          {uniqueSymbols.slice(0, LEGEND_MAX_ROWS).map(({ symbolId, symbolName }, i) => {
+            const rowY = yLegend + LEGEND_HDR_H + i * LEGEND_ROW_H;
+            const img = legendImgs.get(symbolId);
+            const iconSize = LEGEND_ROW_H - 2;
+            return (
+              <React.Fragment key={symbolId}>
+                {img && (
+                  <KonvaImage
+                    image={img}
+                    x={tbX + PAD}
+                    y={rowY + 1}
+                    width={iconSize}
+                    height={iconSize}
+                    listening={false}
+                  />
+                )}
+                <Text
+                  x={tbX + PAD + iconSize + 3}
+                  y={rowY + 2}
+                  text={symbolName}
+                  fontSize={7}
+                  fill={VAL_CLR}
+                  listening={false}
+                  width={tbW - PAD * 2 - iconSize - 3}
+                  ellipsis
+                  wrap="none"
+                />
+              </React.Fragment>
+            );
+          })}
+        </>
+      )}
 
       {/* ═══ DRAWING TITLE ════════════════════════════════════════ */}
       <Rect x={tbX} y={yDt} width={tbW} height={dtRowH}

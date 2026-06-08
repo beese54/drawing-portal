@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { CanvasPane } from './CanvasPane';
 import { ControlPane } from './ControlPane';
 import { SheetSetupModal } from '../common/SheetSetupModal';
-import { ToastNotification } from '../common/ToastNotification';
+import { ToastNotification, DcvToastNotification } from '../common/ToastNotification';
 import { ChatWindow } from '../chat/ChatWindow';
 import { useUiStore } from '../../store/uiStore';
 
@@ -92,6 +92,7 @@ export function AppLayout() {
 
       {sheetSetupOpen && <SheetSetupModal />}
       <ToastNotification />
+      <DcvToastNotification />
     </div>
   );
 }

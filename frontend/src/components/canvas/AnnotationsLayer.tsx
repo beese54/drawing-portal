@@ -8,9 +8,10 @@ interface AnnotationNodeProps {
   ann: AnnotationElement;
   isSelected: boolean;
   draggable?: boolean;
+  onDblClick?: (id: string, x: number, y: number, text: string) => void;
 }
 
-export function AnnotationNode({ ann, isSelected, draggable = true }: AnnotationNodeProps) {
+export function AnnotationNode({ ann, isSelected, draggable = true, onDblClick }: AnnotationNodeProps) {
   const textRef = useRef<Konva.Text>(null);
   const [textHeight, setTextHeight] = useState(ann.fontSize * 2);
   const setSelected = useCanvasStore((s) => s.setSelected);
@@ -29,6 +30,7 @@ export function AnnotationNode({ ann, isSelected, draggable = true }: Annotation
       draggable={draggable}
       onClick={() => setSelected(ann.id)}
       onTap={() => setSelected(ann.id)}
+      onDblClick={() => onDblClick?.(ann.id, ann.x, ann.y, ann.text)}
       onDragEnd={(e) => {
         moveAnnotation(ann.id, e.target.x(), e.target.y());
       }}
@@ -66,7 +68,11 @@ export function AnnotationNode({ ann, isSelected, draggable = true }: Annotation
   );
 }
 
-export function AnnotationsLayer() {
+interface AnnotationsLayerProps {
+  onAnnotationDblClick?: (id: string, x: number, y: number, text: string) => void;
+}
+
+export function AnnotationsLayer({ onAnnotationDblClick }: AnnotationsLayerProps = {}) {
   const annotations = useCanvasStore((s) => s.annotations);
   const selectedId = useCanvasStore((s) => s.selectedId);
   const selectedAnnotationIds = useCanvasStore((s) => s.selectedAnnotationIds);
@@ -78,7 +84,7 @@ export function AnnotationsLayer() {
         // Multi-selected annotations are rendered inside ElementsLayer's group instead
         .filter((ann) => !selectedAnnotationIdSet.has(ann.id))
         .map((ann) => (
-          <AnnotationNode key={ann.id} ann={ann} isSelected={selectedId === ann.id} />
+          <AnnotationNode key={ann.id} ann={ann} isSelected={selectedId === ann.id} onDblClick={onAnnotationDblClick} />
         ))}
     </Layer>
   );
