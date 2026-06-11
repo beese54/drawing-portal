@@ -2,11 +2,13 @@ interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
   message: string;
+  confirmLabel?: string;
+  children?: React.ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: ConfirmDialogProps) {
+export function ConfirmDialog({ isOpen, title, message, confirmLabel = 'Delete', children, onConfirm, onCancel }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
   return (
@@ -26,7 +28,8 @@ export function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: C
         onClick={(e) => e.stopPropagation()}
       >
         <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>{title}</h3>
-        <p style={{ margin: '0 0 20px', fontSize: 14, color: '#555' }}>{message}</p>
+        <p style={{ margin: '0 0 16px', fontSize: 14, color: '#555' }}>{message}</p>
+        {children && <div style={{ marginBottom: 20 }}>{children}</div>}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button
             onClick={onCancel}
@@ -44,7 +47,7 @@ export function ConfirmDialog({ isOpen, title, message, onConfirm, onCancel }: C
               background: '#e53e3e', color: '#fff', cursor: 'pointer', fontSize: 13,
             }}
           >
-            Delete
+            {confirmLabel}
           </button>
         </div>
       </div>

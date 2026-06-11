@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useCanvasStore } from '../../store/canvasStore';
 import { useMetadataExport } from '../../hooks/useMetadataExport';
+import { useJsonImport } from '../../hooks/useJsonImport';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { EvaluationModal } from '../common/EvaluationModal';
 import { AcknowledgmentModal } from '../common/AcknowledgmentModal';
@@ -35,7 +36,9 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   const updatePdfBackground = useUiStore((s) => s.updatePdfBackground);
   const pdfImportFn = useUiStore((s) => s.pdfImportFn);
   const pdfFileInputRef = useRef<HTMLInputElement>(null);
+  const resetTitleBlock = useUiStore((s) => s.resetTitleBlock);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [clearTitleBlock, setClearTitleBlock] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [connectionWarning, setConnectionWarning] = useState<ConnectionWarning | null>(null);
   const [showAckModal, setShowAckModal] = useState(false);
@@ -43,11 +46,14 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   const [evalResult, setEvalResult] = useState<EvaluationResponse | null>(null);
   const [evalError, setEvalError] = useState<string | null>(null);
   const { exportMetadata, getMetadata } = useMetadataExport(canvasWidth, canvasHeight);
+  const { openFilePicker: openJsonImport } = useJsonImport();
 
   const handleClear = () => {
     clearCanvas();
+    if (clearTitleBlock) resetTitleBlock();
     setActiveTool('select');
     setConfirmClear(false);
+    setClearTitleBlock(false);
   };
 
   const handleExportMetadata = () => {
@@ -249,6 +255,17 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
         </div>
       )}
       <button
+        onClick={openJsonImport}
+        style={{
+          width: '100%', padding: '9px 12px', border: '1px solid #0066cc', borderRadius: 6,
+          background: 'transparent', color: '#0066cc',
+          cursor: 'pointer', fontSize: 13, fontWeight: 600,
+          marginBottom: 8,
+        }}
+      >
+        Import Schematic (JSON)
+      </button>
+      <button
         onClick={handleExportMetadata}
         disabled={!hasContent}
         style={{
@@ -288,9 +305,20 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
         isOpen={confirmClear}
         title="Clear Canvas"
         message="This will remove all elements and pipes from the canvas. This cannot be undone."
+        confirmLabel="Clear"
         onConfirm={handleClear}
-        onCancel={() => setConfirmClear(false)}
-      />
+        onCancel={() => { setConfirmClear(false); setClearTitleBlock(false); }}
+      >
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={clearTitleBlock}
+            onChange={(e) => setClearTitleBlock(e.target.checked)}
+            style={{ width: 15, height: 15, cursor: 'pointer' }}
+          />
+          Also reset title block information
+        </label>
+      </ConfirmDialog>
       {showAckModal && (
         <AcknowledgmentModal
           elements={elements}

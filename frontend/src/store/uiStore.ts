@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { ActiveTool, FloorLevel, MrlConfig, MRL_LOWER_HARD_MIN, SheetConfig, DEFAULT_SHEET_CONFIG, getUpperMrl, PAPER_SIZES_MM, SHEET_PX_PER_MM } from '../types';
+import { ActiveTool, FloorLevel, MrlConfig, MRL_LOWER_HARD_MIN, SheetConfig, TitleBlockData, DEFAULT_SHEET_CONFIG, getUpperMrl, PAPER_SIZES_MM, SHEET_PX_PER_MM } from '../types';
 import { useCanvasStore } from './canvasStore';
 
 export interface PdfBackground {
@@ -54,6 +54,8 @@ interface UiStore {
   updatePdfBackground: (props: Partial<PdfBackground>) => void;
   registerPdfImport: (fn: (file: File) => Promise<void>) => void;
   setSheetConfig: (cfg: SheetConfig) => void;
+  setTitleBlock: (tb: TitleBlockData) => void;
+  resetTitleBlock: () => void;
   openSheetSetup: () => void;
   openSheetSetupAtTitleBlock: () => void;
   closeSheetSetup: () => void;
@@ -101,6 +103,8 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
     }
     set({ sheetConfig: cfg, mrlConfig: { lowerMrl: mrlConfig.lowerMrl, upperMrl: getUpperMrl(mrlConfig.lowerMrl, cfg) } });
   },
+  setTitleBlock: (tb) => set((state) => ({ sheetConfig: { ...state.sheetConfig, titleBlock: tb } })),
+  resetTitleBlock: () => set((state) => ({ sheetConfig: { ...state.sheetConfig, titleBlock: DEFAULT_SHEET_CONFIG.titleBlock } })),
   openSheetSetup: () => set({ sheetSetupOpen: true, sheetSetupInitialTab: 'sheet' }),
   openSheetSetupAtTitleBlock: () => set({ sheetSetupOpen: true, sheetSetupInitialTab: 'titleblock' }),
   closeSheetSetup: () => set({ sheetSetupOpen: false }),

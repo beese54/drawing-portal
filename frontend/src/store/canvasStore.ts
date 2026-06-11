@@ -37,6 +37,7 @@ interface CanvasStore {
   // Canvas mutations
   addElement: (el: CanvasElement) => void;
   loadTemplate: (elements: CanvasElement[], pipes: PipeElement[]) => void;
+  loadSchematic: (elements: CanvasElement[], pipes: PipeElement[]) => void;
   appendTemplate: (elements: CanvasElement[], pipes: PipeElement[]) => void;
   updateElementPosition: (id: string, x: number, y: number) => void;
   moveElement: (id: string, newX: number, newY: number, oldPorts: { x: number; y: number }[], newPorts: { x: number; y: number }[]) => void;
@@ -125,6 +126,19 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
     loadTemplate: (elements, pipes) => {
       pushHistory();
       set({ elements, pipes, selectedId: null, selectedIds: [], selectedPipeIds: [] });
+    },
+
+    loadSchematic: (elements, pipes) => {
+      pushHistory();
+      set({
+        elements,
+        pipes,
+        annotations: [],
+        selectedId: null,
+        selectedIds: [],
+        selectedPipeIds: [],
+        selectedAnnotationIds: [],
+      });
     },
 
     appendTemplate: (elements, pipes) => {

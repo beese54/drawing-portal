@@ -113,13 +113,25 @@ DEFAULT_DEMAND_LPS = 0.1   # fallback if fitting type unknown
 
 def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
     """
-    Reg 28(1): A water heater must have a check valve installed on its inlet
-    to prevent backflow from the hot water apparatus to the mains supply.
+    Reg 28(1) + SS636 §6.4/6.5: Backflow prevention for all at-risk elements.
 
-    Uses a topology-based BFS (ignoring flow direction) so that the check
-    works correctly regardless of how the water heater or check valve is
-    rotated or oriented on the canvas.
+    - Water heater      → check valve required (Reg 28(1))
+    - §6.4 appliances   → check valve required (dishwasher, washing machine,
+                          water dispenser, landscape tap)
+    - §6.5 bidet spray  → vacuum breaker required
+
+    Uses BFS over the topology graph (direction-agnostic) so the check works
+    regardless of how symbols are rotated or oriented on the canvas.
     """
+    # Elements that require a check_valve within BFS hops
+    REQUIRES_CHECK_VALVE = {
+        "water_heater",
+        "washing_machine", "dishwasher", "water_dispenser",
+        "bib_tap_cw_cap_and_lock_schematic",
+    }
+    # Elements that require a vacuum_breaker within BFS hops
+    REQUIRES_VACUUM_BREAKER = {"bidet_spray", "bidet"}
+
     elements: list[dict] = metadata.get("elements", [])
     pipes: list[dict] = metadata.get("pipes", [])
 
@@ -183,99 +195,102 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
                         linked = True
                         break
 
-    heaters = [e for e in elements if e.get("symbol_id") == "water_heater"]
+    risk_elements = [
+        e for e in elements
+        if e.get("symbol_id") in REQUIRES_CHECK_VALVE or e.get("symbol_id") in REQUIRES_VACUUM_BREAKER
+    ]
 
-    if not heaters:
+    if not risk_elements:
         return CheckResult(
             check_id="REG28",
-            title="Backflow Prevention (Water Heater)",
+            title="Backflow Prevention",
             status="SKIP",
-            summary="No water heater found in schematic.",
-            detail=["Add a water heater symbol to the schematic to enable this check."],
+            summary="No backflow-risk elements found in schematic.",
+            detail=["Add a water heater, appliance fitting, or bidet spray to enable this check."],
         )
 
     all_pass = True
     details: list[str] = []
     elements_of_interest: list[dict] = []
 
-    for heater in heaters:
-        heater_id = heater["id"]
-        heater_name = heater.get("symbol_name", "Water Heater")
-
-        # BFS over topology (direction-agnostic) — up to 8 hops
+    def bfs_find(start_id: str, target_ids: set[str]) -> tuple[int | None, str | None]:
         visited: set[str] = set()
-        queue: list[tuple[str, int]] = [(heater_id, 0)]
-        check_valve_found_at: int | None = None
-        check_valve_id: str | None = None
-
+        queue: list[tuple[str, int]] = [(start_id, 0)]
         while queue:
             current_id, dist = queue.pop(0)
             if current_id in visited:
                 continue
             visited.add(current_id)
-
-            if dist > 0:  # don't count the heater itself
-                current_el = elem_by_id.get(current_id)
-                if current_el and current_el.get("symbol_id") == "check_valve":
-                    check_valve_found_at = dist
-                    check_valve_id = current_id
-                    break
-
+            if dist > 0:
+                el = elem_by_id.get(current_id)
+                if el and el.get("symbol_id") in target_ids:
+                    return dist, current_id
             if dist >= 8:
                 continue
-
-            # Follow all topologically adjacent elements (ignores port orientation)
             for neighbor_id in adjacency.get(current_id, set()):
                 if neighbor_id not in visited:
                     queue.append((neighbor_id, dist + 1))
+        return None, None
 
-        if check_valve_found_at is not None:
-            color = "blue" if check_valve_found_at == 1 else "orange"
-            position_label = "immediately upstream" if check_valve_found_at == 1 else f"{check_valve_found_at} hops upstream"
-            details.append(
-                f"✓ {heater_name}: Check valve found {position_label} (recommended: immediately adjacent)."
-            )
-            elements_of_interest.append({
-                "element_id": heater_id,
-                "label": "Water Heater",
-                "color": color,
-            })
-            if check_valve_id:
-                elements_of_interest.append({
-                    "element_id": check_valve_id,
-                    "label": "Check Valve",
-                    "color": "green",
-                })
-            if check_valve_found_at > 1:
+    for el in risk_elements:
+        el_id = el["id"]
+        el_name = el.get("symbol_name", el.get("symbol_id", "Element"))
+        sym_id = el.get("symbol_id", "")
+
+        if sym_id in REQUIRES_VACUUM_BREAKER:
+            # §6.5: needs vacuum_breaker
+            hops, found_id = bfs_find(el_id, {"vacuum_breaker"})
+            if hops is not None:
+                pos = "immediately adjacent" if hops == 1 else f"{hops} hops away"
+                details.append(f"✓ {el_name}: Vacuum breaker found ({pos}) — §6.5 satisfied.")
+                elements_of_interest.append({"element_id": el_id, "label": el_name, "color": "blue"})
+                if found_id:
+                    elements_of_interest.append({"element_id": found_id, "label": "Vacuum Breaker", "color": "green"})
+            else:
                 all_pass = False
                 details.append(
-                    f"  ⚠ Recommend moving check valve to directly before the water heater inlet."
+                    f"✗ {el_name}: No vacuum breaker found within 8 hops — "
+                    "SS636 §6.5 requires a vacuum breaker on all bidet spray connections."
                 )
+                elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing vacuum breaker!", "color": "red"})
         else:
-            all_pass = False
-            details.append(
-                f"✗ {heater_name}: No check valve found upstream. "
-                "Reg 28(1) requires a check valve on the inlet to prevent backflow."
-            )
-            elements_of_interest.append({
-                "element_id": heater_id,
-                "label": "Missing check valve!",
-                "color": "red",
-            })
+            # Reg 28(1) / §6.4: needs check_valve
+            hops, found_id = bfs_find(el_id, {"check_valve"})
+            if sym_id == "water_heater":
+                ref = "Reg 28(1)"
+                missing_msg = "Reg 28(1) requires a check valve on the water heater inlet to prevent backflow."
+            else:
+                ref = "SS636 §6.4"
+                missing_msg = f"SS636 §6.4 requires a double check valve upstream of {el_name}."
+
+            if hops is not None:
+                color = "blue" if hops == 1 else "orange"
+                pos = "immediately upstream" if hops == 1 else f"{hops} hops upstream"
+                details.append(f"✓ {el_name}: Check valve found {pos} — {ref} satisfied.")
+                elements_of_interest.append({"element_id": el_id, "label": el_name, "color": color})
+                if found_id:
+                    elements_of_interest.append({"element_id": found_id, "label": "Check Valve", "color": "green"})
+                if hops > 1 and sym_id == "water_heater":
+                    all_pass = False
+                    details.append("  ⚠ Recommend moving check valve to directly before the water heater inlet.")
+            else:
+                all_pass = False
+                details.append(f"✗ {el_name}: No check valve found upstream. {missing_msg}")
+                elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing check valve!", "color": "red"})
 
     if all_pass:
         status = "PASS"
-        summary = "All water heaters have a check valve on their inlet — Reg 28(1) satisfied."
-    elif any("No check valve" in d for d in details):
+        summary = "All backflow-risk elements have the required protection — Reg 28(1) and SS636 §6.4/6.5 satisfied."
+    elif any("✗" in d for d in details):
         status = "FAIL"
-        summary = "One or more water heaters are missing a check valve on the inlet — Reg 28(1) violation."
+        summary = "One or more backflow-risk elements are missing required protection — compliance violation."
     else:
         status = "WARN"
-        summary = "Check valves present but not immediately adjacent to water heater inlets — review positioning."
+        summary = "Protection present but not immediately adjacent to all risk elements — review positioning."
 
     return CheckResult(
         check_id="REG28",
-        title="Backflow Prevention (Water Heater)",
+        title="Backflow Prevention",
         status=status,
         summary=summary,
         detail=details,
@@ -304,13 +319,22 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
     """
     elements: list[dict] = metadata.get("elements", [])
 
-    # Find the highest water_fittings elevation; fall back to all elements
-    fitting_elevations = [
-        e["elevation_m"] for e in elements
-        if e.get("symbol_id") == "water_fittings" and e.get("elevation_m") is not None
-    ]
+    # All symbol IDs that represent water fittings / fixtures (terminal outlets)
+    FITTING_SYMBOL_IDS = {
+        "water_fittings",
+        "shower_head", "multiple_show_unit", "shower_bath",
+        "wash_basin_rectangular", "sink", "water_closet", "urinal_wall",
+        "long_bath", "bidet_spray", "bidet",
+        "washing_machine", "dishwasher", "water_dispenser",
+        "bib_tap_cw_cap_and_lock_schematic",
+    }
+
     all_elevations = [
         e["elevation_m"] for e in elements if e.get("elevation_m") is not None
+    ]
+    fitting_elevations = [
+        e["elevation_m"] for e in elements
+        if e.get("symbol_id") in FITTING_SYMBOL_IDS and e.get("elevation_m") is not None
     ]
 
     if not all_elevations:

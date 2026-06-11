@@ -493,8 +493,10 @@ export interface ExportedElement {
   symbol_name: string;
   node_type: NodeType;
   position: { canvas_x: number; canvas_y: number };
-  mrl: { value: number; unit: 'm' };
-  /** Elevation above datum in metres — same value as mrl.value, explicit for readability. */
+  /** Canvas size in pixels — needed to reconstruct the element on import. */
+  width: number;
+  height: number;
+  /** Elevation above datum in metres AMSL. */
   elevation_m: number;
   /** Whether this element is before (direct_supply) or after (indirect_supply) the water meter. Null if no meter present or element is the meter itself. */
   supply_mode: SupplyMode;
@@ -565,10 +567,6 @@ export interface ExportedPipe {
   pipe_type: PipeType;
   start: { canvas_x: number; canvas_y: number; mrl: number };
   end: { canvas_x: number; canvas_y: number; mrl: number };
-  /** Elevation at the start endpoint in metres. */
-  start_elevation_m: number;
-  /** Elevation at the end endpoint in metres. */
-  end_elevation_m: number;
   /** Whether this pipe is before (direct_supply) or after (indirect_supply) the water meter. */
   supply_mode: SupplyMode;
   /** Element id whose port sits at this pipe's start point, or null (free end). */
@@ -652,6 +650,8 @@ export interface DrawingMetadata {
   bidet_vacuum_breaker_acknowledged: boolean;
   /** LP/PE has acknowledged tanks/pumps are not below sanitary or non-potable water pipes. */
   tank_position_acknowledged: boolean;
+  /** Title block fields as filled in by the LP/PE. Stamps are included as base64 data-URLs. */
+  title_block: TitleBlockData;
   elements: ExportedElement[];
   pipes: ExportedPipe[];
   hydraulic_context: HydraulicContext;

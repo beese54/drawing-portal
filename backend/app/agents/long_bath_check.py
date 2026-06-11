@@ -45,18 +45,18 @@ def check_long_bath_installation(metadata: dict[str, Any]) -> CheckResult:
             detail.append(f"{label}: {capacity} L — within the {CAPACITY_LIMIT_L} L limit. No additional provisions required.")
             sub_statuses.append("PASS")
         else:
-            detail.append(f"{label}: {capacity} L — exceeds {CAPACITY_LIMIT_L} L. The following additional provisions are required:")
+            detail.append(f"{label}: {capacity} L — exceeds {CAPACITY_LIMIT_L} L. The following additional provisions are required per SS 636:")
             detail.append(
-                "  1. A dedicated cold water storage tank or direct connection to mains supply "
-                "with adequate flow rate to fill the bath within a reasonable time."
+                "  1. No direct drain plug — the bath must not be fitted with a direct drain plug "
+                "that would allow the full volume to be retained."
             )
             detail.append(
-                "  2. A thermostatic mixing valve (TMV) or equivalent temperature control device "
-                "must be installed to prevent scalding (max 48 °C at outlet per SS 636)."
+                "  2. Full recirculation facilities must be provided (recirculation pump and pipework "
+                "to filter and recirculate the bath water)."
             )
             detail.append(
-                "  3. An overflow arrangement with minimum 40 mm diameter overflow pipe must be "
-                "provided and connected to a suitable discharge point."
+                "  3. Backwash from the recirculation filter must be discharged to the sewer via a "
+                "floor trap — not directly to the drain."
             )
             sub_statuses.append("WARN")
 

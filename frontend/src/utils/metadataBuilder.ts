@@ -11,6 +11,7 @@ import {
   ExportedTankProperties,
   SupplyMode,
   TankProperties,
+  TitleBlockData,
   calcTankCapacityLitres,
   AcknowledgmentFlags,
   FIXTURE_MWELS_CATEGORY,
@@ -35,6 +36,21 @@ const NODE_TYPE_MAP: Record<string, NodeType> = {
   pressure_relief_valve: 'check_valve',
   vacuum_breaker:        'check_valve',
   bidet_spray:           'water_fitting',
+  bidet:                 'water_fitting',
+  // Individual fixture symbols (same hydraulic role as water_fittings)
+  shower_head:           'water_fitting',
+  multiple_show_unit:    'water_fitting',
+  shower_bath:           'water_fitting',
+  wash_basin_rectangular:'water_fitting',
+  sink:                  'water_fitting',
+  water_closet:          'water_fitting',
+  urinal_wall:           'water_fitting',
+  long_bath:             'water_fitting',
+  // Appliances (SS636 §6.4)
+  washing_machine:       'water_fitting',
+  dishwasher:            'water_fitting',
+  water_dispenser:       'water_fitting',
+  bib_tap_cw_cap_and_lock_schematic: 'water_fitting',
 };
 
 function nodeTypeFor(symbolId: string): NodeType {
@@ -290,6 +306,7 @@ export function buildMetadata(
   canvasHeight: number,
   sourcePressureBar: number | null = null,
   acks: AcknowledgmentFlags = DEFAULT_ACKS,
+  titleBlock: TitleBlockData = {} as TitleBlockData,
 ): DrawingMetadata {
   const { upperMrl, lowerMrl } = mrlConfig;
 
@@ -332,8 +349,6 @@ export function buildMetadata(
       pipe_type: p.pipeType,
       start: { canvas_x: Math.round(p.startX * 100) / 100, canvas_y: Math.round(p.startY * 100) / 100, mrl: startMrl },
       end:   { canvas_x: Math.round(p.endX   * 100) / 100, canvas_y: Math.round(p.endY   * 100) / 100, mrl: endMrl   },
-      start_elevation_m: startMrl,
-      end_elevation_m:   endMrl,
       supply_mode: null as SupplyMode, // filled in Pass 4
       start_connects_to: startMatch?.elementId    ?? null,
       start_port_index:  startMatch?.portIndex    ?? null,
@@ -404,7 +419,8 @@ export function buildMetadata(
       symbol_name: el.symbolName,
       node_type: nodeTypeFor(el.symbolId),
       position: { canvas_x: Math.round(el.x * 100) / 100, canvas_y: Math.round(el.y * 100) / 100 },
-      mrl: { value: elMrl, unit: 'm AMSL' as const },
+      width: el.width,
+      height: el.height,
       elevation_m: elMrl,
       supply_mode: null as SupplyMode, // filled in Pass 4
       rotation_deg: el.rotation,
@@ -581,6 +597,7 @@ export function buildMetadata(
   return {
     schema_version: '1.0',
     exported_at: new Date().toISOString(),
+    title_block: titleBlock,
     mrl_config: {
       upper_mrl: upperMrl,
       lower_mrl: lowerMrl,
