@@ -8,7 +8,7 @@ interface AnnotationNodeProps {
   ann: AnnotationElement;
   isSelected: boolean;
   draggable?: boolean;
-  onDblClick?: (id: string, x: number, y: number, text: string) => void;
+  onDblClick?: (id: string, x: number, y: number, text: string, fontSize: number, maxWidth: number) => void;
 }
 
 export function AnnotationNode({ ann, isSelected, draggable = true, onDblClick }: AnnotationNodeProps) {
@@ -30,7 +30,7 @@ export function AnnotationNode({ ann, isSelected, draggable = true, onDblClick }
       draggable={draggable}
       onClick={() => setSelected(ann.id)}
       onTap={() => setSelected(ann.id)}
-      onDblClick={() => onDblClick?.(ann.id, ann.x, ann.y, ann.text)}
+      onDblClick={() => onDblClick?.(ann.id, ann.x, ann.y, ann.text, ann.fontSize, ann.maxWidth)}
       onDragEnd={(e) => {
         moveAnnotation(ann.id, e.target.x(), e.target.y());
       }}
@@ -69,10 +69,11 @@ export function AnnotationNode({ ann, isSelected, draggable = true, onDblClick }
 }
 
 interface AnnotationsLayerProps {
-  onAnnotationDblClick?: (id: string, x: number, y: number, text: string) => void;
+  onAnnotationDblClick?: (id: string, x: number, y: number, text: string, fontSize: number, maxWidth: number) => void;
+  editingAnnotationId?: string;
 }
 
-export function AnnotationsLayer({ onAnnotationDblClick }: AnnotationsLayerProps = {}) {
+export function AnnotationsLayer({ onAnnotationDblClick, editingAnnotationId }: AnnotationsLayerProps = {}) {
   const annotations = useCanvasStore((s) => s.annotations);
   const selectedId = useCanvasStore((s) => s.selectedId);
   const selectedAnnotationIds = useCanvasStore((s) => s.selectedAnnotationIds);
@@ -81,8 +82,7 @@ export function AnnotationsLayer({ onAnnotationDblClick }: AnnotationsLayerProps
   return (
     <Layer>
       {annotations
-        // Multi-selected annotations are rendered inside ElementsLayer's group instead
-        .filter((ann) => !selectedAnnotationIdSet.has(ann.id))
+        .filter((ann) => !selectedAnnotationIdSet.has(ann.id) && ann.id !== editingAnnotationId)
         .map((ann) => (
           <AnnotationNode key={ann.id} ann={ann} isSelected={selectedId === ann.id} onDblClick={onAnnotationDblClick} />
         ))}

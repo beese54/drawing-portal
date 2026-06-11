@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useUiStore } from '../../store/uiStore';
 import { useCanvasStore } from '../../store/canvasStore';
 import { SCHEMATIC_SYMBOL_PX } from '../../types';
+import { SYMBOL_PORTS, getPortPosition } from '../../utils/symbolPorts';
 
 const AUTO_DISMISS_MS = 7000;
 const STEP = SCHEMATIC_SYMBOL_PX;
@@ -140,7 +141,7 @@ export function ToastNotification() {
 export function DcvToastNotification() {
   const toast = useUiStore((s) => s.dcvToast);
   const dismiss = useUiStore((s) => s.dismissDcvToast);
-  const { addElement, elements, updatePipeEndpoints } = useCanvasStore();
+  const { addElement, elements, insertElementOnPipe } = useCanvasStore();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -157,47 +158,82 @@ export function DcvToastNotification() {
     const existing = elements.find((e) => e.id === toast.elementId);
     const { elementX, elementY, pipeId } = toast;
 
-    // Shorten the triggering pipe so it ends at CV2's upstream port instead of the fitting
-    const pipes = useCanvasStore.getState().pipes;
-    const triggerPipe = pipes.find((p) => p.id === pipeId);
-    if (triggerPipe) {
-      updatePipeEndpoints(pipeId, triggerPipe.startX, triggerPipe.startY, triggerPipe.endX, triggerPipe.endY - 2 * STEP);
+    // Find the upstream pipe (the one that ENDS near the element's upstream port).
+    // For terminal elements dropped on a pipe, insertElementOnPipe replaces the original
+    // pipe (new UUID) so the stored pipeId may be stale — use proximity fallback.
+    // For inline elements (water heater), insertElementOnPipeInline creates pipeA (upstream,
+    // ends at element inlet) and pipeB (downstream); checking endX/endY selects pipeA.
+    const allPipes = useCanvasStore.getState().pipes;
+    let targetPipe = allPipes.find((p) => p.id === pipeId);
+    if (!targetPipe) {
+      let closest = 30;
+      for (const p of allPipes) {
+        const dEnd = Math.hypot(p.endX - elementX, p.endY - elementY);
+        if (dEnd < closest) { closest = dEnd; targetPipe = p; }
+      }
     }
-    // Strip tank-specific and long-bath-specific fields from base props
-    const baseProps = existing
-      ? (({ tankProperties: _t, longBathCapacityL: _l, dualSupply: _d, swapDualSupply: _s, ...rest }) => rest)(existing as typeof existing & { tankProperties?: unknown; longBathCapacityL?: unknown; dualSupply?: unknown; swapDualSupply?: unknown })
-      : null;
 
-    const sharedProps = baseProps
-      ? {
-          width: baseProps.width,
-          height: baseProps.height,
-          scaleX: baseProps.scaleX,
-          carriesFluid: baseProps.carriesFluid,
-        }
-      : {};
+    // Assembly components are always standard size regardless of the fitting's size multiplier.
+    const cvWidth  = SCHEMATIC_SYMBOL_PX;
+    const cvHeight = SCHEMATIC_SYMBOL_PX;
+    const cvFluid  = existing?.carriesFluid;
+    const cvHalfPort = SCHEMATIC_SYMBOL_PX / 2; // = 3 (scaled port offset for standard elements)
 
-    // CV1: directly above the fitting
-    addElement({
-      ...sharedProps,
+    // Anchor = fitting's actual upstream port so CV1's downstream aligns exactly with it,
+    // even when the fitting is a different size (e.g. water heater at 1.7× scale).
+    const fittingPorts = existing ? (SYMBOL_PORTS[existing.symbolId] ?? []) : [];
+    const fittingUpstream = fittingPorts.find((p) => p.role === 'upstream');
+    const anchor = fittingUpstream && existing
+      ? getPortPosition(existing, fittingUpstream)
+      : { x: elementX, y: elementY };
+
+    // Pipe flow direction unit vector from targetPipe; determines assembly orientation.
+    let ux = 0; let uy = 1; // default: vertical (downward flow)
+    let asmRotation = 90;
+    if (targetPipe) {
+      const dx = targetPipe.endX - targetPipe.startX;
+      const dy = targetPipe.endY - targetPipe.startY;
+      const len = Math.hypot(dx, dy);
+      if (len > 0) {
+        ux = dx / len;
+        uy = dy / len;
+        asmRotation = Math.abs(uy) >= Math.abs(ux) ? 90 : 0;
+      }
+    }
+
+    // Place elements upstream of anchor.
+    // CV1.downstream touches anchor; CV2.downstream touches CV1.upstream; GV.downstream touches CV2.upstream.
+    const makeAssemblyEl = (symbolId: string, symbolName: string, distFromAnchor: number) => ({
       id: crypto.randomUUID(),
-      symbolId: 'check_valve',
-      symbolName: 'Check Valve',
-      x: elementX,
-      y: elementY - STEP,
-      rotation: 90,
+      symbolId,
+      symbolName,
+      x: anchor.x - ux * distFromAnchor,
+      y: anchor.y - uy * distFromAnchor,
+      rotation: asmRotation,
+      width: cvWidth,
+      height: cvHeight,
+      ...(cvFluid !== undefined && { carriesFluid: cvFluid }),
     });
 
-    // CV2: two steps above the fitting
-    addElement({
-      ...sharedProps,
-      id: crypto.randomUUID(),
-      symbolId: 'check_valve',
-      symbolName: 'Check Valve',
-      x: elementX,
-      y: elementY - STEP * 2,
-      rotation: 90,
-    });
+    // Each element's downstream port is cvHalfPort (=3) from its center toward the fitting.
+    // Adjacent same-size elements are STEP (=6) apart center-to-center.
+    const cv1El = makeAssemblyEl('check_valve', 'Check Valve', cvHalfPort);
+    const cv2El = makeAssemblyEl('check_valve', 'Check Valve', cvHalfPort + STEP);
+    const gvEl  = makeAssemblyEl('gate_valve',  'Gate Valve',  cvHalfPort + STEP * 2);
+
+    if (targetPipe) {
+      // Terminate the upstream pipe at GV's inlet so GV gets a proper pipe connection.
+      // CV2, CV1, and the fitting chain via port-to-port proximity (no intermediate pipes).
+      const gvPorts = SYMBOL_PORTS['gate_valve'] ?? [];
+      const gvInletPos = getPortPosition(gvEl, gvPorts.find((p) => p.role === 'upstream')!);
+      insertElementOnPipe(targetPipe.id, gvEl, gvInletPos.x, gvInletPos.y, true);
+      addElement(cv2El);
+      addElement(cv1El);
+    } else {
+      addElement(gvEl);
+      addElement(cv2El);
+      addElement(cv1El);
+    }
 
     dismiss();
   };
@@ -226,7 +262,7 @@ export function DcvToastNotification() {
             Backflow-risk appliance detected
           </div>
           <div style={{ fontSize: 11, color: '#b8d0f0', lineHeight: 1.45 }}>
-            Insert 2 check valves in series upstream (SS636 §6.4)?
+            Insert <strong>Gate Valve → CV → CV</strong> upstream (SS636 §6.4)?
           </div>
         </div>
         <button
@@ -260,7 +296,7 @@ export function DcvToastNotification() {
             border: 'none', background: '#3b82f6', color: '#fff', cursor: 'pointer',
           }}
         >
-          Insert 2 Check Valves
+          Insert Assembly
         </button>
       </div>
     </div>

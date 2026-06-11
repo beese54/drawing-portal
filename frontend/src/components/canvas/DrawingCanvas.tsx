@@ -21,7 +21,7 @@ import { WaterTankPropertiesModal } from './WaterTankPropertiesModal';
 import { useUiStore } from '../../store/uiStore';
 import { useCanvasStore } from '../../store/canvasStore';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
-import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, PAPER_SIZES_MM, SHEET_PX_PER_MM, SCHEMATIC_SYMBOL_PX, AXIS_WIDTH, TITLE_BLOCK_MM, getSymbolSizePx, FIXTURE_MWELS_CATEGORY } from '../../types';
+import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, PAPER_SIZES_MM, SHEET_PX_PER_MM, SCHEMATIC_SYMBOL_PX, AXIS_WIDTH, TITLE_BLOCK_MM, getSymbolSizePx, FIXTURE_MWELS_CATEGORY, isBackflowRiskElement } from '../../types';
 import { symbolsApi } from '../../api/client';
 import { closestPointOnSegment, distance } from '../../utils/geometry';
 import { SYMBOL_PORTS, rotateOffset, getPortPosition, getEffectivePortRole, DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
@@ -241,6 +241,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   const setPendingSymbol = useUiStore((s) => s.setPendingSymbol);
   const registerExportJpg = useUiStore((s) => s.registerExportJpg);
   const showBidetToast = useUiStore((s) => s.showBidetToast);
+  const showDcvToast   = useUiStore((s) => s.showDcvToast);
 
   const [dragOverPos, setDragOverPos] = useState<{ x: number; y: number } | null>(null);
 
@@ -325,13 +326,15 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     contentY: number;
   } | null>(null);
 
-  // Annotation edit — reuses the context menu popup
-  const [editAnnotationMenu, setEditAnnotationMenu] = useState<{
+  const [editingAnnotation, setEditingAnnotation] = useState<{
     id: string;
     text: string;
-    viewportX: number;
-    viewportY: number;
+    screenX: number;
+    screenY: number;
+    fontSize: number;
+    maxWidth: number;
   } | null>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Register JPG export — title block is part of the stage, so just capture the full virtual canvas
   useEffect(() => {
@@ -832,9 +835,19 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           const { inletPos, outletPos } = getInlinePortPositions(placedEl);
           insertElementOnPipeInline(bestPipeId, placedEl, inletPos, outletPos);
         } else if (TERMINAL_SYMBOL_IDS.has(symbolId)) {
-          insertElementOnPipe(bestPipeId, placedEl, bestSnapX, bestSnapY, true);
+          // Use actual scaled upstream port position so the pipe terminates at the
+          // element's real port, not the unscaled virtual port used for snap detection.
+          const terminalUpstream = (SYMBOL_PORTS[symbolId] ?? []).find((p) => p.role === 'upstream');
+          const snapPt = terminalUpstream
+            ? getPortPosition(placedEl, terminalUpstream)
+            : { x: bestSnapX, y: bestSnapY };
+          insertElementOnPipe(bestPipeId, placedEl, snapPt.x, snapPt.y, true);
         } else {
           insertElementOnPipe(bestPipeId, placedEl, bestSnapX, bestSnapY);
+        }
+        // Offer DCV if a backflow-risk fitting was just connected to a pipe
+        if (isBackflowRiskElement(placedEl)) {
+          showDcvToast(placedEl.id, placedEl.x, placedEl.y, bestPipeId);
         }
       } else {
         addElement(el);
@@ -860,7 +873,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         if (nearTap) showBidetToast(nearTap.id, nearTap.x, nearTap.y);
       }
     },
-    [addElement, insertElementOnPipe, insertElementOnPipeInline, setPendingTee, setPendingElbow, setPendingFlip, setPendingWaterFittings, showBidetToast]
+    [addElement, insertElementOnPipe, insertElementOnPipeInline, setPendingTee, setPendingElbow, setPendingFlip, setPendingWaterFittings, showBidetToast, showDcvToast]
   );
 
 
@@ -1077,11 +1090,12 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   );
 
   const handleAnnotationDblClick = useCallback(
-    (id: string, x: number, y: number, text: string) => {
-      // Viewport-relative coords (container-relative) for the context menu
-      const viewportX = (x - stageOffsetX) * stageScale;
-      const viewportY = (y - stageOffsetY) * stageScale;
-      setEditAnnotationMenu({ id, text, viewportX, viewportY });
+    (id: string, x: number, y: number, text: string, fontSize: number, maxWidth: number) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const screenX = x * stageScale - stageOffsetX + rect.left;
+      const screenY = y * stageScale - stageOffsetY + rect.top;
+      setEditingAnnotation({ id, text, screenX, screenY, fontSize, maxWidth });
     },
     [stageOffsetX, stageOffsetY, stageScale],
   );
@@ -1447,7 +1461,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           }}
           rubberBand={rubberBandRect}
         />
-        <AnnotationsLayer onAnnotationDblClick={handleAnnotationDblClick} />
+        <AnnotationsLayer onAnnotationDblClick={handleAnnotationDblClick} editingAnnotationId={editingAnnotation?.id} />
         <PipeDraftLayer
           anchorPoint={anchorPoint}
           previewEnd={previewEnd}
@@ -1714,14 +1728,49 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           onClose={() => setContextMenu(null)}
         />
       )}
-      {editAnnotationMenu && (
-        <AnnotationContextMenu
-          viewportX={editAnnotationMenu.viewportX}
-          viewportY={editAnnotationMenu.viewportY}
-          initialText={editAnnotationMenu.text}
-          onEdit={(text) => { updateAnnotation(editAnnotationMenu.id, text); }}
-          onSelect={() => {}}
-          onClose={() => setEditAnnotationMenu(null)}
+      {editingAnnotation && (
+        <textarea
+          ref={editTextareaRef}
+          autoFocus
+          defaultValue={editingAnnotation.text}
+          onMouseDown={(e) => e.stopPropagation()}
+          onFocus={(e) => { const l = e.target.value.length; e.target.setSelectionRange(l, l); }}
+          onBlur={(e) => {
+            const v = e.target.value.trim();
+            if (v) updateAnnotation(editingAnnotation.id, v);
+            setEditingAnnotation(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') { setEditingAnnotation(null); return; }
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              const v = editTextareaRef.current?.value.trim();
+              if (v) updateAnnotation(editingAnnotation.id, v);
+              setEditingAnnotation(null);
+            }
+          }}
+          style={{
+            position: 'fixed',
+            left: editingAnnotation.screenX - 3 * stageScale,
+            top: editingAnnotation.screenY - 3 * stageScale,
+            width: editingAnnotation.maxWidth * stageScale,
+            minHeight: editingAnnotation.fontSize * stageScale * 1.35,
+            fontSize: editingAnnotation.fontSize * stageScale,
+            fontFamily: 'inherit',
+            lineHeight: 1.35,
+            color: '#1a1a1a',
+            background: 'rgba(255,255,220,0.97)',
+            border: `${1.5 * stageScale}px solid #0066cc`,
+            borderRadius: 2 * stageScale,
+            padding: `${3 * stageScale}px`,
+            outline: 'none',
+            resize: 'none',
+            boxSizing: 'border-box',
+            zIndex: 3000,
+            overflow: 'hidden',
+            wordBreak: 'break-word',
+            whiteSpace: 'pre-wrap',
+          }}
         />
       )}
     </div>

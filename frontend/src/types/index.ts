@@ -203,6 +203,7 @@ const DOUBLE_CHECK_VALVE_SYMBOL_IDS = new Set([
   'washing_machine',                   // SS636 §6.4
   'dishwasher',                        // SS636 §6.4
   'water_dispenser',                   // SS636 §6.4
+  'water_heater',                      // SS636 §6.4
 ]);
 
 const DOUBLE_CHECK_VALVE_FITTING_TYPES = new Set([

@@ -3,10 +3,11 @@ import { Image as KonvaImage } from 'react-konva';
 import useImage from 'use-image';
 import Konva from 'konva';
 import { useCanvasStore } from '../../store/canvasStore';
+import { useUiStore } from '../../store/uiStore';
 import { SYMBOL_PORTS, getElementPorts, getPortPosition, getScaledPortOffset, rotateOffset } from '../../utils/symbolPorts';
 import { closestPointOnSegment } from '../../utils/geometry';
 import type { PipeType, PipeElement } from '../../types';
-import { SCHEMATIC_SYMBOL_PX } from '../../types';
+import { SCHEMATIC_SYMBOL_PX, isBackflowRiskElement } from '../../types';
 
 const FLUID_MATCH = 5; // px — slightly above CANVAS_SNAP_THRESHOLD so drag-snapped connections are always detected
 
@@ -234,6 +235,21 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
             const rot = rotateOffset(ox, oy, rotation);
             const fluid = inferFluidForElement(pipes, newX + rot.x, newY + rot.y, elements);
             updateCarriesFluid(id, fluid);
+            // Offer DCV if a backflow-risk fitting was just dragged onto a pipe
+            if (isBackflowRiskElement({ symbolId })) {
+              const portX = newX + rot.x;
+              const portY = newY + rot.y;
+              let nearPipeId = '';
+              let nearDist = FLUID_MATCH;
+              for (const pipe of pipes) {
+                const { x: sx, y: sy } = closestPointOnSegment(portX, portY, pipe.startX, pipe.startY, pipe.endX, pipe.endY);
+                const d = Math.hypot(portX - sx, portY - sy);
+                if (d < nearDist) { nearDist = d; nearPipeId = pipe.id; }
+              }
+              if (nearPipeId) {
+                useUiStore.getState().showDcvToast(id, newX, newY, nearPipeId);
+              }
+            }
           }
         }}
         onMouseEnter={(e) => {
