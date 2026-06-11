@@ -8,10 +8,12 @@ interface AnnotationNodeProps {
   ann: AnnotationElement;
   isSelected: boolean;
   draggable?: boolean;
+  /** When true, single-click does NOT change selection (used inside multi-select group to prevent node remount between dblclick clicks) */
+  selectDisabled?: boolean;
   onDblClick?: (id: string, x: number, y: number, text: string, fontSize: number, maxWidth: number) => void;
 }
 
-export function AnnotationNode({ ann, isSelected, draggable = true, onDblClick }: AnnotationNodeProps) {
+export function AnnotationNode({ ann, isSelected, draggable = true, selectDisabled = false, onDblClick }: AnnotationNodeProps) {
   const textRef = useRef<Konva.Text>(null);
   const [textHeight, setTextHeight] = useState(ann.fontSize * 2);
   const setSelected = useCanvasStore((s) => s.setSelected);
@@ -28,8 +30,8 @@ export function AnnotationNode({ ann, isSelected, draggable = true, onDblClick }
       x={ann.x}
       y={ann.y}
       draggable={draggable}
-      onClick={() => setSelected(ann.id)}
-      onTap={() => setSelected(ann.id)}
+      onClick={() => { if (!selectDisabled) setSelected(ann.id); }}
+      onTap={() => { if (!selectDisabled) setSelected(ann.id); }}
       onDblClick={() => onDblClick?.(ann.id, ann.x, ann.y, ann.text, ann.fontSize, ann.maxWidth)}
       onDragEnd={(e) => {
         moveAnnotation(ann.id, e.target.x(), e.target.y());

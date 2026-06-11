@@ -141,7 +141,7 @@ export function ToastNotification() {
 export function DcvToastNotification() {
   const toast = useUiStore((s) => s.dcvToast);
   const dismiss = useUiStore((s) => s.dismissDcvToast);
-  const { addElement, elements, insertElementOnPipe } = useCanvasStore();
+  const { elements, insertDcvAssembly } = useCanvasStore();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -221,19 +221,11 @@ export function DcvToastNotification() {
     const cv2El = makeAssemblyEl('check_valve', 'Check Valve', cvHalfPort + STEP);
     const gvEl  = makeAssemblyEl('gate_valve',  'Gate Valve',  cvHalfPort + STEP * 2);
 
-    if (targetPipe) {
-      // Terminate the upstream pipe at GV's inlet so GV gets a proper pipe connection.
-      // CV2, CV1, and the fitting chain via port-to-port proximity (no intermediate pipes).
-      const gvPorts = SYMBOL_PORTS['gate_valve'] ?? [];
-      const gvInletPos = getPortPosition(gvEl, gvPorts.find((p) => p.role === 'upstream')!);
-      insertElementOnPipe(targetPipe.id, gvEl, gvInletPos.x, gvInletPos.y, true);
-      addElement(cv2El);
-      addElement(cv1El);
-    } else {
-      addElement(gvEl);
-      addElement(cv2El);
-      addElement(cv1El);
-    }
+    // Single atomic history entry for the whole assembly.
+    const gvPorts = SYMBOL_PORTS['gate_valve'] ?? [];
+    const gvUpstream = gvPorts.find((p) => p.role === 'upstream');
+    const gvInletPos = gvUpstream ? getPortPosition(gvEl, gvUpstream) : { x: gvEl.x, y: gvEl.y };
+    insertDcvAssembly(gvEl, cv2El, cv1El, targetPipe?.id ?? null, gvInletPos.x, gvInletPos.y);
 
     dismiss();
   };

@@ -50,6 +50,7 @@ interface CanvasStore {
   updatePipeEndpoints: (id: string, startX: number, startY: number, endX: number, endY: number) => void;
   insertElementOnPipe: (pipeId: string, element: CanvasElement, snapX: number, snapY: number, terminatePipe?: boolean) => void;
   insertElementOnPipeInline: (pipeId: string, element: CanvasElement, inletPos: { x: number; y: number }, outletPos: { x: number; y: number }) => void;
+  insertDcvAssembly: (gvEl: CanvasElement, cv2El: CanvasElement, cv1El: CanvasElement, targetPipeId: string | null, snapX: number, snapY: number) => void;
   removeElement: (id: string) => void;
   removePipe: (id: string) => void;
   clearCanvas: () => void;
@@ -62,7 +63,8 @@ interface CanvasStore {
   addAnnotation: (ann: AnnotationElement) => void;
   moveAnnotation: (id: string, x: number, y: number) => void;
   removeAnnotation: (id: string) => void;
-  updateAnnotation: (id: string, text: string) => void;
+  removeAnnotations: (ids: string[]) => void;
+  updateAnnotation: (id: string, text: string, maxWidth?: number) => void;
 
   // Scale change — resize all content proportionally, anchored to canvas bottom (lowerMRL)
   rescaleAll: (oldScale: number, newScale: number, virtualHeight: number) => void;
@@ -294,6 +296,18 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
       });
     },
 
+    insertDcvAssembly: (gvEl, cv2El, cv1El, targetPipeId, snapX, snapY) => {
+      pushHistory();
+      set((state) => {
+        const newElements = [...state.elements, gvEl, cv2El, cv1El];
+        if (!targetPipeId) return { elements: newElements };
+        const orig = state.pipes.find((p) => p.id === targetPipeId);
+        if (!orig) return { elements: newElements };
+        const pipeA: PipeElement = { id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY };
+        return { elements: newElements, pipes: [...state.pipes.filter((p) => p.id !== targetPipeId), pipeA] };
+      });
+    },
+
     removeElement: (id) => {
       pushHistory();
       set((state) => ({
@@ -355,9 +369,11 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         annotations: state.annotations.map((a) => a.id === id ? { ...a, x, y } : a),
       })),
 
-    updateAnnotation: (id, text) =>
+    updateAnnotation: (id, text, maxWidth) =>
       set((state) => ({
-        annotations: state.annotations.map((a) => a.id === id ? { ...a, text } : a),
+        annotations: state.annotations.map((a) =>
+          a.id === id ? { ...a, text, ...(maxWidth !== undefined && { maxWidth }) } : a
+        ),
       })),
 
     removeAnnotation: (id) => {
@@ -365,6 +381,17 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
       set((state) => ({
         annotations: state.annotations.filter((a) => a.id !== id),
         selectedId: state.selectedId === id ? null : state.selectedId,
+      }));
+    },
+
+    removeAnnotations: (ids) => {
+      if (ids.length === 0) return;
+      pushHistory();
+      const idSet = new Set(ids);
+      set((state) => ({
+        annotations: state.annotations.filter((a) => !idSet.has(a.id)),
+        selectedAnnotationIds: [],
+        selectedId: idSet.has(state.selectedId ?? '') ? null : state.selectedId,
       }));
     },
 

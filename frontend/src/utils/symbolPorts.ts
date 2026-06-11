@@ -96,16 +96,16 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'upstream', offsetX: 0, offsetY: -24 },
   ],
   drinking_fountain_trough: [
-    { role: 'upstream', offsetX: 0, offsetY: -24 },
+    { role: 'upstream', offsetX: 0, offsetY: -8 },
   ],
   drinking_fountain_wall: [
-    { role: 'upstream', offsetX: 0, offsetY: -24 },
+    { role: 'upstream', offsetX: 0, offsetY: -8 },
   ],
   water_closet: [
     { role: 'upstream', offsetX: 0, offsetY: -24 },
   ],
   urinal_wall: [
-    { role: 'upstream', offsetX: 4, offsetY: -20 },
+    { role: 'upstream', offsetX: 2, offsetY: -10 },
   ],
   long_bath: [
     { role: 'upstream', offsetX: 0, offsetY: -24 },

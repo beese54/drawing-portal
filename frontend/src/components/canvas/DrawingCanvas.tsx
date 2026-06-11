@@ -24,6 +24,7 @@ import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, PAPER_SIZES_MM, SHEET_PX_PER_MM, SCHEMATIC_SYMBOL_PX, AXIS_WIDTH, TITLE_BLOCK_MM, getSymbolSizePx, FIXTURE_MWELS_CATEGORY, isBackflowRiskElement } from '../../types';
 import { symbolsApi } from '../../api/client';
 import { closestPointOnSegment, distance } from '../../utils/geometry';
+import { inferFluidAtPoint } from '../../utils/fluidInference';
 import { SYMBOL_PORTS, rotateOffset, getPortPosition, getEffectivePortRole, DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
 import { renderPdfPageToDataUrl } from '../../utils/pdfRenderer';
 
@@ -78,28 +79,6 @@ const TERMINAL_SYMBOL_IDS = new Set([
  * for an upstream element (one whose downstream port touches either pipe endpoint)
  * and returns that element's carriesFluid value, enabling series propagation.
  */
-function inferFluidFromPipe(
-  pipe: PipeElementType,
-  allElements: CanvasElement[],
-): 'cold' | 'hot' | undefined {
-  if (pipe.pipeType === 'cold' || pipe.pipeType === 'hot') return pipe.pipeType;
-  // Generic pipe — follow it back to the upstream element's stored carriesFluid
-  const MATCH = 8;
-  for (const el of allElements) {
-    const ports = SYMBOL_PORTS[el.symbolId] ?? [];
-    for (const port of ports) {
-      if (port.role !== 'downstream') continue;
-      const pos = getPortPosition(el, port);
-      if (
-        Math.hypot(pos.x - pipe.startX, pos.y - pipe.startY) < MATCH ||
-        Math.hypot(pos.x - pipe.endX,   pos.y - pipe.endY)   < MATCH
-      ) {
-        return el.carriesFluid;
-      }
-    }
-  }
-  return undefined;
-}
 
 function getInlinePortPositions(el: CanvasElement) {
   const ports = SYMBOL_PORTS[el.symbolId] ?? [];
@@ -334,7 +313,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     fontSize: number;
     maxWidth: number;
   } | null>(null);
-  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const cancelEditRef = useRef(false);
 
   // Register JPG export — title block is part of the stage, so just capture the full virtual canvas
   useEffect(() => {
@@ -407,15 +386,16 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       }
 
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-      const { selectedId, selectedIds, selectedPipeIds, elements, pipes, removeElement, removePipe } = useCanvasStore.getState();
-      // Multi-select delete — elements and pipes together
-      if (selectedIds.length > 0 || selectedPipeIds.length > 0) {
+      const { selectedId, selectedIds, selectedPipeIds, selectedAnnotationIds, elements, pipes, removeElement, removePipe, removeAnnotations } = useCanvasStore.getState();
+      // Multi-select delete — elements, pipes, and annotations together
+      if (selectedIds.length > 0 || selectedPipeIds.length > 0 || selectedAnnotationIds.length > 0) {
         for (const id of selectedIds) {
           if (elements.some((el) => el.id === id)) removeElement(id);
         }
         for (const id of selectedPipeIds) {
           if (pipes.some((p) => p.id === id)) removePipe(id);
         }
+        if (selectedAnnotationIds.length > 0) removeAnnotations(selectedAnnotationIds);
         return;
       }
       if (!selectedId) return;
@@ -519,6 +499,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     if (!el) return;
 
     const onWheel = (e: WheelEvent) => {
+      setEditingAnnotation(null);
       if (tankModalOpenRef.current) return;
       e.preventDefault();
 
@@ -775,7 +756,8 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       if (snapped && bestPipeId) {
         const snappedPipe = pipes.find((p) => p.id === bestPipeId);
         if (snappedPipe) {
-          const fluid = inferFluidFromPipe(snappedPipe, placedElements);
+          const fluid = inferFluidAtPoint([snappedPipe], snappedPipe.startX, snappedPipe.startY, placedElements, 8)
+                     ?? inferFluidAtPoint([snappedPipe], snappedPipe.endX, snappedPipe.endY, placedElements, 8);
           if (fluid) el = { ...el, carriesFluid: fluid };
         }
       }
@@ -969,12 +951,15 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       const finalEl: CanvasElement = { ...pendingWaterFittings.element, fittingType: fittingTypeId, efficiencyRating };
       if (pendingWaterFittings.snapped) {
         insertElementOnPipe(pendingWaterFittings.pipeId, finalEl, pendingWaterFittings.snapX, pendingWaterFittings.snapY, true);
+        if (isBackflowRiskElement(finalEl)) {
+          showDcvToast(finalEl.id, finalEl.x, finalEl.y, pendingWaterFittings.pipeId);
+        }
       } else {
         addElement(finalEl);
       }
       setPendingWaterFittings(null);
     },
-    [pendingWaterFittings, addElement, insertElementOnPipe]
+    [pendingWaterFittings, addElement, insertElementOnPipe, showDcvToast]
   );
 
   const handleFlipConfirm = useCallback(
@@ -1093,11 +1078,13 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     (id: string, x: number, y: number, text: string, fontSize: number, maxWidth: number) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
+      // Exit any multi-select state so the annotation renders in AnnotationsLayer after editing
+      setSelected(id);
       const screenX = x * stageScale - stageOffsetX + rect.left;
       const screenY = y * stageScale - stageOffsetY + rect.top;
       setEditingAnnotation({ id, text, screenX, screenY, fontSize, maxWidth });
     },
-    [stageOffsetX, stageOffsetY, stageScale],
+    [setSelected, stageOffsetX, stageOffsetY, stageScale],
   );
 
   // Shared rubber band completion — reads from refs so it's safe to call from
@@ -1163,6 +1150,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       if (e.evt.button === 2) return;
       // Middle mouse button → pan canvas
       if (e.evt.button === 1) {
+        setEditingAnnotation(null);
         e.evt.preventDefault();
         const startX = e.evt.clientX;
         const startY = e.evt.clientY;
@@ -1460,6 +1448,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
             if (hasDual || hasMwels) setSymbolPropertiesModalId(id);
           }}
           rubberBand={rubberBandRect}
+          onAnnotationDblClick={handleAnnotationDblClick}
         />
         <AnnotationsLayer onAnnotationDblClick={handleAnnotationDblClick} editingAnnotationId={editingAnnotation?.id} />
         <PipeDraftLayer
@@ -1730,22 +1719,27 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       )}
       {editingAnnotation && (
         <textarea
-          ref={editTextareaRef}
           autoFocus
           defaultValue={editingAnnotation.text}
           onMouseDown={(e) => e.stopPropagation()}
           onFocus={(e) => { const l = e.target.value.length; e.target.setSelectionRange(l, l); }}
           onBlur={(e) => {
+            if (cancelEditRef.current) { cancelEditRef.current = false; return; }
             const v = e.target.value.trim();
-            if (v) updateAnnotation(editingAnnotation.id, v);
+            const newMaxWidth = Math.round(e.target.offsetWidth / stageScale);
+            if (v) updateAnnotation(editingAnnotation.id, v, newMaxWidth);
+            else removeAnnotation(editingAnnotation.id);
             setEditingAnnotation(null);
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') { setEditingAnnotation(null); return; }
+            if (e.key === 'Escape') { cancelEditRef.current = true; setEditingAnnotation(null); return; }
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
-              const v = editTextareaRef.current?.value.trim();
-              if (v) updateAnnotation(editingAnnotation.id, v);
+              const ta = e.target as HTMLTextAreaElement;
+              const v = ta.value.trim();
+              const newMaxWidth = Math.round(ta.offsetWidth / stageScale);
+              if (v) updateAnnotation(editingAnnotation.id, v, newMaxWidth);
+              else removeAnnotation(editingAnnotation.id);
               setEditingAnnotation(null);
             }
           }}
@@ -1764,7 +1758,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
             borderRadius: 2 * stageScale,
             padding: `${3 * stageScale}px`,
             outline: 'none',
-            resize: 'none',
+            resize: 'horizontal',
             boxSizing: 'border-box',
             zIndex: 3000,
             overflow: 'hidden',

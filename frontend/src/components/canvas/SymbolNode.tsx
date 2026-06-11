@@ -6,39 +6,11 @@ import { useCanvasStore } from '../../store/canvasStore';
 import { useUiStore } from '../../store/uiStore';
 import { SYMBOL_PORTS, getElementPorts, getPortPosition, getScaledPortOffset, rotateOffset } from '../../utils/symbolPorts';
 import { closestPointOnSegment } from '../../utils/geometry';
+import { inferFluidAtPoint } from '../../utils/fluidInference';
 import type { PipeType, PipeElement } from '../../types';
 import { SCHEMATIC_SYMBOL_PX, isBackflowRiskElement } from '../../types';
 
 const FLUID_MATCH = 5; // px — slightly above CANVAS_SNAP_THRESHOLD so drag-snapped connections are always detected
-
-/** Same logic as inferFluidFromPipe in DrawingCanvas but runs inside SymbolNode. */
-function inferFluidForElement(
-  pipes: PipeElement[],
-  upstreamPortX: number,
-  upstreamPortY: number,
-  allElements: import('../../types').CanvasElement[],
-): 'cold' | 'hot' | undefined {
-  for (const pipe of pipes) {
-    const atStart = Math.hypot(pipe.startX - upstreamPortX, pipe.startY - upstreamPortY) < FLUID_MATCH;
-    const atEnd   = Math.hypot(pipe.endX   - upstreamPortX, pipe.endY   - upstreamPortY) < FLUID_MATCH;
-    if (!atStart && !atEnd) continue;
-    if (pipe.pipeType === 'cold' || pipe.pipeType === 'hot') return pipe.pipeType;
-    // Generic pipe — check for upstream element
-    const otherX = atEnd ? pipe.startX : pipe.endX;
-    const otherY = atEnd ? pipe.startY : pipe.endY;
-    for (const el of allElements) {
-      const ports = SYMBOL_PORTS[el.symbolId] ?? [];
-      for (const port of ports) {
-        if (port.role !== 'downstream') continue;
-        const pos = getPortPosition(el, port);
-        if (Math.hypot(pos.x - otherX, pos.y - otherY) < FLUID_MATCH) {
-          return el.carriesFluid;
-        }
-      }
-    }
-  }
-  return undefined;
-}
 
 // RGB values matching the pipe colors in PipeElement.tsx
 const TINT_RGB: Record<string, [number, number, number]> = {
@@ -227,28 +199,31 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
             return { x: newX + rot.x, y: newY + rot.y };
           });
           moveElement(id, newX, newY, oldPorts, newPorts);
-          // Re-infer carriesFluid based on new position (upstream port → nearby pipe)
           const { pipes, elements } = useCanvasStore.getState();
           const upstreamPort = ports.find((p) => p.role === 'upstream');
-          if (upstreamPort) {
-            const { ox, oy } = getScaledPortOffset(symbolId, upstreamPort, width, height, scaleX);
-            const rot = rotateOffset(ox, oy, rotation);
-            const fluid = inferFluidForElement(pipes, newX + rot.x, newY + rot.y, elements);
-            updateCarriesFluid(id, fluid);
-            // Offer DCV if a backflow-risk fitting was just dragged onto a pipe
-            if (isBackflowRiskElement({ symbolId })) {
-              const portX = newX + rot.x;
-              const portY = newY + rot.y;
-              let nearPipeId = '';
-              let nearDist = FLUID_MATCH;
-              for (const pipe of pipes) {
-                const { x: sx, y: sy } = closestPointOnSegment(portX, portY, pipe.startX, pipe.startY, pipe.endX, pipe.endY);
-                const d = Math.hypot(portX - sx, portY - sy);
-                if (d < nearDist) { nearDist = d; nearPipeId = pipe.id; }
-              }
-              if (nearPipeId) {
-                useUiStore.getState().showDcvToast(id, newX, newY, nearPipeId);
-              }
+          if (!upstreamPort) return;
+          const { ox, oy } = getScaledPortOffset(symbolId, upstreamPort, width, height, scaleX);
+          const rot = rotateOffset(ox, oy, rotation);
+          const portX = newX + rot.x;
+          const portY = newY + rot.y;
+          // Single pipe scan: find nearest connected pipe (shared by fluid inference and DCV check)
+          let nearPipeId = '';
+          let nearDist = FLUID_MATCH;
+          for (const pipe of pipes) {
+            const { x: sx, y: sy } = closestPointOnSegment(portX, portY, pipe.startX, pipe.startY, pipe.endX, pipe.endY);
+            const d = Math.hypot(portX - sx, portY - sy);
+            if (d < nearDist) { nearDist = d; nearPipeId = pipe.id; }
+          }
+          const nearPipe = nearPipeId ? pipes.find((p) => p.id === nearPipeId) ?? null : null;
+          updateCarriesFluid(id, nearPipe ? inferFluidAtPoint([nearPipe], portX, portY, elements) : undefined);
+          if (isBackflowRiskElement(thisEl ?? { symbolId }) && nearPipe) {
+            const alreadyProtected = elements.some((el) => {
+              if (el.symbolId !== 'check_valve' && el.symbolId !== 'gate_valve') return false;
+              const cp = closestPointOnSegment(el.x, el.y, nearPipe.startX, nearPipe.startY, nearPipe.endX, nearPipe.endY);
+              return Math.hypot(el.x - cp.x, el.y - cp.y) < FLUID_MATCH;
+            });
+            if (!alreadyProtected) {
+              useUiStore.getState().showDcvToast(id, newX, newY, nearPipeId);
             }
           }
         }}

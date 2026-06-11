@@ -251,6 +251,7 @@ interface ElementsLayerProps {
   onElementClick?: (id: string, symbolId: string) => void;
   onElementDblClick?: (id: string) => void;
   rubberBand?: RubberBandRect | null;
+  onAnnotationDblClick?: (id: string, x: number, y: number, text: string, fontSize: number, maxWidth: number) => void;
 }
 
 /**
@@ -291,7 +292,7 @@ function WaterFittingsLabel({ el }: { el: CanvasElement }) {
   );
 }
 
-export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, rubberBand }: ElementsLayerProps) {
+export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, rubberBand, onAnnotationDblClick }: ElementsLayerProps) {
   const elements = useCanvasStore((s) => s.elements);
   const pipes = useCanvasStore((s) => s.pipes);
   const selectedId = useCanvasStore((s) => s.selectedId);
@@ -468,7 +469,7 @@ export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, 
           ))}
           {/* Selected annotations — non-draggable (the group handles dragging) */}
           {selectedAnnotations.map((ann) => (
-            <AnnotationNode key={ann.id} ann={ann} isSelected={false} draggable={false} />
+            <AnnotationNode key={ann.id} ann={ann} isSelected draggable={false} selectDisabled onDblClick={onAnnotationDblClick} />
           ))}
         </Group>
       )}
@@ -662,7 +663,12 @@ export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, 
             p.endX   >= rubberBand.x && p.endX   <= rubberBand.x + rubberBand.width &&
             p.endY   >= rubberBand.y && p.endY   <= rubberBand.y + rubberBand.height,
         );
-        const totalHits = hitEls.length + hitPipes.length;
+        const hitAnns = annotations.filter(
+          (ann) =>
+            ann.x >= rubberBand.x && ann.x <= rubberBand.x + rubberBand.width &&
+            ann.y >= rubberBand.y && ann.y <= rubberBand.y + rubberBand.height,
+        );
+        const totalHits = hitEls.length + hitPipes.length + hitAnns.length;
         return (
           <>
             {/* Highlight each element whose centre is inside the band */}
@@ -676,6 +682,24 @@ export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, 
                   y={el.y - elH / 2 - 4}
                   width={elW + 8}
                   height={elH + 8}
+                  stroke="#0066cc"
+                  strokeWidth={0.7}
+                  fill="rgba(0,102,204,0.15)"
+                  listening={false}
+                />
+              );
+            })}
+            {/* Highlight each annotation whose origin is inside the band */}
+            {hitAnns.map((ann) => {
+              const lineCount = Math.max(1, ann.text.split('\n').length);
+              const annH = ann.fontSize * 1.35 * lineCount;
+              return (
+                <Rect
+                  key={`rb-hit-${ann.id}`}
+                  x={ann.x - 2}
+                  y={ann.y - 2}
+                  width={ann.maxWidth + 4}
+                  height={annH + 4}
                   stroke="#0066cc"
                   strokeWidth={0.7}
                   fill="rgba(0,102,204,0.15)"

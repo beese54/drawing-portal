@@ -37,6 +37,9 @@ Thumbs.db
 # Claude Code settings (local only)
 .claude/
 
+# GSD planning directory (local only)
+.planning/
+
 # Root-level schematic exports (samples live in docs/examples/)
 schematic_*.json
 schematic_*.jpg
