@@ -18,6 +18,10 @@ venv/
 # Docker
 .docker/
 
+# Separate projects (not part of this repo)
+drawing-portal/
+soar-water-quality-copilot/
+
 # Project context docs
 context for this project/
 
