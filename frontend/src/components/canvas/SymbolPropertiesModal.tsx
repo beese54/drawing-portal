@@ -54,8 +54,7 @@ export function SymbolPropertiesModal({ elementId, x, y, elementHalfWidthVp = SC
 
   const fixedCategory  = FIXTURE_MWELS_CATEGORY[el.symbolId];
   const isMwelsFixture = el.symbolId in FIXTURE_MWELS_CATEGORY;
-  const isMwelsFitting = el.symbolId === 'water_fittings' && !!el.fittingType;
-  const showMwels      = isMwelsFixture || isMwelsFitting;
+  const showMwels      = isMwelsFixture;
 
   const categoryLabel = fixedCategory
     ? WATER_FITTING_TYPES.find((t) => t.id === fixedCategory)?.label

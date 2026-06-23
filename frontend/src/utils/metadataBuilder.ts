@@ -32,7 +32,6 @@ const NODE_TYPE_MAP: Record<string, NodeType> = {
   elbow_bend:            'bend',
   flow_meter:            'flow_meter',
   water_meter:           'flow_meter',
-  water_fittings:        'water_fitting',
   pressure_relief_valve: 'check_valve',
   vacuum_breaker:        'check_valve',
   bidet_spray:           'water_fitting',
@@ -427,11 +426,9 @@ export function buildMetadata(
       scale_x: el.scaleX ?? 1,
       ports,
       connected_pipe_ids: connectedPipeIds,
-      ...(el.symbolId === 'water_fittings' && el.fittingType
-        ? { fitting_type: el.fittingType, efficiency_rating: el.efficiencyRating ?? null }
-        : el.symbolId in FIXTURE_MWELS_CATEGORY
+      ...(el.symbolId in FIXTURE_MWELS_CATEGORY
         ? {
-            fitting_type: FIXTURE_MWELS_CATEGORY[el.symbolId] ?? el.fittingType ?? null,
+            fitting_type: FIXTURE_MWELS_CATEGORY[el.symbolId] ?? null,
             efficiency_rating: el.efficiencyRating ?? null,
           }
         : {}),

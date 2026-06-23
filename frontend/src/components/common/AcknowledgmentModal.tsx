@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { CanvasElement, AcknowledgmentFlags } from '../../types';
 
-const APPLIANCE_FITTING_IDS = new Set(['dishwasher', 'water_dispenser', 'washing_machine', 'landscape_tap', 'ice_maker', 'coffee_maker', 'refrigerator', 'balancing_tank']);
 const APPLIANCE_SYMBOL_IDS = new Set(['washing_machine', 'dishwasher', 'water_dispenser', 'bib_tap_cw_cap_and_lock_schematic']);
 
 interface Props {
@@ -22,11 +21,7 @@ export function AcknowledgmentModal({ elements, onConfirm, onCancel }: Props) {
   const hasHeater     = elements.some((e) => e.symbolId === 'water_heater');
   const hasTank       = elements.some((e) => e.symbolId === 'water_tank');
   const hasBidet      = elements.some((e) => e.symbolId === 'bidet_spray');
-  const hasAppliance  = elements.some(
-    (e) =>
-      APPLIANCE_SYMBOL_IDS.has(e.symbolId) ||
-      (e.symbolId === 'water_fittings' && e.fittingType != null && APPLIANCE_FITTING_IDS.has(e.fittingType))
-  );
+  const hasAppliance  = elements.some((e) => APPLIANCE_SYMBOL_IDS.has(e.symbolId));
 
   const items: CheckboxItem[] = [
     {

@@ -13,8 +13,6 @@ import { RotationPanel } from './RotationPanel';
 import { TeeJunctionPortDialog } from './TeeJunctionPortDialog';
 import { ElbowBendPortDialog } from './ElbowBendPortDialog';
 import { FlipOrientationDialog } from './FlipOrientationDialog';
-import { WaterFittingsDialog } from './WaterFittingsDialog';
-import { FittingTypePanel } from './FittingTypePanel';
 import { LongBathPanel } from './LongBathPanel';
 import { SymbolPropertiesModal } from './SymbolPropertiesModal';
 import { PdfBackgroundLayer } from './PdfBackgroundLayer';
@@ -54,7 +52,7 @@ const INLINE_SYMBOL_IDS = new Set([
 ]);
 // Symbols where the pipe terminates at the connection port (no pipe continues through)
 const TERMINAL_SYMBOL_IDS = new Set([
-  'water_tank', 'water_fittings',
+  'water_tank',
   // fixtures
   'single_tap', 'single_tap_combined', 'twin_tap', 'shower_head',
   'long_bath', 'shower_bath',
@@ -280,14 +278,6 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   const tankModalOpenRef = useRef(false);
   tankModalOpenRef.current = !!tankModalId;
 
-  // Pending water fittings: awaiting fitting type selection
-  const [pendingWaterFittings, setPendingWaterFittings] = useState<{
-    element: CanvasElement;
-    pipeId: string;
-    snapX: number;
-    snapY: number;
-    snapped: boolean;
-  } | null>(null);
   const setSelected = useCanvasStore((s) => s.setSelected);
   const setSelectedIds = useCanvasStore((s) => s.setSelectedIds);
   const setMultiSelection = useCanvasStore((s) => s.setMultiSelection);
@@ -414,12 +404,6 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   const selectedRotatable = useCanvasStore((s) => {
     const el = s.elements.find((e) => e.id === s.selectedId);
     return el && (ROTATABLE_SYMBOL_IDS as readonly string[]).includes(el.symbolId) ? el : null;
-  });
-
-  // Show fitting type panel when a water_fittings element is selected
-  const selectedFitting = useCanvasStore((s) => {
-    const el = s.elements.find((e) => e.id === s.selectedId);
-    return el?.symbolId === 'water_fittings' ? el : null;
   });
 
   // Show long bath panel when double-clicked
@@ -803,17 +787,6 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         return;
       }
 
-      if (symbolId === 'water_fittings') {
-        setPendingWaterFittings({
-          element: snapped ? { ...el, x: bestElX, y: bestElY } : el,
-          pipeId: bestPipeId,
-          snapX: bestSnapX,
-          snapY: bestSnapY,
-          snapped,
-        });
-        return;
-      }
-
       if (snapped) {
         const placedEl = { ...el, x: bestElX, y: bestElY };
         if (INLINE_SYMBOL_IDS.has(symbolId)) {
@@ -858,7 +831,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         if (nearTap) showBidetToast(nearTap.id, nearTap.x, nearTap.y);
       }
     },
-    [addElement, insertElementOnPipe, insertElementOnPipeInline, setPendingTee, setPendingElbow, setPendingFlip, setPendingWaterFittings, showBidetToast, showDcvToast]
+    [addElement, insertElementOnPipe, insertElementOnPipeInline, setPendingTee, setPendingElbow, setPendingFlip, showBidetToast, showDcvToast]
   );
 
 
@@ -946,23 +919,6 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       setPendingElbow(null);
     },
     [pendingElbow, addElement, insertElementOnPipe]
-  );
-
-  const handleWaterFittingsConfirm = useCallback(
-    (fittingTypeId: string, efficiencyRating: 2 | 3) => {
-      if (!pendingWaterFittings) return;
-      const finalEl: CanvasElement = { ...pendingWaterFittings.element, fittingType: fittingTypeId, efficiencyRating };
-      if (pendingWaterFittings.snapped) {
-        insertElementOnPipe(pendingWaterFittings.pipeId, finalEl, pendingWaterFittings.snapX, pendingWaterFittings.snapY, true);
-        if (isBackflowRiskElement(finalEl)) {
-          showDcvToast(finalEl.id, finalEl.x, finalEl.y, pendingWaterFittings.pipeId);
-        }
-      } else {
-        addElement(finalEl);
-      }
-      setPendingWaterFittings(null);
-    },
-    [pendingWaterFittings, addElement, insertElementOnPipe, showDcvToast]
   );
 
   const handleFlipConfirm = useCallback(
@@ -1451,8 +1407,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
             const el = useCanvasStore.getState().elements.find((e) => e.id === id);
             if (!el) return;
             const hasDual  = DUAL_SUPPLY_SYMBOLS.has(el.symbolId);
-            const hasMwels = el.symbolId in FIXTURE_MWELS_CATEGORY
-              || (el.symbolId === 'water_fittings' && !!el.fittingType);
+            const hasMwels = el.symbolId in FIXTURE_MWELS_CATEGORY;
             if (hasDual || hasMwels) setSymbolPropertiesModalId(id);
           }}
           rubberBand={rubberBandRect}
@@ -1654,35 +1609,13 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           onCancel={() => setPendingFlip(null)}
         />
       )}
-      {pendingWaterFittings && (
-        <WaterFittingsDialog
-          onConfirm={handleWaterFittingsConfirm}
-          onCancel={() => setPendingWaterFittings(null)}
-        />
-      )}
-      {selectedFitting && activeTool !== 'pipe' && activeTool !== 'cold_pipe' && activeTool !== 'hot_pipe' && (() => {
-        const vp = contentToViewport(selectedFitting.x, selectedFitting.y);
-        const halfWidthVp = ((selectedFitting.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;
-        return (
-          <FittingTypePanel
-            elementId={selectedFitting.id}
-            x={vp.x}
-            y={vp.y}
-            currentFittingTypeId={selectedFitting.fittingType ?? 'shower_tap'}
-            currentEfficiencyRating={selectedFitting.efficiencyRating}
-            elementHalfWidthVp={halfWidthVp}
-          />
-        );
-      })()}
       {symbolPropertiesModalId && (() => {
         const el = useCanvasStore.getState().elements.find((e) => e.id === symbolPropertiesModalId);
         if (!el) return null;
         const hasDual  = DUAL_SUPPLY_SYMBOLS.has(el.symbolId);
-        const hasMwels = el.symbolId in FIXTURE_MWELS_CATEGORY
-          || (el.symbolId === 'water_fittings' && !!el.fittingType);
+        const hasMwels = el.symbolId in FIXTURE_MWELS_CATEGORY;
         if (!hasDual && !hasMwels) return null;
-        // long_bath uses LongBathPanel (combined); water_fittings uses FittingTypePanel
-        if (el.symbolId === 'long_bath' || el.symbolId === 'water_fittings') return null;
+        if (el.symbolId === 'long_bath') return null;
         const vp = contentToViewport(el.x, el.y);
         const halfWidthVp = ((el.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;
         return (

@@ -7,7 +7,7 @@ import { PipeElement } from './PipeElement';
 import { AnnotationNode } from './AnnotationsLayer';
 import { symbolsApi } from '../../api/client';
 import { SYMBOL_PORTS, getElementPorts, getPortPosition, rotateOffset, getEffectivePortRole, getEffectivePortLabel, getScaledPortOffset } from '../../utils/symbolPorts';
-import { WATER_FITTING_TYPES, getSymbolSizePx, isBackflowRiskElement, getBackflowRule, FIXTURE_MWELS_CATEGORY } from '../../types';
+import { getSymbolSizePx, isBackflowRiskElement, getBackflowRule, FIXTURE_MWELS_CATEGORY } from '../../types';
 import type { CanvasElement, PipeElement as PipeElementType, PipeType } from '../../types';
 import { computePortConnectionStatus } from '../../utils/portConnectionStatus';
 import { useUiStore } from '../../store/uiStore';
@@ -271,27 +271,6 @@ function portLabelOffset(relX: number, relY: number): { dx: number; dy: number }
     : { dx: -4, dy:  4 };   // bottom port
 }
 
-/** Renders the water_fittings text label for an element (or null). */
-function WaterFittingsLabel({ el }: { el: CanvasElement }) {
-  if (el.symbolId !== 'water_fittings') return null;
-  const fitting = WATER_FITTING_TYPES.find((t) => t.id === (el.fittingType ?? 'shower_tap'));
-  const code = fitting?.code ?? 'ST';
-  const ticks = el.efficiencyRating ? '✓'.repeat(el.efficiencyRating) : '';
-  const label = el.efficiencyRating ? `${code} ${el.efficiencyRating} ${ticks}` : code;
-  return (
-    <Text
-      x={el.x - 20}
-      y={el.y + 26}
-      text={label}
-      fontSize={10}
-      fontStyle="bold"
-      fontFamily="Arial, sans-serif"
-      fill="#1a1a1a"
-      listening={false}
-    />
-  );
-}
-
 export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, rubberBand, onAnnotationDblClick }: ElementsLayerProps) {
   const elements = useCanvasStore((s) => s.elements);
   const pipes = useCanvasStore((s) => s.pipes);
@@ -398,7 +377,6 @@ export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, 
             onHoverLeave={() => setHoveredId(null)}
             onElementClick={onElementClick}
           />
-          <WaterFittingsLabel el={el} />
         </React.Fragment>
       ))}
 
@@ -582,9 +560,7 @@ export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, 
 
       {/* MWELS efficiency rating missing badges — orange ! when no rating ticks set */}
       {elements.flatMap((el) => {
-        const isMwelsFixture = el.symbolId in FIXTURE_MWELS_CATEGORY;
-        const isMwelsFitting = el.symbolId === 'water_fittings' && !!el.fittingType;
-        if (!isMwelsFixture && !isMwelsFitting) return [];
+        if (!(el.symbolId in FIXTURE_MWELS_CATEGORY)) return [];
         if (el.efficiencyRating) return [];
         const bx = el.x + symPx / 2 + 4;
         const by = el.y - symPx / 2 - 4;

@@ -131,6 +131,9 @@ export const FIXTURE_MWELS_CATEGORY: Record<string, WaterFittingTypeId | null> =
   sink:                   'sink_tap',
   water_closet:           'dual_flushing_cistern',
   urinal_wall:            'urinal_flush',
+  dishwasher:             'dishwasher',
+  washing_machine:        'washing_machine',
+  water_dispenser:        'water_dispenser',
 };
 
 /** MWELS category options presented for ambiguous fixture symbols. */
@@ -140,7 +143,7 @@ export const AMBIGUOUS_TAP_OPTIONS: { id: WaterFittingTypeId; label: string }[] 
 ];
 
 export const ROTATABLE_SYMBOL_IDS = [
-  'check_valve', 'gate_valve', 'tee_junction', 'pump', 'elbow_bend', 'water_tank', 'water_heater', 'water_meter', 'water_fittings',
+  'check_valve', 'gate_valve', 'tee_junction', 'pump', 'elbow_bend', 'water_tank', 'water_heater', 'water_meter',
   // new inline valves & equipment
   'solenoid_valve', 'motorised_valve', 'globe_valve', 'prv_with_sensor',
   'jockey_pump', 'sub_meter', 'cold_water_tank',
@@ -157,7 +160,7 @@ export type RotatableSymbolId = (typeof ROTATABLE_SYMBOL_IDS)[number];
 
 /** Full 360° clockwise rotation (0/90/180/270). */
 export const CLOCKWISE_SYMBOL_IDS = [
-  'tee_junction', 'elbow_bend', 'check_valve', 'gate_valve', 'water_fittings',
+  'tee_junction', 'elbow_bend', 'check_valve', 'gate_valve',
   // new inline valves & equipment
   'solenoid_valve', 'motorised_valve', 'globe_valve', 'prv_with_sensor',
   'jockey_pump', 'sub_meter', 'cold_water_tank',
@@ -206,10 +209,6 @@ const DOUBLE_CHECK_VALVE_SYMBOL_IDS = new Set([
   'water_heater',                      // SS636 §6.4
 ]);
 
-const DOUBLE_CHECK_VALVE_FITTING_TYPES = new Set([
-  'dishwasher', 'washing_machine', 'landscape_tap', 'water_dispenser',
-]);
-
 const VB_AND_CHECK_VALVE_SYMBOL_IDS = new Set([
   'bidet_spray', 'bidet', // SS636 §6.5
 ]);
@@ -218,9 +217,6 @@ const VB_AND_CHECK_VALVE_SYMBOL_IDS = new Set([
 export function getBackflowRule(el: { symbolId: string; fittingType?: string }): BackflowRule | null {
   if (VB_AND_CHECK_VALVE_SYMBOL_IDS.has(el.symbolId)) return 'vb_and_check_valve';
   if (DOUBLE_CHECK_VALVE_SYMBOL_IDS.has(el.symbolId)) return 'double_check_valve';
-  if (el.symbolId === 'water_fittings' && el.fittingType) {
-    if (DOUBLE_CHECK_VALVE_FITTING_TYPES.has(el.fittingType)) return 'double_check_valve';
-  }
   return null;
 }
 

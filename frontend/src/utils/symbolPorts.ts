@@ -74,10 +74,6 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'upstream',   offsetX: -24, offsetY:   0, label: 'Input'  },
     { role: 'downstream', offsetX:  24, offsetY:   0, label: 'Output' },
   ],
-  water_fittings: [
-    { role: 'upstream', offsetX: 0, offsetY: -24, label: 'Supply' },
-  ],
-
   // ── Fixtures (terminal – upstream port only) ─────────────────────────────────
   single_tap: [
     { role: 'upstream', offsetX: 4, offsetY: -24 },
