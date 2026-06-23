@@ -113,7 +113,7 @@ export function SymbolPropertiesModal({ elementId, x, y, elementHalfWidthVp = SC
       {showMwels && (
         <div style={{ marginTop: showDualSupply ? 8 : 0 }}>
           <div style={sectionLabel}>Water Efficiency</div>
-          {categoryLabel && (
+          {!fixedCategory && categoryLabel && (
             <div style={{
               fontSize: 10, color: '#374151',
               background: '#f3f4f6', borderRadius: 4,

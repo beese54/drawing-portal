@@ -276,6 +276,7 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
 export const DUAL_SUPPLY_SYMBOLS = new Set([
   'shower_head', 'long_bath', 'washing_machine', 'dishwasher',
   'shower_bath', 'square_bath', 'foot_bath', 'wash_basin_rectangular',
+  'sink',
 ]);
 
 const COLD_PORT = (offsetY = -24): SymbolPortDef => ({ role: 'upstream', offsetX: -16, offsetY, label: 'Cold', minCanvasOffsetX: 2 });
@@ -290,6 +291,7 @@ const DUAL_SUPPLY_PORTS: Record<string, SymbolPortDef[]> = {
   square_bath:           [COLD_PORT(), HOT_PORT()],
   foot_bath:             [COLD_PORT(), HOT_PORT()],
   wash_basin_rectangular:[COLD_PORT(), HOT_PORT()],
+  sink:                  [COLD_PORT(), HOT_PORT()],
 };
 
 const SWAPPED_LABELS: Record<string, string> = { Cold: 'Hot', Hot: 'Cold' };

@@ -73,6 +73,7 @@ interface CanvasStore {
   // Copy-paste
   copySelection: () => void;
   pasteClipboard: (target?: { x: number; y: number }) => void;
+  mirrorSelection: (axis: 'horizontal' | 'vertical') => void;
   setDualSupply: (id: string, enabled: boolean) => void;
   setSwapDualSupply: (id: string, swapped: boolean) => void;
 
@@ -496,6 +497,61 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         selectedIds: newElements.map((el) => el.id),
         selectedPipeIds: newPipes.map((p) => p.id),
         selectedId: null,
+      });
+    },
+
+    mirrorSelection: (axis) => {
+      const state = get();
+      const elIds = new Set(state.selectedIds);
+      const pipeIds = new Set(state.selectedPipeIds);
+      const annIds = new Set(state.selectedAnnotationIds);
+      if (elIds.size === 0 && pipeIds.size === 0 && annIds.size === 0) return;
+
+      const selectedEls = state.elements.filter((el) => elIds.has(el.id));
+      const selectedPipes = state.pipes.filter((p) => pipeIds.has(p.id));
+      const selectedAnns = state.annotations.filter((a) => annIds.has(a.id));
+
+      // Compute bounding box of selected elements (by position) + selected pipe endpoints
+      const xs: number[] = [];
+      const ys: number[] = [];
+      for (const el of selectedEls) { xs.push(el.x); ys.push(el.y); }
+      for (const p of selectedPipes) { xs.push(p.startX, p.endX); ys.push(p.startY, p.endY); }
+      for (const a of selectedAnns) { xs.push(a.x); ys.push(a.y); }
+      if (xs.length === 0) return;
+
+      const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+      const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+
+      pushHistory();
+      set((s) => {
+        const updatedElements = s.elements.map((el) => {
+          if (!elIds.has(el.id)) return el;
+          if (axis === 'horizontal') {
+            return { ...el, x: 2 * centerX - el.x, scaleX: (el.scaleX ?? 1) * -1 };
+          } else {
+            return { ...el, y: 2 * centerY - el.y };
+          }
+        });
+
+        const updatedPipes = s.pipes.map((pipe) => {
+          if (!pipeIds.has(pipe.id)) return pipe;
+          if (axis === 'horizontal') {
+            return { ...pipe, startX: 2 * centerX - pipe.startX, endX: 2 * centerX - pipe.endX };
+          } else {
+            return { ...pipe, startY: 2 * centerY - pipe.startY, endY: 2 * centerY - pipe.endY };
+          }
+        });
+
+        const updatedAnnotations = s.annotations.map((ann) => {
+          if (!annIds.has(ann.id)) return ann;
+          if (axis === 'horizontal') {
+            return { ...ann, x: 2 * centerX - ann.x };
+          } else {
+            return { ...ann, y: 2 * centerY - ann.y };
+          }
+        });
+
+        return { elements: updatedElements, pipes: updatedPipes, annotations: updatedAnnotations };
       });
     },
 

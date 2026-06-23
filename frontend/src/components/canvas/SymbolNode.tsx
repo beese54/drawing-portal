@@ -42,16 +42,13 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
   const [image] = useImage(imageUrl, 'anonymous');
   const nodeRef = useRef<Konva.Image>(null);
 
-  // Pre-process tint on an offscreen canvas — more reliable than Konva filter/cache.
-  // Always specify explicit draw dimensions so SVGs (which report width=0) still render.
+  // Pre-rasterize to an offscreen canvas so Konva draws a bitmap on every frame
+  // instead of re-rasterizing the SVG. 4× gives crisp rendering up to 4× zoom.
   const tintedImage = useMemo<HTMLCanvasElement | HTMLImageElement | undefined>(() => {
     if (!image) return undefined;
     const rgb = tintPipeType ? TINT_RGB[tintPipeType] : undefined;
-    if (!rgb) return image;
-    const [r, g, b] = rgb;
-    // Render at MAX_SCALE (12×) resolution so Konva never upscales the tinted bitmap.
-    const tw = Math.round(width * 12);
-    const th = Math.round(height * 12);
+    const tw = Math.round(width * 4);
+    const th = Math.round(height * 4);
     const offscreen = document.createElement('canvas');
     offscreen.width = tw;
     offscreen.height = th;
@@ -59,12 +56,15 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
     if (!ctx) return image;
     try {
       ctx.drawImage(image, 0, 0, tw, th);
-      const imgData = ctx.getImageData(0, 0, tw, th);
-      const d = imgData.data;
-      for (let i = 0; i < d.length; i += 4) {
-        if (d[i + 3] > 10) { d[i] = r; d[i + 1] = g; d[i + 2] = b; }
+      if (rgb) {
+        const [r, g, b] = rgb;
+        const imgData = ctx.getImageData(0, 0, tw, th);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] > 10) { d[i] = r; d[i + 1] = g; d[i + 2] = b; }
+        }
+        ctx.putImageData(imgData, 0, 0);
       }
-      ctx.putImageData(imgData, 0, 0);
       return offscreen;
     } catch {
       // CORS taint or other canvas security error — fall back to original image

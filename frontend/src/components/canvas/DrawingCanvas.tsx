@@ -7,6 +7,7 @@ import { LpPeStampLayer } from './LpPeStampLayer';
 import { ElementsLayer } from './ElementsLayer';
 import { AnnotationsLayer } from './AnnotationsLayer';
 import { AnnotationContextMenu } from './AnnotationContextMenu';
+import { MirrorContextMenu } from './MirrorContextMenu';
 import { PipeDraftLayer } from './PipeDraftLayer';
 import { RotationPanel } from './RotationPanel';
 import { TeeJunctionPortDialog } from './TeeJunctionPortDialog';
@@ -296,9 +297,11 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   const addAnnotation = useCanvasStore((s) => s.addAnnotation);
   const removeAnnotation = useCanvasStore((s) => s.removeAnnotation);
   const updateAnnotation = useCanvasStore((s) => s.updateAnnotation);
+  const mirrorSelection = useCanvasStore((s) => s.mirrorSelection);
 
-  // Right-click context menu for annotation templates
+  // Right-click context menu — 'annotation' when nothing selected, 'mirror' when multi-selected
   const [contextMenu, setContextMenu] = useState<{
+    type: 'annotation' | 'mirror';
     viewportX: number;
     viewportY: number;
     contentX: number;
@@ -1051,7 +1054,12 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       const rawY = e.clientY - box.top;
       const contentX = (rawX + stageOffsetXRef.current) / stageScaleRef.current;
       const contentY = (rawY + stageOffsetYRef.current) / stageScaleRef.current;
-      setContextMenu({ viewportX: rawX, viewportY: rawY, contentX, contentY });
+      const { selectedIds, selectedPipeIds, selectedAnnotationIds } = useCanvasStore.getState();
+      const hasMultiSelection = selectedIds.length > 1
+        || selectedPipeIds.length > 1
+        || (selectedIds.length + selectedPipeIds.length + selectedAnnotationIds.length) > 1;
+      const type = hasMultiSelection ? 'mirror' : 'annotation';
+      setContextMenu({ type, viewportX: rawX, viewportY: rawY, contentX, contentY });
     };
     el.addEventListener('contextmenu', handler);
     return () => el.removeEventListener('contextmenu', handler);
@@ -1709,11 +1717,19 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           onClose={() => setTankModalId(null)}
         />
       )}
-      {contextMenu && (
+      {contextMenu && contextMenu.type === 'annotation' && (
         <AnnotationContextMenu
           viewportX={contextMenu.viewportX}
           viewportY={contextMenu.viewportY}
           onSelect={handleAnnotationSelect}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+      {contextMenu && contextMenu.type === 'mirror' && (
+        <MirrorContextMenu
+          viewportX={contextMenu.viewportX}
+          viewportY={contextMenu.viewportY}
+          onMirror={(axis) => mirrorSelection(axis)}
           onClose={() => setContextMenu(null)}
         />
       )}
