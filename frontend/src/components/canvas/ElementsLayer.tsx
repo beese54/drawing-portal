@@ -442,7 +442,6 @@ export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, 
                 onHoverLeave={undefined}
                 onElementClick={onElementClick}
               />
-              <WaterFittingsLabel el={el} />
             </React.Fragment>
           ))}
           {/* Selected annotations — non-draggable (the group handles dragging) */}

@@ -234,7 +234,7 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'upstream', offsetX: 0, offsetY: -24, label: 'Supply' },
   ],
   sink: [
-    { role: 'upstream', offsetX: -6, offsetY: -24, label: 'Supply' },
+    { role: 'upstream', offsetX: 0, offsetY: -24, label: 'Supply' },
   ],
   wash_basin_rectangular: [
     { role: 'upstream', offsetX: -4, offsetY: -24, label: 'Supply' },

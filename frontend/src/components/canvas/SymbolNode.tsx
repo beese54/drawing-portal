@@ -42,13 +42,15 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
   const [image] = useImage(imageUrl, 'anonymous');
   const nodeRef = useRef<Konva.Image>(null);
 
-  // Pre-rasterize to an offscreen canvas so Konva draws a bitmap on every frame
-  // instead of re-rasterizing the SVG. 4× gives crisp rendering up to 4× zoom.
+  // Tinted symbols (tee/elbow) need pixel-level colour manipulation so we
+  // pre-rasterize to an offscreen canvas. Untinted symbols return the raw SVG
+  // image so Konva re-renders from the vector at the correct display resolution.
   const tintedImage = useMemo<HTMLCanvasElement | HTMLImageElement | undefined>(() => {
     if (!image) return undefined;
-    const rgb = tintPipeType ? TINT_RGB[tintPipeType] : undefined;
-    const tw = Math.round(width * 4);
-    const th = Math.round(height * 4);
+    if (!tintPipeType) return image;
+    const rgb = TINT_RGB[tintPipeType];
+    const tw = Math.max(256, Math.round(width * 12));
+    const th = Math.max(256, Math.round(height * 12));
     const offscreen = document.createElement('canvas');
     offscreen.width = tw;
     offscreen.height = th;
@@ -56,18 +58,15 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
     if (!ctx) return image;
     try {
       ctx.drawImage(image, 0, 0, tw, th);
-      if (rgb) {
-        const [r, g, b] = rgb;
-        const imgData = ctx.getImageData(0, 0, tw, th);
-        const d = imgData.data;
-        for (let i = 0; i < d.length; i += 4) {
-          if (d[i + 3] > 10) { d[i] = r; d[i + 1] = g; d[i + 2] = b; }
-        }
-        ctx.putImageData(imgData, 0, 0);
+      const [r, g, b] = rgb;
+      const imgData = ctx.getImageData(0, 0, tw, th);
+      const d = imgData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] > 10) { d[i] = r; d[i + 1] = g; d[i + 2] = b; }
       }
+      ctx.putImageData(imgData, 0, 0);
       return offscreen;
     } catch {
-      // CORS taint or other canvas security error — fall back to original image
       return image;
     }
   }, [image, tintPipeType, width, height]);
@@ -106,7 +105,7 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
           ctx.closePath();
           ctx.fillStrokeShape(shape);
         }}
-        onClick={() => { setSelected(id); }}
+        onClick={(e) => { if (e.evt.button === 0) setSelected(id); }}
         onDblClick={() => { setSelected(id); onElementClick?.(id, symbolId); }}
         onTap={() => { setSelected(id); }}
         onDblTap={() => { setSelected(id); onElementClick?.(id, symbolId); }}

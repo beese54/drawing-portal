@@ -30,7 +30,7 @@ export function AnnotationNode({ ann, isSelected, draggable = true, selectDisabl
       x={ann.x}
       y={ann.y}
       draggable={draggable}
-      onClick={() => { if (!selectDisabled) setSelected(ann.id); }}
+      onClick={(e) => { if (e.evt.button === 0 && !selectDisabled) setSelected(ann.id); }}
       onTap={() => { if (!selectDisabled) setSelected(ann.id); }}
       onDblClick={() => onDblClick?.(ann.id, ann.x, ann.y, ann.text, ann.fontSize, ann.maxWidth)}
       onDragEnd={(e) => {
