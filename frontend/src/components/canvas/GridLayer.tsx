@@ -25,6 +25,18 @@ export function GridLayer({ canvasWidth, canvasHeight, upperMrl, lowerMrl, axisW
         strokeWidth={1}
       />
 
+      {/* Y-axis header — m AMSL label at the top */}
+      <Text
+        x={2}
+        y={4}
+        width={axisWidth - 6}
+        text="m AMSL"
+        fontSize={9}
+        fill="#999"
+        align="right"
+        fontStyle="italic"
+      />
+
       {/* MRL grid lines */}
       {gridValues.map((mrl) => {
         const y = mrlToPixel(mrl, canvasHeight, upperMrl, lowerMrl);
@@ -40,7 +52,7 @@ export function GridLayer({ canvasWidth, canvasHeight, upperMrl, lowerMrl, axisW
               x={2}
               y={y - 8}
               width={axisWidth - 6}
-              text={`${mrl}m AMSL`}
+              text={`${mrl.toFixed(1)}m`}
               fontSize={10}
               fill="#666"
               align="right"
@@ -55,7 +67,7 @@ export function GridLayer({ canvasWidth, canvasHeight, upperMrl, lowerMrl, axisW
           x={2}
           y={canvasHeight - 14}
           width={axisWidth - 6}
-          text={`${lowerMrl}m AMSL`}
+          text={`${lowerMrl.toFixed(1)}m`}
           fontSize={10}
           fill="#999"
           align="right"
@@ -90,7 +102,7 @@ export function GridLayer({ canvasWidth, canvasHeight, upperMrl, lowerMrl, axisW
             <Text
               x={axisWidth + 4}
               y={y - 12}
-              text={`${floor.fflM}m AMSL`}
+              text={`${floor.fflM.toFixed(1)}m AMSL`}
               fontSize={8}
               fill="#555"
               opacity={floorLevelOpacity}

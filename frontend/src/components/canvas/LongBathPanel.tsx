@@ -115,23 +115,6 @@ export function LongBathPanel({ elementId, x, y, currentCapacityL, dualSupply, s
             {currentCapacityL > 250 ? `⚠ ${currentCapacityL} L > 250 L limit` : `✓ ${currentCapacityL} L — within limit`}
           </div>
         )}
-        {currentCapacityL !== undefined && currentCapacityL > 250 && (
-          <div style={{
-            fontSize: 9,
-            color: '#92400e',
-            background: '#fef3c7',
-            border: '1px solid #fcd34d',
-            borderRadius: 4,
-            padding: '4px 6px',
-            lineHeight: 1.5,
-            marginTop: 4,
-          }}>
-            <div style={{ fontWeight: 700, marginBottom: 2 }}>Capacity &gt;250 L requires:</div>
-            <div>· No direct discharge to drain</div>
-            <div>· Recirculation system provided</div>
-            <div>· Backwash connected to sewer</div>
-          </div>
-        )}
       </div>
 
       {/* Supply ports section */}

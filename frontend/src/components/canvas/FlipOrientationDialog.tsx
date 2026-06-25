@@ -59,7 +59,7 @@ const PUMP_DOTS_RTL: DotDef[] = [
 ];
 
 // symbols that use scaleX=-1 for Left←Right (image stays upright, ports mirror)
-const SCALE_FLIP_SYMBOLS = new Set(['water_tank', 'water_heater', 'water_meter', 'pump']);
+const SCALE_FLIP_SYMBOLS = new Set(['water_tank', 'water_heater', 'water_meter', 'pump', 'tap_point_schematic']);
 
 // water_meter: stubs at y=32, left tip at x=0, right tip at x=64
 const WATER_METER_DOTS_LTR: DotDef[] = [
@@ -71,18 +71,30 @@ const WATER_METER_DOTS_RTL: DotDef[] = [
   { left: 5,  top: 32, color: '#e63329', label: 'Output', labelLeft: 14  },
 ];
 
+// tap_point_schematic: single upstream port at offsetX=-14, offsetY=4 from centre (48px → 64px dialog, ×1.333)
+// LTR: port on left at canvas (10, 28) → dialog (13, 37)
+// RTL (scaleX=-1): port mirrors to right at canvas (38, 28) → dialog (51, 37)
+const TAP_POINT_DOTS_LTR: DotDef[] = [
+  { left: 13, top: 37, color: '#007bff', label: 'Port', labelLeft: 18 },
+];
+const TAP_POINT_DOTS_RTL: DotDef[] = [
+  { left: 51, top: 37, color: '#007bff', label: 'Port', labelLeft: 18 },
+];
+
 // dot configs indexed by symbolId
 const DOTS_LTR: Record<string, DotDef[]> = {
-  water_tank:   WATER_TANK_DOTS_LTR,
-  water_heater: WATER_HEATER_DOTS_LTR,
-  water_meter:  WATER_METER_DOTS_LTR,
-  pump:         PUMP_DOTS_LTR,
+  water_tank:          WATER_TANK_DOTS_LTR,
+  water_heater:        WATER_HEATER_DOTS_LTR,
+  water_meter:         WATER_METER_DOTS_LTR,
+  pump:                PUMP_DOTS_LTR,
+  tap_point_schematic: TAP_POINT_DOTS_LTR,
 };
 const DOTS_RTL: Record<string, DotDef[]> = {
-  water_tank:   WATER_TANK_DOTS_RTL,
-  water_heater: WATER_HEATER_DOTS_RTL,
-  water_meter:  WATER_METER_DOTS_RTL,
-  pump:         PUMP_DOTS_RTL,
+  water_tank:          WATER_TANK_DOTS_RTL,
+  water_heater:        WATER_HEATER_DOTS_RTL,
+  water_meter:         WATER_METER_DOTS_RTL,
+  pump:                PUMP_DOTS_RTL,
+  tap_point_schematic: TAP_POINT_DOTS_RTL,
 };
 
 /** Renders only the coloured dot circles on the image — labels are shown outside the image. */

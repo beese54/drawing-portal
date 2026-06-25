@@ -135,7 +135,7 @@ function buildHydraulicContext(
   const pumpEls  = exportedElements.filter((e) => e.node_type === 'pressure_booster');
 
   const source_element_id = sourceEl?.id ?? null;
-  const source_mrl_m      = sourceEl?.mrl.value ?? null;
+  const source_mrl_m      = sourceEl?.elevation_m ?? null;
   const pump_element_ids  = pumpEls.map((e) => e.id);
 
   const outletMrls: number[] = [];
@@ -145,7 +145,7 @@ function buildHydraulicContext(
     if (pipe.end_connects_to   === null) outletMrls.push(pipe.end.mrl);
   }
   for (const el of exportedElements) {
-    if (el.node_type === 'outlet') outletMrls.push(el.mrl.value);
+    if (el.node_type === 'outlet') outletMrls.push(el.elevation_m);
   }
 
   const lowest_outlet_mrl_m = outletMrls.length > 0

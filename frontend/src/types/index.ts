@@ -155,6 +155,8 @@ export const ROTATABLE_SYMBOL_IDS = [
   'bidet_spray',
   // new equipment
   'y_type_strainer', 'pipe_blank_off', 'flexible_connection', 'puddle_flange',
+  // flip-only terminal fittings
+  'tap_point_schematic',
 ] as const;
 export type RotatableSymbolId = (typeof ROTATABLE_SYMBOL_IDS)[number];
 
@@ -174,7 +176,7 @@ export const CLOCKWISE_SYMBOL_IDS = [
   'y_type_strainer', 'pipe_blank_off', 'flexible_connection', 'puddle_flange',
 ] as const;
 /** Left-to-right / right-to-left flip only (0° or 180°). */
-export const FLIP_ONLY_SYMBOL_IDS = ['pump', 'water_tank', 'water_heater', 'water_meter'] as const;
+export const FLIP_ONLY_SYMBOL_IDS = ['pump', 'water_tank', 'water_heater', 'water_meter', 'tap_point_schematic'] as const;
 
 /**
  * Symbols that SS636 or PUB explicitly mandate in a drawing.

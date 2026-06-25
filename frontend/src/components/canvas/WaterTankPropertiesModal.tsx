@@ -35,14 +35,14 @@ function validateTankDraft(draft: TankProperties, waterLevelAmsl: number | null)
   if (draft.inletPipeMAmsl != null && draft.floorLevelMAmsl != null && draft.heightM != null) {
     const tankTopM = draft.floorLevelMAmsl + draft.heightM;
     if (draft.inletPipeMAmsl > tankTopM) {
-      errors.inletPipeMAmsl = `Inlet is above tank top — max ${tankTopM.toFixed(3)} m AMSL (floor ${draft.floorLevelMAmsl} + height ${draft.heightM})`;
+      errors.inletPipeMAmsl = `Inlet is above tank top — max ${tankTopM.toFixed(1)} m AMSL (floor ${draft.floorLevelMAmsl} + height ${draft.heightM})`;
     }
   }
 
   // Overflow level cannot exceed inlet level
   if (draft.overflowPipeMAmsl != null && draft.inletPipeMAmsl != null) {
     if (draft.overflowPipeMAmsl > draft.inletPipeMAmsl) {
-      errors.overflowPipeMAmsl = `Overflow cannot be higher than inlet (${draft.inletPipeMAmsl} m AMSL)`;
+      errors.overflowPipeMAmsl = `Overflow cannot be higher than inlet (${draft.inletPipeMAmsl!.toFixed(1)} m AMSL)`;
     }
   }
 
@@ -133,9 +133,9 @@ export function WaterTankPropertiesModal({ tankId, onClose }: Props) {
   const tankTopM = (draft.floorLevelMAmsl != null && draft.heightM != null)
     ? draft.floorLevelMAmsl + draft.heightM : null;
   const maxInletHint = tankTopM != null
-    ? `Max: ${tankTopM.toFixed(3)} m AMSL (floor ${draft.floorLevelMAmsl} + height ${draft.heightM})` : null;
+    ? `Max: ${tankTopM.toFixed(1)} m AMSL (floor ${draft.floorLevelMAmsl} + height ${draft.heightM})` : null;
   const maxOverflowHint = draft.inletPipeMAmsl != null
-    ? `Max: ${draft.inletPipeMAmsl} m AMSL (cannot exceed inlet)` : null;
+    ? `Max: ${draft.inletPipeMAmsl!.toFixed(1)} m AMSL (cannot exceed inlet)` : null;
 
   const handleSave = () => {
     updateTankProperties(tankId, draft);
@@ -439,7 +439,7 @@ function TankDiagram({ draft, waterLevelAmsl }: { draft: TankProperties; waterLe
                 stroke="#1d4ed8" strokeWidth={1} strokeDasharray="4 2" />
           <text x={tankL + tankWpx / 2} y={waterY - 3}
                 textAnchor="middle" fontSize={7} fill="#1d4ed8">
-            WL {waterLevelAmsl!.toFixed(3)} m
+            WL {waterLevelAmsl!.toFixed(1)} m
           </text>
         </>
       )}

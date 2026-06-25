@@ -83,7 +83,7 @@ export function RotationPanel({ elementId, symbolId, x, y, currentRotation, curr
 
   if ((FLIP_ONLY_SYMBOL_IDS as readonly string[]).includes(symbolId)) {
     // water_tank, water_heater, water_meter use scaleX=-1 for mirror; others use rotation=180
-    const isWaterTank = symbolId === 'water_tank' || symbolId === 'water_heater' || symbolId === 'water_meter' || symbolId === 'pump';
+    const isWaterTank = symbolId === 'water_tank' || symbolId === 'water_heater' || symbolId === 'water_meter' || symbolId === 'pump' || symbolId === 'tap_point_schematic';
     return (
       <div style={posStyle}>
         <div style={labelStyle}>FLIP</div>
