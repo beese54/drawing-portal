@@ -356,26 +356,34 @@ def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
         elif line.startswith(("⚠", "✗", "–")):
             sub_statuses.append("WARN")
 
-    # Rule 10: terminal fittings ≤ 35 m pump head — LP/PE acknowledgment
-    pump_head_ack = metadata.get("pump_head_acknowledged", False)
+    # Rule 10: pump rated head ≤ 35 m — read declared head from each pump element
     if not pumps:
         detail.append(
             "⚠ No pump detected in schematic — if a booster pump is part of this installation, "
-            "add it to the schematic and confirm that terminal fittings do not receive more than 35 m head."
+            "add it to the schematic and declare the rated head."
         )
         sub_statuses.append("WARN")
-    elif pump_head_ack:
-        detail.append(
-            "✓ LP/PE has confirmed that the pump rated head does not exceed 35 m "
-            "(as required by PUB regulations)."
-        )
-        sub_statuses.append("PASS")
     else:
-        detail.append(
-            "⚠ Pump rated head acknowledgment not provided — please confirm the pump rated head "
-            "does not exceed 35 m before submitting. Tick the acknowledgment checkbox and re-evaluate."
-        )
-        sub_statuses.append("WARN")
+        for pump in pumps:
+            rated_head = pump.get("pump_rated_head_m")
+            pump_label = pump.get("symbol_name", "Pump")
+            if rated_head is None or rated_head <= 0:
+                detail.append(
+                    f"⚠ {pump_label}: Pump rated head not declared — click the pump symbol and enter "
+                    "the rated head (m) from the pump schedule."
+                )
+                sub_statuses.append("WARN")
+            elif rated_head <= 35:
+                detail.append(
+                    f"✓ {pump_label}: Declared rated head {rated_head} m ≤ 35 m (PUB requirement met)."
+                )
+                sub_statuses.append("PASS")
+            else:
+                detail.append(
+                    f"✗ {pump_label}: Declared rated head {rated_head} m exceeds the 35 m PUB limit — "
+                    "select a pump with a lower rated head or install a PRV on the discharge line."
+                )
+                sub_statuses.append("FAIL")
 
     # Overall status
     if "FAIL" in sub_statuses:

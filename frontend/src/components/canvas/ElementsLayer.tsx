@@ -581,6 +581,30 @@ export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, 
         ];
       })}
 
+      {/* Pump rated head missing badge — orange ! when pump head not declared */}
+      {elements.flatMap((el) => {
+        if (el.symbolId !== 'pump') return [];
+        if (el.pumpRatedHeadM !== undefined) return [];
+        const bx = el.x + symPx / 2 + 4;
+        const by = el.y - symPx / 2 - 4;
+        return [
+          <Circle
+            key={`pump-head-badge-${el.id}`}
+            x={bx} y={by} radius={4}
+            fill="#f97316" stroke="#fff" strokeWidth={1}
+            onMouseEnter={() => setWarningTooltip({ x: bx, y: by, lines: ['Pump Rated Head Not Declared', 'Double-click symbol to enter rated head (m) from pump schedule'] })}
+            onMouseLeave={() => setWarningTooltip(null)}
+            onClick={() => { setWarningTooltip(null); setSelected(el.id); onElementDblClick?.(el.id); }}
+          />,
+          <Text
+            key={`pump-head-text-${el.id}`}
+            x={bx - 1.3} y={by - 3}
+            text="!" fontSize={8} fontStyle="bold" fill="#fff"
+            listening={false}
+          />,
+        ];
+      })}
+
       {/* Port indicators — shown for the hovered or single-selected element */}
       {elements.flatMap((el) => {
         if (el.id !== hoveredId && el.id !== selectedId) return [];

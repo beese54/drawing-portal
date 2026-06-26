@@ -15,6 +15,7 @@ import {
   calcTankCapacityLitres,
   AcknowledgmentFlags,
   FIXTURE_MWELS_CATEGORY,
+  getBackflowRule,
 } from '../types';
 import { pixelToMrl } from './mrlMapping';
 import { distance, angleDeg } from './geometry';
@@ -50,6 +51,18 @@ const NODE_TYPE_MAP: Record<string, NodeType> = {
   dishwasher:            'water_fitting',
   water_dispenser:       'water_fitting',
   bib_tap_cw_cap_and_lock_schematic: 'water_fitting',
+  tap_point_schematic:               'water_fitting',
+  // Taps
+  single_tap:                        'water_fitting',
+  single_tap_combined:               'water_fitting',
+  twin_tap:                          'water_fitting',
+  // Baths
+  square_bath:                       'water_fitting',
+  foot_bath:                         'water_fitting',
+  // Drinking fountains
+  drinking_fountain_pedestal:        'water_fitting',
+  drinking_fountain_trough:          'water_fitting',
+  drinking_fountain_wall:            'water_fitting',
 };
 
 function nodeTypeFor(symbolId: string): NodeType {
@@ -438,6 +451,14 @@ export function buildMetadata(
       ...(el.symbolId === 'long_bath'
         ? { long_bath_capacity_l: el.longBathCapacityL ?? null }
         : {}),
+      ...(el.symbolId === 'pump'
+        ? { pump_rated_head_m: el.pumpRatedHeadM ?? null }
+        : {}),
+      ...(() => {
+        const rule = getBackflowRule(el);
+        if (!rule) return {};
+        return { backflow_requirement: rule === 'vb_and_check_valve' ? 'vacuum_breaker' as const : 'check_valve' as const };
+      })(),
     };
   });
 

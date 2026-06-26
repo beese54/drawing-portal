@@ -20,9 +20,6 @@ from typing import Any
 from app.agents.compliance_checks import CheckResult
 from app.agents.graph_utils import build_adjacency
 
-APPLIANCE_FITTING_IDS = {"dishwasher", "water_dispenser", "washing_machine", "landscape_tap"}
-APPLIANCE_SYMBOL_IDS = {"washing_machine", "dishwasher", "water_dispenser", "bib_tap_cw_cap_and_lock_schematic"}
-
 
 
 def _bfs_find(
@@ -66,12 +63,12 @@ def _check_supply_mode_consistency(elements: list[dict]) -> str:
     if not heaters:
         return "– Rule 6.1: No water heater detected — heat pump supply mode check skipped."
 
-    fittings = [e for e in elements if e.get("symbol_id") == "water_fittings"]
+    fittings = [e for e in elements if e.get("node_type") == "water_fitting" and e.get("supply_mode")]
     if not fittings:
         return "– Rule 6.1: No water fittings detected — supply mode consistency check skipped."
 
     heater_modes = {e.get("supply_mode") for e in heaters if e.get("supply_mode")}
-    fitting_modes = {e.get("supply_mode") for e in fittings if e.get("supply_mode")}
+    fitting_modes = {e.get("supply_mode") for e in fittings}
 
     all_modes = heater_modes | fitting_modes
     if not all_modes:
@@ -156,10 +153,12 @@ def _check_appliance_check_valves(
     elem_by_id: dict[str, dict],
     adj: dict[str, set[str]],
 ) -> list[str]:
+    # backflow_requirement == "check_valve" is exported by the frontend for all §6.4 appliances
+    # and for water_heater (Reg 28). Exclude water_heater — it has its own Rule 6.3 check.
     appliances = [
         e for e in elements
-        if (e.get("symbol_id") == "water_fittings" and e.get("fitting_type") in APPLIANCE_FITTING_IDS)
-        or e.get("symbol_id") in APPLIANCE_SYMBOL_IDS
+        if e.get("backflow_requirement") == "check_valve"
+        and e.get("symbol_id") != "water_heater"
     ]
     if not appliances:
         return ["– Rule 6.4: No appliance fittings (dishwasher / water dispenser / washing machine / landscape tap / ice maker / coffee maker / refrigerator / balancing tank) detected — check skipped."]
@@ -187,34 +186,45 @@ def _check_bidet_vacuum_breaker(
     elem_by_id: dict[str, dict],
     adj: dict[str, set[str]],
 ) -> list[str]:
-    bidets = [e for e in elements if e.get("symbol_id") in ("bidet", "bidet_spray")]
+    bidets = [e for e in elements if e.get("symbol_id") == "bidet_spray"]
     if not bidets:
-        return ["– Rule 6.5: No bidet detected — vacuum breaker check skipped."]
+        return ["– Rule 6.5: No bidet spray detected — vacuum breaker check skipped."]
 
     lines: list[str] = []
     for el in bidets:
-        name = el.get("symbol_name", "Bidet")
-        vb_id, _ = _bfs_find(adj, el["id"], {"vacuum_breaker"}, elem_by_id, max_hops=3)
-        cv_id, _ = _bfs_find(adj, el["id"], {"check_valve"}, elem_by_id, max_hops=3)
-        if vb_id and cv_id:
+        name = el.get("symbol_name", "Bidet Spray")
+        el_id = el["id"]
+        vb_id, vb_hops = _bfs_find(adj, el_id, {"vacuum_breaker"}, elem_by_id, max_hops=5)
+        cv_id, cv_hops = _bfs_find(adj, el_id, {"check_valve"},    elem_by_id, max_hops=5)
+
+        if not vb_id and not cv_id:
             lines.append(
-                f"✓ Rule 6.5: [{name}] Vacuum breaker and check valve assembly detected — "
-                f"contamination prevention requirements satisfied."
+                f"✗ Rule 6.5: [{name}] No vacuum breaker or check valve detected. "
+                f"A vacuum breaker and check valve assembly must be installed on all bidet spray connections."
             )
-        elif vb_id:
+        elif not vb_id:
+            lines.append(
+                f"✗ Rule 6.5: [{name}] No vacuum breaker found. "
+                f"Both a vacuum breaker AND check valve are required for bidet spray installations."
+            )
+        elif not cv_id:
             lines.append(
                 f"⚠ Rule 6.5: [{name}] Vacuum breaker detected but no check valve found. "
                 f"Both a vacuum breaker AND check valve are required for bidet spray installations."
             )
-        elif cv_id:
+        elif cv_hops <= vb_hops:
+            # check_valve is closer to (or same distance as) bidet_spray than vacuum_breaker —
+            # assembly order is wrong: correct order is inlet → check_valve → vacuum_breaker → bidet_spray.
             lines.append(
-                f"⚠ Rule 6.5: [{name}] Check valve detected but no vacuum breaker found. "
-                f"Both a vacuum breaker AND check valve are required for bidet spray installations."
+                f"✗ Rule 6.5: [{name}] Assembly order incorrect — check valve must be upstream of "
+                f"vacuum breaker (inlet → check valve → vacuum breaker → bidet spray). "
+                f"Currently check valve is {cv_hops} hop(s) away and vacuum breaker is {vb_hops} hop(s) away."
             )
         else:
             lines.append(
-                f"✗ Rule 6.5: [{name}] No vacuum breaker or check valve detected. "
-                f"A vacuum breaker and check valve assembly must be installed on all bidet spray connections."
+                f"✓ Rule 6.5: [{name}] Vacuum breaker and check valve assembly detected in correct order "
+                f"(vacuum breaker {vb_hops} hop(s), check valve {cv_hops} hop(s) from bidet spray) — "
+                f"contamination prevention requirements satisfied."
             )
     return lines
 
@@ -306,11 +316,11 @@ def check_hot_water_contamination(metadata: dict[str, Any]) -> CheckResult:
     adj = build_adjacency(elements, pipes)
 
     heaters = [e for e in elements if e.get("symbol_id") == "water_heater"]
-    bidets   = [e for e in elements if e.get("symbol_id") in ("bidet", "bidet_spray")]
+    bidets   = [e for e in elements if e.get("symbol_id") == "bidet_spray"]
     appliances = [
         e for e in elements
-        if (e.get("symbol_id") == "water_fittings" and e.get("fitting_type") in APPLIANCE_FITTING_IDS)
-        or e.get("symbol_id") in APPLIANCE_SYMBOL_IDS
+        if e.get("backflow_requirement") == "check_valve"
+        and e.get("symbol_id") != "water_heater"
     ]
     has_tank_or_pump = any(
         e.get("symbol_id") in ("water_tank", "pump") for e in elements
@@ -321,8 +331,8 @@ def check_hot_water_contamination(metadata: dict[str, Any]) -> CheckResult:
             check_id="HOT_WATER",
             title="Hot Water / Contamination Prevention",
             status="SKIP",
-            summary="No water heaters, bidets, or applicable appliances detected — check skipped.",
-            detail=["Add water heater, bidet, or appliance fittings to enable Section 6 checks."],
+            summary="No water heaters, bidet sprays, or applicable appliances detected — check skipped.",
+            detail=["Add water heater, bidet spray, or appliance fittings to enable Section 6 checks."],
         )
 
     detail: list[str] = []

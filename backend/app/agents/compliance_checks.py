@@ -78,17 +78,6 @@ FLOW_RATE_FITTING_IDS = {"shower_tap", "basin_tap", "sink_tap"}
 # Fittings that are not subject to MWELS (Section 6 appliances) — skipped in WELS check
 NON_MWELS_FITTING_IDS = {"dishwasher", "water_dispenser", "washing_machine", "landscape_tap"}
 
-# Dedicated fixture symbols that carry an MWELS rating.
-# Value is the fixed category string, or None when the user must pick basin_tap / sink_tap.
-FIXTURE_MWELS_SYMBOLS: dict[str, str | None] = {
-    "shower_head":            "shower_tap",
-    "multiple_show_unit":     "shower_tap",
-    "shower_bath":            "shower_tap",
-    "wash_basin_rectangular": "basin_tap",
-    "sink":                   "sink_tap",
-    "water_closet":           "dual_flushing_cistern",
-    "urinal_wall":            "urinal_flush",
-}
 
 # Design demand (L/s) for network solver — use 2-tick max converted to L/s
 MWELS_DEMAND_LPS: dict[str, float] = {
@@ -123,15 +112,6 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
     Uses BFS over the topology graph (direction-agnostic) so the check works
     regardless of how symbols are rotated or oriented on the canvas.
     """
-    # Elements that require a check_valve within BFS hops
-    REQUIRES_CHECK_VALVE = {
-        "water_heater",
-        "washing_machine", "dishwasher", "water_dispenser",
-        "bib_tap_cw_cap_and_lock_schematic",
-    }
-    # Elements that require a vacuum_breaker within BFS hops
-    REQUIRES_VACUUM_BREAKER = {"bidet_spray", "bidet"}
-
     elements: list[dict] = metadata.get("elements", [])
     pipes: list[dict] = metadata.get("pipes", [])
 
@@ -195,9 +175,10 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
                         linked = True
                         break
 
+    # backflow_requirement is exported by the frontend — single source of truth for which elements need protection.
     risk_elements = [
         e for e in elements
-        if e.get("symbol_id") in REQUIRES_CHECK_VALVE or e.get("symbol_id") in REQUIRES_VACUUM_BREAKER
+        if e.get("backflow_requirement") in ("check_valve", "vacuum_breaker")
     ]
 
     if not risk_elements:
@@ -237,22 +218,54 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
         el_name = el.get("symbol_name", el.get("symbol_id", "Element"))
         sym_id = el.get("symbol_id", "")
 
-        if sym_id in REQUIRES_VACUUM_BREAKER:
-            # §6.5: needs vacuum_breaker
-            hops, found_id = bfs_find(el_id, {"vacuum_breaker"})
-            if hops is not None:
-                pos = "immediately adjacent" if hops == 1 else f"{hops} hops away"
-                details.append(f"✓ {el_name}: Vacuum breaker found ({pos}) — §6.5 satisfied.")
-                elements_of_interest.append({"element_id": el_id, "label": el_name, "color": "blue"})
-                if found_id:
-                    elements_of_interest.append({"element_id": found_id, "label": "Vacuum Breaker", "color": "green"})
-            else:
+        if el.get("backflow_requirement") == "vacuum_breaker":
+            # §6.5: needs vacuum_breaker closer than check_valve (inlet → cv → vb → bidet_spray)
+            vb_hops, vb_id = bfs_find(el_id, {"vacuum_breaker"})
+            cv_hops, cv_id = bfs_find(el_id, {"check_valve"})
+
+            if vb_hops is None and cv_hops is None:
                 all_pass = False
                 details.append(
-                    f"✗ {el_name}: No vacuum breaker found within 8 hops — "
-                    "SS636 §6.5 requires a vacuum breaker on all bidet spray connections."
+                    f"✗ {el_name}: No vacuum breaker or check valve found — "
+                    "SS636 §6.5 requires a vacuum breaker + check valve assembly on all bidet spray connections."
+                )
+                elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing assembly!", "color": "red"})
+            elif vb_hops is None:
+                all_pass = False
+                details.append(
+                    f"✗ {el_name}: No vacuum breaker found — "
+                    "SS636 §6.5 requires a vacuum breaker upstream of the bidet spray connection."
                 )
                 elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing vacuum breaker!", "color": "red"})
+            elif cv_hops is None:
+                all_pass = False
+                details.append(
+                    f"✗ {el_name}: Vacuum breaker found but no check valve — "
+                    "SS636 §6.5 requires both a vacuum breaker AND check valve (inlet → CV → VB → bidet spray)."
+                )
+                elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing check valve!", "color": "red"})
+            elif cv_hops <= vb_hops:
+                # check_valve is closer to bidet_spray than vacuum_breaker — wrong order
+                all_pass = False
+                details.append(
+                    f"✗ {el_name}: Assembly order incorrect (check valve {cv_hops} hop(s), vacuum breaker {vb_hops} hop(s)). "
+                    "Correct order: inlet → check valve → vacuum breaker → bidet spray."
+                )
+                elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — wrong assembly order!", "color": "red"})
+                if vb_id:
+                    elements_of_interest.append({"element_id": vb_id, "label": "Vacuum Breaker — move upstream of check valve", "color": "orange"})
+                if cv_id:
+                    elements_of_interest.append({"element_id": cv_id, "label": "Check Valve — move upstream of vacuum breaker", "color": "orange"})
+            else:
+                details.append(
+                    f"✓ {el_name}: Vacuum breaker + check valve assembly in correct order "
+                    f"(VB at {vb_hops} hop(s), CV at {cv_hops} hop(s)) — §6.5 satisfied."
+                )
+                elements_of_interest.append({"element_id": el_id, "label": el_name, "color": "blue"})
+                if vb_id:
+                    elements_of_interest.append({"element_id": vb_id, "label": "Vacuum Breaker", "color": "green"})
+                if cv_id:
+                    elements_of_interest.append({"element_id": cv_id, "label": "Check Valve", "color": "green"})
         else:
             # Reg 28(1) / §6.4: needs check_valve
             hops, found_id = bfs_find(el_id, {"check_valve"})
@@ -319,22 +332,14 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
     """
     elements: list[dict] = metadata.get("elements", [])
 
-    # All symbol IDs that represent water fittings / fixtures (terminal outlets)
-    FITTING_SYMBOL_IDS = {
-        "water_fittings",
-        "shower_head", "multiple_show_unit", "shower_bath",
-        "wash_basin_rectangular", "sink", "water_closet", "urinal_wall",
-        "long_bath", "bidet_spray", "bidet",
-        "washing_machine", "dishwasher", "water_dispenser",
-        "bib_tap_cw_cap_and_lock_schematic",
-    }
-
     all_elevations = [
         e["elevation_m"] for e in elements if e.get("elevation_m") is not None
     ]
+    # Use node_type exported by the frontend — single source of truth for what counts as a fitting.
+    # To add a new fitting symbol, add it to NODE_TYPE_MAP in metadataBuilder.ts with 'water_fitting'.
     fitting_elevations = [
         e["elevation_m"] for e in elements
-        if e.get("symbol_id") in FITTING_SYMBOL_IDS and e.get("elevation_m") is not None
+        if e.get("node_type") == "water_fitting" and e.get("elevation_m") is not None
     ]
 
     if not all_elevations:
@@ -464,11 +469,9 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
     """
     elements: list[dict] = metadata.get("elements", [])
 
-    mwels_els = [
-        e for e in elements
-        if e.get("symbol_id") == "water_fittings"
-        or e.get("symbol_id") in FIXTURE_MWELS_SYMBOLS
-    ]
+    # fitting_type is exported by the frontend for all MWELS-relevant fixtures (FIXTURE_MWELS_CATEGORY).
+    # Elements without fitting_type in the export are not subject to MWELS.
+    mwels_els = [e for e in elements if "fitting_type" in e]
 
     if not mwels_els:
         return CheckResult(
@@ -487,14 +490,8 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
     for el in mwels_els:
         el_id   = el["id"]
         sym_id  = el.get("symbol_id", "")
-        is_fixture = sym_id in FIXTURE_MWELS_SYMBOLS
 
-        # Resolve fitting_type: fixtures have a fixed category (or user-chosen for ambiguous ones)
-        if is_fixture:
-            fixed_category = FIXTURE_MWELS_SYMBOLS[sym_id]
-            fitting_type = fixed_category or el.get("fitting_type")
-        else:
-            fitting_type = el.get("fitting_type")
+        fitting_type = el.get("fitting_type")
 
         ticks = el.get("efficiency_rating")
 

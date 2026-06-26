@@ -569,7 +569,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     } else if (symbolId === 'long_bath') {
       setSymbolPropertiesModalId(null);
       setLongBathPanelId(_id);
-    } else if (DUAL_SUPPLY_SYMBOLS.has(symbolId) || symbolId in FIXTURE_MWELS_CATEGORY) {
+    } else if (DUAL_SUPPLY_SYMBOLS.has(symbolId) || symbolId in FIXTURE_MWELS_CATEGORY || symbolId === 'pump') {
       setLongBathPanelId(null);
       setSymbolPropertiesModalId(_id);
     } else {
@@ -1408,7 +1408,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
             if (!el) return;
             const hasDual  = DUAL_SUPPLY_SYMBOLS.has(el.symbolId);
             const hasMwels = el.symbolId in FIXTURE_MWELS_CATEGORY;
-            if (hasDual || hasMwels) setSymbolPropertiesModalId(id);
+            if (hasDual || hasMwels || el.symbolId === 'pump') setSymbolPropertiesModalId(id);
           }}
           rubberBand={rubberBandRect}
           onAnnotationDblClick={handleAnnotationDblClick}
@@ -1614,7 +1614,8 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         if (!el) return null;
         const hasDual  = DUAL_SUPPLY_SYMBOLS.has(el.symbolId);
         const hasMwels = el.symbolId in FIXTURE_MWELS_CATEGORY;
-        if (!hasDual && !hasMwels) return null;
+        const isPump   = el.symbolId === 'pump';
+        if (!hasDual && !hasMwels && !isPump) return null;
         if (el.symbolId === 'long_bath') return null;
         const vp = contentToViewport(el.x, el.y);
         const halfWidthVp = ((el.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;

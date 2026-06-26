@@ -31,12 +31,6 @@ export function AcknowledgmentModal({ elements, onConfirm, onCancel }: Props) {
       applicable: true,
     },
     {
-      key: 'pumpHeadAcknowledged',
-      label: 'Pump rated head ≤ 35 m',
-      description: 'I (LP/PE) confirm the pump rated head does not exceed 35 m (PUB requirement).',
-      applicable: hasPump,
-    },
-    {
       key: 'pumpDischargeMaterialAcknowledged',
       label: 'Pump discharge — non-plastic materials',
       description: 'I (LP/PE) confirm that all pump discharge pipes are made of PUB-approved non-plastic materials (e.g. copper, stainless steel, galvanised steel). Plastic pipes such as PVC/uPVC must NOT be used on pump discharge lines.',

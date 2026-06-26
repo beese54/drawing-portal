@@ -32,10 +32,11 @@ const panelStyle: React.CSSProperties = {
 export function SymbolPropertiesModal({ elementId, x, y, elementHalfWidthVp = SCHEMATIC_SYMBOL_PX / 2, onClose }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const elements             = useCanvasStore((s) => s.elements);
-  const setDualSupply        = useCanvasStore((s) => s.setDualSupply);
-  const setSwapDualSupply    = useCanvasStore((s) => s.setSwapDualSupply);
+  const elements               = useCanvasStore((s) => s.elements);
+  const setDualSupply          = useCanvasStore((s) => s.setDualSupply);
+  const setSwapDualSupply      = useCanvasStore((s) => s.setSwapDualSupply);
   const updateEfficiencyRating = useCanvasStore((s) => s.updateEfficiencyRating);
+  const updatePumpRatedHead    = useCanvasStore((s) => s.updatePumpRatedHead);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -50,6 +51,7 @@ export function SymbolPropertiesModal({ elementId, x, y, elementHalfWidthVp = SC
   const el = elements.find((e) => e.id === elementId);
   if (!el) return null;
 
+  const isPump = el.symbolId === 'pump';
   const showDualSupply = DUAL_SUPPLY_SYMBOLS.has(el.symbolId);
 
   const fixedCategory  = FIXTURE_MWELS_CATEGORY[el.symbolId];
@@ -75,6 +77,42 @@ export function SymbolPropertiesModal({ elementId, x, y, elementHalfWidthVp = SC
       <div style={{ fontSize: 10, fontWeight: 700, color: '#1a3a5c', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
         {el.symbolName}
       </div>
+
+      {/* Pump rated head section */}
+      {isPump && (
+        <div style={{ marginBottom: showDualSupply || showMwels ? 8 : 0, paddingBottom: showDualSupply || showMwels ? 8 : 0, borderBottom: showDualSupply || showMwels ? '1px solid #eee' : 'none' }}>
+          <div style={sectionLabel}>Pump Rated Head</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input
+              type="number"
+              min={0.1}
+              step={0.5}
+              placeholder="e.g. 18"
+              value={el.pumpRatedHeadM ?? ''}
+              onChange={(e) => {
+                const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                updatePumpRatedHead(el.id, val !== undefined && val > 0 ? val : undefined);
+              }}
+              style={{
+                width: 70, padding: '4px 6px', fontSize: 12,
+                border: '1px solid #ccc', borderRadius: 4,
+                outline: 'none',
+              }}
+            />
+            <span style={{ fontSize: 11, color: '#555' }}>m</span>
+          </div>
+          {el.pumpRatedHeadM !== undefined && el.pumpRatedHeadM > 35 && (
+            <div style={{ fontSize: 10, color: '#dc2626', marginTop: 4 }}>
+              Exceeds 35 m PUB limit
+            </div>
+          )}
+          {el.pumpRatedHeadM === undefined && (
+            <div style={{ fontSize: 10, color: '#b45309', marginTop: 4 }}>
+              Enter rated head from pump schedule
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Dual supply section */}
       {showDualSupply && (

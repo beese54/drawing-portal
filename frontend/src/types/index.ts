@@ -212,7 +212,7 @@ const DOUBLE_CHECK_VALVE_SYMBOL_IDS = new Set([
 ]);
 
 const VB_AND_CHECK_VALVE_SYMBOL_IDS = new Set([
-  'bidet_spray', 'bidet', // SS636 §6.5
+  'bidet_spray', // SS636 §6.5
 ]);
 
 /** Returns the backflow protection rule for an element, or null if not applicable. */
@@ -282,6 +282,8 @@ export interface CanvasElement {
    * Used to tint tee junctions and elbow bends to match their input pipe colour.
    */
   carriesFluid?: 'cold' | 'hot';
+  /** Declared pump rated head in metres — only present on pump elements. */
+  pumpRatedHeadM?: number;
 }
 
 // ─── Canvas annotations ───────────────────────────────────────────────────────
@@ -514,6 +516,10 @@ export interface ExportedElement {
   tank_properties?: ExportedTankProperties;
   /** Capacity in litres — only present on long_bath elements. */
   long_bath_capacity_l?: number | null;
+  /** Pump rated head in metres — only present on pump elements. */
+  pump_rated_head_m?: number | null;
+  /** Backflow protection required: 'check_valve' (Reg28/§6.4) or 'vacuum_breaker' (§6.5). Absent if not applicable. */
+  backflow_requirement?: 'check_valve' | 'vacuum_breaker';
 }
 
 /**

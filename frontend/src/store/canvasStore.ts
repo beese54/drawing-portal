@@ -47,6 +47,7 @@ interface CanvasStore {
   updateFittingType: (id: string, fittingType: string) => void;
   updateEfficiencyRating: (id: string, rating: 2 | 3) => void;
   updateLongBathCapacity: (id: string, capacityL: number) => void;
+  updatePumpRatedHead: (id: string, headM: number | undefined) => void;
   addPipe: (pipe: PipeElement) => void;
   updatePipeEndpoints: (id: string, startX: number, startY: number, endX: number, endY: number) => void;
   insertElementOnPipe: (pipeId: string, element: CanvasElement, snapX: number, snapY: number, terminatePipe?: boolean) => void;
@@ -267,6 +268,11 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
     updateLongBathCapacity: (id, longBathCapacityL) => {
       pushHistory();
       set((state) => ({ elements: state.elements.map((el) => el.id === id ? { ...el, longBathCapacityL } : el) }));
+    },
+
+    updatePumpRatedHead: (id, pumpRatedHeadM) => {
+      pushHistory();
+      set((state) => ({ elements: state.elements.map((el) => el.id === id ? { ...el, pumpRatedHeadM } : el) }));
     },
 
     addPipe: (pipe) => {
@@ -526,10 +532,14 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
       set((s) => {
         const updatedElements = s.elements.map((el) => {
           if (!elIds.has(el.id)) return el;
+          // Negating rotation is required because Konva applies scale BEFORE rotation
+          // in world space. Without it, scaleX=-1 on a 90° element causes a vertical
+          // flip instead of a horizontal one (and vice versa for vertical mirror).
+          const newRotation = (360 - el.rotation) % 360;
           if (axis === 'horizontal') {
-            return { ...el, x: 2 * centerX - el.x, scaleX: (el.scaleX ?? 1) * -1 };
+            return { ...el, x: 2 * centerX - el.x, rotation: newRotation, scaleX: (el.scaleX ?? 1) * -1 };
           } else {
-            return { ...el, y: 2 * centerY - el.y };
+            return { ...el, y: 2 * centerY - el.y, rotation: newRotation };
           }
         });
 
