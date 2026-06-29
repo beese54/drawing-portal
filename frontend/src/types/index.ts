@@ -620,7 +620,6 @@ export interface HydraulicContext {
 /** All LP/PE acknowledgment flags collected in the pre-evaluation checklist popup. */
 export interface AcknowledgmentFlags {
   materialsAcknowledged: boolean;
-  pumpHeadAcknowledged: boolean;
   /** Rule 8 — Pump discharge pipes use PUB-approved non-plastic materials. */
   pumpDischargeMaterialAcknowledged: boolean;
   /** 6.2 — Heaters on direct supply are mains-pressure type (storage or instantaneous). */
@@ -642,8 +641,6 @@ export interface DrawingMetadata {
   source_pressure_bar: number | null;
   /** LP/PE has acknowledged use of PUB-approved materials. */
   materials_acknowledged: boolean;
-  /** LP/PE has acknowledged pump rated head does not exceed 35 m. */
-  pump_head_acknowledged: boolean;
   /** LP/PE has acknowledged pump discharge pipes use PUB-approved non-plastic materials. */
   pump_discharge_material_acknowledged: boolean;
   /** LP/PE has acknowledged heaters on direct supply are mains-pressure type. */

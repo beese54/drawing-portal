@@ -6,7 +6,6 @@ import type { AcknowledgmentFlags } from '../types';
 
 const DEFAULT_ACKS: AcknowledgmentFlags = {
   materialsAcknowledged: false,
-  pumpHeadAcknowledged: false,
   pumpDischargeMaterialAcknowledged: false,
   heaterTypeAcknowledged: false,
   applianceCheckValveAcknowledged: false,

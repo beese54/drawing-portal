@@ -2,6 +2,7 @@
 HOT_WATER — Section 6: Hot water / Contamination prevention
 
 Key behaviour under test:
+- Rule 6.1: heat pump supply mode consistency (heaters + fittings same mode)
 - Rule 6.3: water_heater needs check_valve + pressure_relief_valve (graph)
 - Rule 6.4: §6.4 appliances (backflow_requirement=check_valve, not water_heater) need check_valve
 - Rule 6.5: bidet/bidet_spray (backflow_requirement=vacuum_breaker) needs vacuum_breaker + check_valve
@@ -162,3 +163,45 @@ def test_rule65_wrong_assembly_order_fails():
     pipes_ = [pipe("p1", "vb1", "cv1"), pipe("p2", "cv1", "b1")]
     r = check_hot_water_contamination(meta(elements, pipes_))
     assert has_fail_line(r.detail, "Rule 6.5")
+
+
+# ---------------------------------------------------------------------------
+# Rule 6.1 — Supply mode consistency (guards the fix for node_type filter)
+# ---------------------------------------------------------------------------
+
+def test_rule61_skip_no_heater():
+    """Without any heater/bidet/appliance the whole check is SKIP (no Rule 6.1 detail at all)."""
+    m = meta([el("f1", "basin_tap", node_type="water_fitting", supply_mode="direct_supply")])
+    r = check_hot_water_contamination(m)
+    assert r.status == "SKIP"
+
+
+def test_rule61_pass_consistent_direct_supply():
+    """Heater and fittings all on direct_supply — Rule 6.1 passes."""
+    elements = [
+        el("h1", "water_heater", supply_mode="direct_supply"),
+        el("f1", "basin_tap", node_type="water_fitting", supply_mode="direct_supply"),
+        el("f2", "sink_tap",  node_type="water_fitting", supply_mode="direct_supply"),
+    ]
+    r = check_hot_water_contamination(meta(elements))
+    assert has_pass_line(r.detail, "Rule 6.1")
+
+
+def test_rule61_warn_mixed_supply_modes():
+    """Heater on indirect, fitting on direct — Rule 6.1 warns about mixed modes."""
+    elements = [
+        el("h1", "water_heater", supply_mode="indirect_supply"),
+        el("f1", "basin_tap", node_type="water_fitting", supply_mode="direct_supply"),
+    ]
+    r = check_hot_water_contamination(meta(elements))
+    assert has_warn_line(r.detail, "Rule 6.1")
+
+
+def test_rule61_skip_no_fittings_with_supply_mode():
+    """Heater present but no water_fitting elements with supply_mode — Rule 6.1 detail says skipped."""
+    elements = [
+        el("h1", "water_heater"),
+        el("f1", "basin_tap"),  # no node_type or supply_mode — not counted as a fitting
+    ]
+    r = check_hot_water_contamination(meta(elements))
+    assert any("Rule 6.1" in line and "skipped" in line.lower() for line in r.detail)

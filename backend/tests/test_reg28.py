@@ -178,3 +178,32 @@ def test_multiple_elements_one_missing_protection():
     assert r.status == "FAIL"
     assert any("✓" in d for d in r.detail)  # heater passes
     assert any("✗" in d for d in r.detail)  # appliance fails
+
+
+# ---------------------------------------------------------------------------
+# Multiple bidet sprays — mixed correct/wrong order
+# ---------------------------------------------------------------------------
+
+def test_two_bidet_sprays_one_correct_one_wrong_order():
+    """Two bidet sprays: one in correct order, one in wrong order — overall FAIL."""
+    elements = [
+        # bidet 1: correct order — inlet → cv1 → vb1 → b1
+        el("b1", "bidet_spray", backflow_requirement="vacuum_breaker"),
+        el("vb1", "vacuum_breaker"),
+        el("cv1", "check_valve"),
+        # bidet 2: wrong order — inlet → vb2 → cv2 → b2
+        el("b2", "bidet_spray", backflow_requirement="vacuum_breaker"),
+        el("vb2", "vacuum_breaker"),
+        el("cv2", "check_valve"),
+    ]
+    pipes = [
+        pipe("p1", "cv1", "vb1"), pipe("p2", "vb1", "b1"),  # correct
+        pipe("p3", "vb2", "cv2"), pipe("p4", "cv2", "b2"),  # wrong order
+    ]
+    r = check_backflow_prevention(meta(elements, pipes))
+    assert r.status == "FAIL"
+    assert any("✓" in d for d in r.detail)   # b1 passes
+    assert any("✗" in d for d in r.detail)   # b2 fails
+    # wrong-order elements_of_interest should flag b2
+    eoi_ids = {e["element_id"] for e in r.elements_of_interest}
+    assert "b2" in eoi_ids

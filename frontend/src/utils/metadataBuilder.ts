@@ -302,7 +302,6 @@ function buildSupplyModes(
 
 const DEFAULT_ACKS: AcknowledgmentFlags = {
   materialsAcknowledged: false,
-  pumpHeadAcknowledged: false,
   pumpDischargeMaterialAcknowledged: false,
   heaterTypeAcknowledged: false,
   applianceCheckValveAcknowledged: false,
@@ -625,7 +624,6 @@ export function buildMetadata(
     canvas: { width_px: canvasWidth, height_px: canvasHeight },
     source_pressure_bar: sourcePressureBar,
     materials_acknowledged: acks.materialsAcknowledged,
-    pump_head_acknowledged: acks.pumpHeadAcknowledged,
     pump_discharge_material_acknowledged: acks.pumpDischargeMaterialAcknowledged,
     heater_type_acknowledged: acks.heaterTypeAcknowledged,
     appliance_check_valve_acknowledged: acks.applianceCheckValveAcknowledged,

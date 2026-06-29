@@ -174,3 +174,32 @@ def test_bypass_without_gate_valve_warns():
     m = meta(elements, pipes, pump_discharge_material_acknowledged=True)
     r = check_tank_pump_installation(m)
     assert any("⚠" in d and "bypass" in d.lower() for d in r.detail)
+
+
+# ---------------------------------------------------------------------------
+# Tank capacity adequacy — Rule 4b
+# ---------------------------------------------------------------------------
+
+def test_capacity_pass_meets_demand():
+    """Effective capacity >= required 1-day demand — should produce a PASS detail line."""
+    # 4 persons × 141 L = 564 L required; 600 L ≥ 564 L → PASS
+    t = tank(occupants=4, effective_capacity_l=600, daily_demand_m3=0.564)
+    r = check_tank_pump_installation(meta([t], pump_discharge_material_acknowledged=True))
+    assert any("✓" in d and "effective capacity" in d.lower() for d in r.detail)
+
+
+def test_capacity_fail_below_demand():
+    """Effective capacity < required demand — should produce a FAIL detail line."""
+    # 10 persons × 141 L = 1410 L required; 500 L < 1410 L → FAIL
+    t = tank(occupants=10, effective_capacity_l=500, daily_demand_m3=1.41)
+    r = check_tank_pump_installation(meta([t], pump_discharge_material_acknowledged=True))
+    assert r.status == "FAIL"
+    assert any("✗" in d and "effective capacity" in d.lower() for d in r.detail)
+
+
+def test_capacity_warn_oversized():
+    """Effective capacity > 120% of required demand — warns about oversizing."""
+    # 4 persons × 141 L = 564 L required; 120% = 677 L; 900 L > 677 L → WARN
+    t = tank(occupants=4, effective_capacity_l=900, daily_demand_m3=0.564)
+    r = check_tank_pump_installation(meta([t], pump_discharge_material_acknowledged=True))
+    assert any("⚠" in d and "120%" in d for d in r.detail)

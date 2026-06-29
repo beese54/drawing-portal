@@ -11,6 +11,7 @@ Four checks:
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
+from app.agents.graph_utils import build_adjacency
 
 
 # ---------------------------------------------------------------------------
@@ -117,63 +118,7 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
 
     elem_by_id: dict[str, dict] = {e["id"]: e for e in elements}
 
-    # Build a bidirectional adjacency map from ALL pipe endpoints,
-    # regardless of flow direction.  This handles reversed / rotated symbols.
-    adjacency: dict[str, set[str]] = {}
-    for p in pipes:
-        endpoints: list[str | None] = [
-            p.get("flow_from_element_id"),
-            p.get("flow_to_element_id"),
-            p.get("start_connects_to"),
-            p.get("end_connects_to"),
-        ]
-        # Collect the distinct, non-null element IDs this pipe touches
-        connected: list[str] = list({e for e in endpoints if e})
-        for a in connected:
-            for b in connected:
-                if a != b:
-                    adjacency.setdefault(a, set()).add(b)
-
-    # Also add adjacency from element connected_pipe_ids for robustness
-    for el in elements:
-        el_id = el["id"]
-        for pipe_id in el.get("connected_pipe_ids", []):
-            pipe = next((p for p in pipes if p["id"] == pipe_id), None)
-            if pipe:
-                for other_field in ("flow_from_element_id", "flow_to_element_id",
-                                    "start_connects_to", "end_connects_to"):
-                    other_id = pipe.get(other_field)
-                    if other_id and other_id != el_id:
-                        adjacency.setdefault(el_id, set()).add(other_id)
-                        adjacency.setdefault(other_id, set()).add(el_id)
-
-    # Add adjacency from port-position proximity — handles symbols placed directly
-    # adjacent (touching ports) with no pipe drawn between them.
-    # Two elements are considered topologically connected if any port of element A
-    # shares the same canvas position (within 5 px) as any port of element B.
-    PORT_PROXIMITY_THRESHOLD_SQ = 5 ** 2  # squared px, avoids sqrt
-    for i, el_a in enumerate(elements):
-        ports_a = el_a.get("ports", [])
-        for el_b in elements[i + 1:]:
-            ports_b = el_b.get("ports", [])
-            linked = False
-            for pa in ports_a:
-                if linked:
-                    break
-                pos_a = pa.get("position", {})
-                ax, ay = pos_a.get("canvas_x", None), pos_a.get("canvas_y", None)
-                if ax is None:
-                    continue
-                for pb in ports_b:
-                    pos_b = pb.get("position", {})
-                    bx, by = pos_b.get("canvas_x", None), pos_b.get("canvas_y", None)
-                    if bx is None:
-                        continue
-                    if (ax - bx) ** 2 + (ay - by) ** 2 <= PORT_PROXIMITY_THRESHOLD_SQ:
-                        adjacency.setdefault(el_a["id"], set()).add(el_b["id"])
-                        adjacency.setdefault(el_b["id"], set()).add(el_a["id"])
-                        linked = True
-                        break
+    adjacency = build_adjacency(elements, pipes)
 
     # backflow_requirement is exported by the frontend — single source of truth for which elements need protection.
     risk_elements = [
@@ -206,7 +151,7 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
                 el = elem_by_id.get(current_id)
                 if el and el.get("symbol_id") in target_ids:
                     return dist, current_id
-            if dist >= 8:
+            if dist >= 5:
                 continue
             for neighbor_id in adjacency.get(current_id, set()):
                 if neighbor_id not in visited:
