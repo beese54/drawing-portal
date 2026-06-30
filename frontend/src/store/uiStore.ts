@@ -1,7 +1,14 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { ActiveTool, FloorLevel, MrlConfig, MRL_LOWER_HARD_MIN, SheetConfig, TitleBlockData, DEFAULT_SHEET_CONFIG, getUpperMrl, PAPER_SIZES_MM, SHEET_PX_PER_MM } from '../types';
+import type { CanvasElement, PipeElement } from '../types';
 import { useCanvasStore } from './canvasStore';
+
+export interface PendingTemplate {
+  name: string;
+  elements: CanvasElement[];
+  pipes: PipeElement[];
+}
 
 export interface PdfBackground {
   dataUrl: string;
@@ -33,6 +40,7 @@ interface UiStore {
   floorLevels: FloorLevel[];
   draggingSymbolId: string | null;
   pendingSymbol: { id: string; name: string } | null;
+  pendingTemplate: PendingTemplate | null;
   exportJpgFn: (() => void) | null;
   pdfBackground: PdfBackground | null;
   pdfImportFn: ((file: File) => Promise<void>) | null;
@@ -49,6 +57,7 @@ interface UiStore {
   removeFloorLevel: (id: string) => void;
   setDraggingSymbolId: (id: string | null) => void;
   setPendingSymbol: (sym: { id: string; name: string } | null) => void;
+  setPendingTemplate: (t: PendingTemplate | null) => void;
   registerExportJpg: (fn: () => void) => void;
   setPdfBackground: (bg: PdfBackground | null) => void;
   updatePdfBackground: (props: Partial<PdfBackground>) => void;
@@ -75,6 +84,7 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   floorLevels: [],
   draggingSymbolId: null,
   pendingSymbol: null,
+  pendingTemplate: null,
   exportJpgFn: null,
   pdfBackground: null,
   pdfImportFn: null,
@@ -88,6 +98,7 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   setActiveTool: (tool) => set({ activeTool: tool }),
   setDraggingSymbolId: (id) => set({ draggingSymbolId: id }),
   setPendingSymbol: (sym) => set({ pendingSymbol: sym }),
+  setPendingTemplate: (t) => set({ pendingTemplate: t }),
   registerExportJpg: (fn) => set({ exportJpgFn: fn }),
   setPdfBackground: (bg) => set({ pdfBackground: bg }),
   updatePdfBackground: (props) => set((state) => ({

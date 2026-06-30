@@ -1,18 +1,18 @@
 import { TEMPLATES } from '../../data/templates';
-import { useCanvasStore } from '../../store/canvasStore';
+import { useUiStore } from '../../store/uiStore';
 
 interface TemplateModalProps {
   onClose: () => void;
 }
 
 export function TemplateModal({ onClose }: TemplateModalProps) {
-  const appendTemplate = useCanvasStore((s) => s.appendTemplate);
+  const setPendingTemplate = useUiStore((s) => s.setPendingTemplate);
 
   const applyTemplate = (templateId: string) => {
     const template = TEMPLATES.find((t) => t.id === templateId);
     if (!template) return;
     const { elements, pipes } = template.generate();
-    appendTemplate(elements, pipes);
+    setPendingTemplate({ name: template.name, elements, pipes });
     onClose();
   };
 

@@ -520,6 +520,10 @@ export interface ExportedElement {
   pump_rated_head_m?: number | null;
   /** Backflow protection required: 'check_valve' (Reg28/§6.4) or 'vacuum_breaker' (§6.5). Absent if not applicable. */
   backflow_requirement?: 'check_valve' | 'vacuum_breaker';
+  /** Per-instance upstream port override — only present when the user has changed the default inlet (e.g. on a tee junction). */
+  upstream_port_index?: number;
+  /** Multi-inlet upstream port override — only present when two ports are designated as inlets (tee in 2-inlet mode). */
+  upstream_port_indices?: number[];
 }
 
 /**

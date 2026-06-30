@@ -458,6 +458,8 @@ export function buildMetadata(
         if (!rule) return {};
         return { backflow_requirement: rule === 'vb_and_check_valve' ? 'vacuum_breaker' as const : 'check_valve' as const };
       })(),
+      ...(el.upstreamPortIndices !== undefined ? { upstream_port_indices: el.upstreamPortIndices } : {}),
+      ...(el.upstreamPortIndex   !== undefined && el.upstreamPortIndices === undefined ? { upstream_port_index: el.upstreamPortIndex } : {}),
     };
   });
 

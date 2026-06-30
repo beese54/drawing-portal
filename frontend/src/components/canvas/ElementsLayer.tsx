@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useCallback } from 'react';
-import { Layer, Circle, Text, Rect, Group } from 'react-konva';
+import { Layer, Circle, Text, Rect, Group, Line } from 'react-konva';
 import Konva from 'konva';
 import { useCanvasStore } from '../../store/canvasStore';
 import { SymbolNode } from './SymbolNode';
@@ -246,8 +246,16 @@ interface RubberBandRect {
   height: number;
 }
 
+interface TemplateGhost {
+  elements: import('../../types').CanvasElement[];
+  pipes: import('../../types').PipeElement[];
+  cursorX: number;
+  cursorY: number;
+}
+
 interface ElementsLayerProps {
   dragPreview?: DragPreview | null;
+  templateGhost?: TemplateGhost | null;
   onElementClick?: (id: string, symbolId: string) => void;
   onElementDblClick?: (id: string) => void;
   rubberBand?: RubberBandRect | null;
@@ -271,7 +279,7 @@ function portLabelOffset(relX: number, relY: number): { dx: number; dy: number }
     : { dx: -4, dy:  4 };   // bottom port
 }
 
-export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, rubberBand, onAnnotationDblClick }: ElementsLayerProps) {
+export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onElementDblClick, rubberBand, onAnnotationDblClick }: ElementsLayerProps) {
   const elements = useCanvasStore((s) => s.elements);
   const pipes = useCanvasStore((s) => s.pipes);
   const selectedId = useCanvasStore((s) => s.selectedId);
@@ -803,6 +811,45 @@ export function ElementsLayer({ dragPreview, onElementClick, onElementDblClick, 
                 width={W - PAD * 2}
                 wrap="word"
                 listening={false}
+              />
+            ))}
+          </Group>
+        );
+      })()}
+
+      {/* Template ghost — semi-transparent preview following the cursor before placement */}
+      {templateGhost && (() => {
+        const { elements: gEls, pipes: gPipes, cursorX, cursorY } = templateGhost;
+        const xs = [...gEls.map((e) => e.x), ...gPipes.flatMap((p) => [p.startX, p.endX])];
+        const ys = [...gEls.map((e) => e.y), ...gPipes.flatMap((p) => [p.startY, p.endY])];
+        if (xs.length === 0) return null;
+        const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+        const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+        const dx = cursorX - cx;
+        const dy = cursorY - cy;
+        return (
+          <Group opacity={0.5} listening={false}>
+            {gPipes.map((p) => (
+              <Line
+                key={p.id}
+                points={[p.startX + dx, p.startY + dy, p.endX + dx, p.endY + dy]}
+                stroke={p.pipeType === 'hot' ? '#ef4444' : '#0066cc'}
+                strokeWidth={0.75}
+              />
+            ))}
+            {gEls.map((e) => (
+              <Rect
+                key={e.id}
+                x={e.x + dx}
+                y={e.y + dy}
+                width={e.width}
+                height={e.height}
+                offsetX={e.width / 2}
+                offsetY={e.height / 2}
+                stroke="#0066cc"
+                strokeWidth={0.5}
+                dash={[1, 1]}
+                fill="rgba(0,102,204,0.08)"
               />
             ))}
           </Group>

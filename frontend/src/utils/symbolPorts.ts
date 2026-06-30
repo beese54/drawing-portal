@@ -128,8 +128,8 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
   ],
   jockey_pump: [
-    { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
-    { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
+    { role: 'upstream',   offsetX: -10, offsetY: 0, label: 'Input'  },
+    { role: 'downstream', offsetX:  12, offsetY: 0, label: 'Output' },
   ],
   sub_meter: [
     { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },

@@ -55,6 +55,7 @@ interface CanvasStore {
   insertDcvAssembly: (gvEl: CanvasElement, cv2El: CanvasElement, cv1El: CanvasElement, targetPipeId: string | null, snapX: number, snapY: number) => void;
   removeElement: (id: string) => void;
   removePipe: (id: string) => void;
+  removeMultiple: (elementIds: string[], pipeIds: string[], annotationIds?: string[]) => void;
   clearCanvas: () => void;
   updateTankProperties: (id: string, props: Partial<TankProperties>) => void;
   updateElementDimensions: (id: string, width: number, height: number) => void;
@@ -346,6 +347,23 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         selectedId: state.selectedId === id ? null : state.selectedId,
         selectedIds: state.selectedIds.filter((sid) => sid !== id),
         selectedPipeIds: state.selectedPipeIds.filter((sid) => sid !== id),
+      }));
+    },
+
+    removeMultiple: (elementIds, pipeIds, annotationIds = []) => {
+      if (elementIds.length === 0 && pipeIds.length === 0 && annotationIds.length === 0) return;
+      pushHistory();
+      const elSet  = new Set(elementIds);
+      const pSet   = new Set(pipeIds);
+      const annSet = new Set(annotationIds);
+      set((state) => ({
+        elements:             state.elements.filter((el) => !elSet.has(el.id)),
+        pipes:                state.pipes.filter((p)  => !pSet.has(p.id)),
+        annotations:          state.annotations.filter((a) => !annSet.has(a.id)),
+        selectedId:           elSet.has(state.selectedId ?? '') || pSet.has(state.selectedId ?? '') ? null : state.selectedId,
+        selectedIds:          [],
+        selectedPipeIds:      [],
+        selectedAnnotationIds: [],
       }));
     },
 

@@ -217,7 +217,10 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   const setDraggingSymbolId = useUiStore((s) => s.setDraggingSymbolId);
   const pendingSymbol = useUiStore((s) => s.pendingSymbol);
   const setPendingSymbol = useUiStore((s) => s.setPendingSymbol);
+  const pendingTemplate = useUiStore((s) => s.pendingTemplate);
+  const setPendingTemplate = useUiStore((s) => s.setPendingTemplate);
   const registerExportJpg = useUiStore((s) => s.registerExportJpg);
+  const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
   const showBidetToast = useUiStore((s) => s.showBidetToast);
   const showDcvToast   = useUiStore((s) => s.showDcvToast);
 
@@ -280,6 +283,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
 
   const setSelected = useCanvasStore((s) => s.setSelected);
   const setSelectedIds = useCanvasStore((s) => s.setSelectedIds);
+  const appendTemplate = useCanvasStore((s) => s.appendTemplate);
   const setMultiSelection = useCanvasStore((s) => s.setMultiSelection);
   const addElement = useCanvasStore((s) => s.addElement);
   const insertElementOnPipe = useCanvasStore((s) => s.insertElementOnPipe);
@@ -354,6 +358,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
 
       if (e.key === 'Escape') {
         useUiStore.getState().setPendingSymbol(null);
+        useUiStore.getState().setPendingTemplate(null);
         useCanvasStore.getState().setSelectedIds([]);
         return;
       }
@@ -379,22 +384,16 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       }
 
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-      const { selectedId, selectedIds, selectedPipeIds, selectedAnnotationIds, elements, pipes, removeElement, removePipe, removeAnnotations } = useCanvasStore.getState();
-      // Multi-select delete — elements, pipes, and annotations together
+      const { selectedId, selectedIds, selectedPipeIds, selectedAnnotationIds, elements, pipes, removeMultiple, removeElement, removePipe, removeAnnotation } = useCanvasStore.getState();
+      // Multi-select delete — one history entry, one state update
       if (selectedIds.length > 0 || selectedPipeIds.length > 0 || selectedAnnotationIds.length > 0) {
-        for (const id of selectedIds) {
-          if (elements.some((el) => el.id === id)) removeElement(id);
-        }
-        for (const id of selectedPipeIds) {
-          if (pipes.some((p) => p.id === id)) removePipe(id);
-        }
-        if (selectedAnnotationIds.length > 0) removeAnnotations(selectedAnnotationIds);
+        removeMultiple(selectedIds, selectedPipeIds, selectedAnnotationIds);
         return;
       }
       if (!selectedId) return;
       if (elements.some((el) => el.id === selectedId)) removeElement(selectedId);
       else if (pipes.some((p) => p.id === selectedId)) removePipe(selectedId);
-      else useCanvasStore.getState().removeAnnotation(selectedId);
+      else removeAnnotation(selectedId);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -970,6 +969,23 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
 
   const handleStagePointerDown = useCallback(
     (pos: { x: number; y: number }, targetIsStage: boolean) => {
+      const { pendingTemplate: pt } = useUiStore.getState();
+      if (pt) {
+        // Ghost drag-to-place: offset all elements/pipes so the template centre lands on click
+        const xs = [...pt.elements.map((e) => e.x), ...pt.pipes.flatMap((p) => [p.startX, p.endX])];
+        const ys = [...pt.elements.map((e) => e.y), ...pt.pipes.flatMap((p) => [p.startY, p.endY])];
+        const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+        const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+        const dx = pos.x - cx;
+        const dy = pos.y - cy;
+        const elements = pt.elements.map((e) => ({ ...e, x: e.x + dx, y: e.y + dy }));
+        const pipes = pt.pipes.map((p) => ({ ...p, startX: p.startX + dx, startY: p.startY + dy, endX: p.endX + dx, endY: p.endY + dy }));
+        appendTemplate(elements, pipes);
+        setPendingTemplate(null);
+        setGhostPos(null);
+        return;
+      }
+
       const { pendingSymbol: ps } = useUiStore.getState();
       if (ps) {
         // Tap-to-place mode: place the armed symbol and clear the pending state
@@ -986,7 +1002,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         }
       }
     },
-    [activeTool, handleCanvasClick, setSelected, placeSymbolAt, setPendingSymbol]
+    [activeTool, handleCanvasClick, setSelected, placeSymbolAt, setPendingSymbol, appendTemplate, setPendingTemplate]
   );
 
   // Convert stage pointer (viewport px) → virtual canvas content coords
@@ -1201,6 +1217,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       if (!raw) return;
       const content = pointerToContent(raw);
       handleCanvasMouseMove(content.x, content.y);
+      if (useUiStore.getState().pendingTemplate) setGhostPos(content);
       // Update rubber band while dragging (use ref — state update may lag)
       if (rubberAnchorRef.current) {
         const dx = content.x - rubberAnchorRef.current.x;
@@ -1299,7 +1316,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       }}
       onDragLeave={() => setDragOverPos(null)}
     >
-      {pendingSymbol && (
+      {(pendingSymbol || pendingTemplate) && (
         <div style={{
           position: 'absolute',
           top: 8,
@@ -1321,9 +1338,11 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           userSelect: 'none',
           whiteSpace: 'nowrap',
         }}>
-          Tap canvas to place: {pendingSymbol.name}
+          {pendingTemplate
+            ? `Click canvas to place: ${pendingTemplate.name}`
+            : `Tap canvas to place: ${pendingSymbol!.name}`}
           <button
-            onClick={() => setPendingSymbol(null)}
+            onClick={() => { setPendingSymbol(null); setPendingTemplate(null); }}
             style={{
               pointerEvents: 'auto',
               marginLeft: 4,
@@ -1354,7 +1373,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         onMouseDown={handleStageMouseDown}
         onMouseUp={handleStageMouseUp}
         onMouseMove={handleStageMouseMove}
-        style={{ background: '#b0b8c1', cursor: pendingSymbol ? 'crosshair' : undefined }}
+        style={{ background: '#b0b8c1', cursor: (pendingSymbol || pendingTemplate) ? 'crosshair' : undefined }}
       >
         {/* White page sheet — must be the very first layer so PDF and content render on top */}
         <Layer listening={false}>
@@ -1402,6 +1421,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           dragPreview={draggingSymbolId && dragOverPos
             ? { symbolId: draggingSymbolId, x: dragOverPos.x, y: dragOverPos.y }
             : null}
+          templateGhost={pendingTemplate && ghostPos ? { elements: pendingTemplate.elements, pipes: pendingTemplate.pipes, cursorX: ghostPos.x, cursorY: ghostPos.y } : null}
           onElementClick={handleElementClick}
           onElementDblClick={(id) => {
             const el = useCanvasStore.getState().elements.find((e) => e.id === id);

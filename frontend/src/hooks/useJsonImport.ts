@@ -42,6 +42,8 @@ function parseSchematic(data: DrawingMetadata): { elements: CanvasElement[]; pip
       ...(el.efficiency_rating !== undefined && { efficiencyRating: el.efficiency_rating }),
       ...(el.long_bath_capacity_l != null && { longBathCapacityL: el.long_bath_capacity_l }),
       ...(el.tank_properties !== undefined && { tankProperties: importTankProperties(el.tank_properties) }),
+      ...(el.upstream_port_indices !== undefined && { upstreamPortIndices: el.upstream_port_indices }),
+      ...(el.upstream_port_index   !== undefined && el.upstream_port_indices === undefined && { upstreamPortIndex: el.upstream_port_index }),
     };
     return base;
   });
