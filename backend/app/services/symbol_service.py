@@ -34,10 +34,20 @@ async def create_symbol(file: UploadFile, name: str) -> dict:
     if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=422, detail="Only SVG and PNG files are accepted")
 
+    # Validate declared content-type
+    if file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(status_code=422, detail="Only SVG and PNG files are accepted")
+
     # Read content and check size
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=422, detail="File exceeds 2MB limit")
+
+    # Reject SVGs containing embedded scripts (stored XSS prevention)
+    if suffix == ".svg":
+        text = content.decode("utf-8", errors="replace").lower()
+        if "<script" in text or "javascript:" in text or re.search(r"\bon\w+\s*=", text):
+            raise HTTPException(status_code=422, detail="SVG contains disallowed script content")
 
     # Generate ID and filename
     short_id = uuid.uuid4().hex[:8]

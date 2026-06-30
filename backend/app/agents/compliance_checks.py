@@ -136,6 +136,7 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
         )
 
     all_pass = True
+    has_advisory = False
     details: list[str] = []
     elements_of_interest: list[dict] = []
 
@@ -189,8 +190,9 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
                     "SS636 §6.5 requires both a vacuum breaker AND check valve (inlet → CV → VB → bidet spray)."
                 )
                 elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing check valve!", "color": "red"})
-            elif cv_hops <= vb_hops:
+            elif cv_hops < vb_hops:
                 # check_valve is closer to bidet_spray than vacuum_breaker — wrong order
+                # Equal hops means BFS can't determine order; treat as compliant
                 all_pass = False
                 details.append(
                     f"✗ {el_name}: Assembly order incorrect (check valve {cv_hops} hop(s), vacuum breaker {vb_hops} hop(s)). "
@@ -229,22 +231,22 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
                 if found_id:
                     elements_of_interest.append({"element_id": found_id, "label": "Check Valve", "color": "green"})
                 if hops > 1 and sym_id == "water_heater":
-                    all_pass = False
+                    has_advisory = True
                     details.append("  ⚠ Recommend moving check valve to directly before the water heater inlet.")
             else:
                 all_pass = False
                 details.append(f"✗ {el_name}: No check valve found upstream. {missing_msg}")
                 elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing check valve!", "color": "red"})
 
-    if all_pass:
-        status = "PASS"
-        summary = "All backflow-risk elements have the required protection — Reg 28(1) and SS636 §6.4/6.5 satisfied."
-    elif any("✗" in d for d in details):
+    if not all_pass and any("✗" in d for d in details):
         status = "FAIL"
         summary = "One or more backflow-risk elements are missing required protection — compliance violation."
-    else:
+    elif not all_pass or has_advisory:
         status = "WARN"
         summary = "Protection present but not immediately adjacent to all risk elements — review positioning."
+    else:
+        status = "PASS"
+        summary = "All backflow-risk elements have the required protection — Reg 28(1) and SS636 §6.4/6.5 satisfied."
 
     return CheckResult(
         check_id="REG28",

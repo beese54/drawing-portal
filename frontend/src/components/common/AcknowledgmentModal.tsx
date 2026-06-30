@@ -44,14 +44,14 @@ export function AcknowledgmentModal({ elements, onConfirm, onCancel }: Props) {
     },
     {
       key: 'applianceCheckValveAcknowledged',
-      label: 'Appliance double check valves',
-      description: 'I (LP/PE) confirm that double check valves are installed for all applicable appliances (dishwasher, water dispenser, washing machine, landscape taps, ice maker, coffee maker, refrigerator, balancing tank) where required.',
+      label: 'Appliance double check valves — unlisted appliances',
+      description: 'I (LP/PE) confirm that double check valves are installed for any appliances not yet represented in the symbol library (ice maker, coffee maker, refrigerator, balancing tank) where required under SS 636 §8.3.8. Appliances already on the schematic (dishwasher, washing machine, water dispenser, landscape taps) are verified automatically by the compliance engine.',
       applicable: hasAppliance,
     },
     {
       key: 'bidetVacuumBreakerAcknowledged',
-      label: 'Bidet vacuum breaker assembly',
-      description: 'I (LP/PE) confirm that all bidet sprays are installed with a vacuum breaker and check valve assembly to prevent backflow contamination.',
+      label: 'Bidet spray — double check valve equivalent',
+      description: 'Where a double check valve assembly is used in place of the standard vacuum breaker and check valve assembly, I (LP/PE) confirm this is an approved equivalent under SS 636 §8.3.3. Note: the standard vacuum breaker and check valve assembly is verified automatically by the compliance engine.',
       applicable: hasBidet,
     },
     {

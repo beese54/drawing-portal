@@ -57,20 +57,24 @@ def build_adjacency(elements: list[dict], pipes: list[dict]) -> dict[str, set[st
                     adj[other_id].add(el_id)
 
     # Method 4: port-position proximity (5 px threshold)
+    # Only fires for pairs not already connected via Methods 1-3 to avoid phantom
+    # edges between stacked (visually overlapping) but unconnected symbols.
     for i, el_a in enumerate(elements):
         for el_b in elements[i + 1:]:
+            if el_b["id"] in adj.get(el_a["id"], set()):
+                continue  # already connected — don't add a duplicate proximity edge
             linked = False
             for pa in el_a.get("ports", []):
                 if linked:
                     break
                 pos_a = pa.get("position", {})
                 ax, ay = pos_a.get("canvas_x"), pos_a.get("canvas_y")
-                if ax is None:
+                if ax is None or ay is None:
                     continue
                 for pb in el_b.get("ports", []):
                     pos_b = pb.get("position", {})
                     bx, by = pos_b.get("canvas_x"), pos_b.get("canvas_y")
-                    if bx is None:
+                    if bx is None or by is None:
                         continue
                     if (ax - bx) ** 2 + (ay - by) ** 2 <= _PORT_PROX_SQ:
                         adj[el_a["id"]].add(el_b["id"])

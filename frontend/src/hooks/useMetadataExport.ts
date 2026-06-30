@@ -29,7 +29,7 @@ export function useMetadataExport(canvasWidth: number, canvasHeight: number) {
     a.download = `schematic_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [elements, pipes, mrlConfig, canvasWidth, canvasHeight, sourcePressureBar]);
+  }, [elements, pipes, mrlConfig, canvasWidth, canvasHeight, sourcePressureBar, titleBlock]);
 
   const getMetadata = useCallback((acks: AcknowledgmentFlags = DEFAULT_ACKS) => {
     return buildMetadata(elements, pipes, mrlConfig, canvasWidth, canvasHeight, sourcePressureBar, acks, titleBlock);
