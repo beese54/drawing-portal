@@ -83,22 +83,13 @@ export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, s
       />
       {isSelected && !isEditing && (
         <Group>
-          {/* Right-center handle — resizes maxWidth */}
+          {/* Right edge — invisible hit area, resizes maxWidth */}
           <Rect
-            x={ann.maxWidth + 3}
-            y={(textHeight + 6) / 2 - 3}
-            width={6}
-            height={6}
-            fill="#ffffff"
-            stroke="#0066cc"
-            strokeWidth={1}
-            cornerRadius={1}
-            hitFunc={(ctx, shape) => {
-              ctx.beginPath();
-              ctx.rect(-1, -1, 8, 8);
-              ctx.closePath();
-              ctx.fillStrokeShape(shape);
-            }}
+            x={ann.maxWidth + 1}
+            y={0}
+            width={8}
+            height={textHeight}
+            fill="transparent"
             onMouseEnter={(e) => {
               const stage = (e.target as Konva.Node).getStage();
               if (stage) stage.container().style.cursor = 'ew-resize';
@@ -111,35 +102,20 @@ export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, s
               e.cancelBubble = true;
               const stage = (e.target as Konva.Node).getStage();
               if (!stage) return;
-              const pos = stage.getPointerPosition();
-              if (!pos) return;
-              const scale = stage.scaleX();
-              const offsetX = -stage.x();
-              const offsetY = -stage.y();
-              resizeDragRef.current = {
-                startX: (pos.x + offsetX) / scale,
-                startY: (pos.y + offsetY) / scale,
-                startMaxWidth: ann.maxWidth,
-                startHeight: currentSizeRef.current.height,
-              };
+              const box = stage.container().getBoundingClientRect();
+              const sc = stage.scaleX();
+              const startX = (e.evt.clientX - box.left - stage.x()) / sc;
+              resizeDragRef.current = { startX, startY: 0, startMaxWidth: ann.maxWidth, startHeight: currentSizeRef.current.height };
               const onMove = (me: MouseEvent) => {
-                if (!resizeDragRef.current || !stage) return;
-                const stageBox = stage.container().getBoundingClientRect();
-                const rawX = me.clientX - stageBox.left;
-                const sc = stage.scaleX();
-                const offX = -stage.x();
-                const cx = (rawX + offX) / sc;
-                const dx = cx - resizeDragRef.current.startX;
-                const newMaxWidth = Math.max(20, resizeDragRef.current.startMaxWidth + dx);
-                currentSizeRef.current = { ...currentSizeRef.current, maxWidth: newMaxWidth };
-                // Live preview — does NOT push history
-                updateAnnotation(ann.id, ann.text, newMaxWidth);
+                if (!resizeDragRef.current) return;
+                const b = stage.container().getBoundingClientRect();
+                const cx = (me.clientX - b.left - stage.x()) / stage.scaleX();
+                const newW = Math.max(20, resizeDragRef.current.startMaxWidth + cx - resizeDragRef.current.startX);
+                currentSizeRef.current = { ...currentSizeRef.current, maxWidth: newW };
+                updateAnnotation(ann.id, ann.text, newW);
               };
               const onUp = () => {
-                if (resizeDragRef.current) {
-                  // Single history entry for the entire drag
-                  resizeAnnotation(ann.id, currentSizeRef.current.maxWidth, currentSizeRef.current.height);
-                }
+                if (resizeDragRef.current) resizeAnnotation(ann.id, currentSizeRef.current.maxWidth, currentSizeRef.current.height);
                 resizeDragRef.current = null;
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
@@ -149,22 +125,13 @@ export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, s
             }}
           />
 
-          {/* Bottom-center handle — resizes height */}
+          {/* Bottom edge — invisible hit area, resizes height */}
           <Rect
-            x={(ann.maxWidth + 6) / 2 - 3}
-            y={textHeight + 3}
-            width={6}
-            height={6}
-            fill="#ffffff"
-            stroke="#0066cc"
-            strokeWidth={1}
-            cornerRadius={1}
-            hitFunc={(ctx, shape) => {
-              ctx.beginPath();
-              ctx.rect(-1, -1, 8, 8);
-              ctx.closePath();
-              ctx.fillStrokeShape(shape);
-            }}
+            x={0}
+            y={textHeight + 1}
+            width={ann.maxWidth}
+            height={8}
+            fill="transparent"
             onMouseEnter={(e) => {
               const stage = (e.target as Konva.Node).getStage();
               if (stage) stage.container().style.cursor = 'ns-resize';
@@ -177,35 +144,21 @@ export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, s
               e.cancelBubble = true;
               const stage = (e.target as Konva.Node).getStage();
               if (!stage) return;
-              const pos = stage.getPointerPosition();
-              if (!pos) return;
-              const scale = stage.scaleX();
-              const offsetY = -stage.y();
-              resizeDragRef.current = {
-                startX: 0,
-                startY: (pos.y + offsetY) / scale,
-                startMaxWidth: ann.maxWidth,
-                startHeight: currentSizeRef.current.height,
-              };
+              const box = stage.container().getBoundingClientRect();
+              const sc = stage.scaleX();
+              const startY = (e.evt.clientY - box.top - stage.y()) / sc;
+              resizeDragRef.current = { startX: 0, startY, startMaxWidth: ann.maxWidth, startHeight: currentSizeRef.current.height };
               const onMove = (me: MouseEvent) => {
-                if (!resizeDragRef.current || !stage) return;
-                const stageBox = stage.container().getBoundingClientRect();
-                const rawY = me.clientY - stageBox.top;
-                const sc = stage.scaleX();
-                const offY = -stage.y();
-                const cy = (rawY + offY) / sc;
-                const dy = cy - resizeDragRef.current.startY;
-                const minHeight = ann.fontSize * 1.35;
-                const newHeight = Math.max(minHeight, resizeDragRef.current.startHeight + dy);
-                currentSizeRef.current = { ...currentSizeRef.current, height: newHeight };
-                // Live preview — does NOT push history
-                updateAnnotationSize(ann.id, newHeight);
+                if (!resizeDragRef.current) return;
+                const b = stage.container().getBoundingClientRect();
+                const cy = (me.clientY - b.top - stage.y()) / stage.scaleX();
+                const minH = ann.fontSize * 1.35;
+                const newH = Math.max(minH, resizeDragRef.current.startHeight + cy - resizeDragRef.current.startY);
+                currentSizeRef.current = { ...currentSizeRef.current, height: newH };
+                updateAnnotationSize(ann.id, newH);
               };
               const onUp = () => {
-                if (resizeDragRef.current) {
-                  // Single history entry for the entire drag
-                  resizeAnnotation(ann.id, currentSizeRef.current.maxWidth, currentSizeRef.current.height);
-                }
+                if (resizeDragRef.current) resizeAnnotation(ann.id, currentSizeRef.current.maxWidth, currentSizeRef.current.height);
                 resizeDragRef.current = null;
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
@@ -215,22 +168,13 @@ export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, s
             }}
           />
 
-          {/* Bottom-right handle — resizes both */}
+          {/* Bottom-right corner — invisible hit area, resizes both */}
           <Rect
-            x={ann.maxWidth + 3}
-            y={textHeight + 3}
-            width={6}
-            height={6}
-            fill="#ffffff"
-            stroke="#0066cc"
-            strokeWidth={1}
-            cornerRadius={1}
-            hitFunc={(ctx, shape) => {
-              ctx.beginPath();
-              ctx.rect(-1, -1, 8, 8);
-              ctx.closePath();
-              ctx.fillStrokeShape(shape);
-            }}
+            x={ann.maxWidth + 1}
+            y={textHeight + 1}
+            width={12}
+            height={12}
+            fill="transparent"
             onMouseEnter={(e) => {
               const stage = (e.target as Konva.Node).getStage();
               if (stage) stage.container().style.cursor = 'nwse-resize';
@@ -243,42 +187,26 @@ export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, s
               e.cancelBubble = true;
               const stage = (e.target as Konva.Node).getStage();
               if (!stage) return;
-              const pos = stage.getPointerPosition();
-              if (!pos) return;
-              const scale = stage.scaleX();
-              const offsetX = -stage.x();
-              const offsetY = -stage.y();
-              resizeDragRef.current = {
-                startX: (pos.x + offsetX) / scale,
-                startY: (pos.y + offsetY) / scale,
-                startMaxWidth: ann.maxWidth,
-                startHeight: currentSizeRef.current.height,
-              };
+              const box = stage.container().getBoundingClientRect();
+              const sc = stage.scaleX();
+              const startX = (e.evt.clientX - box.left - stage.x()) / sc;
+              const startY = (e.evt.clientY - box.top - stage.y()) / sc;
+              resizeDragRef.current = { startX, startY, startMaxWidth: ann.maxWidth, startHeight: currentSizeRef.current.height };
               const onMove = (me: MouseEvent) => {
-                if (!resizeDragRef.current || !stage) return;
-                const stageBox = stage.container().getBoundingClientRect();
-                const rawX = me.clientX - stageBox.left;
-                const rawY = me.clientY - stageBox.top;
-                const sc = stage.scaleX();
-                const offX = -stage.x();
-                const offY = -stage.y();
-                const cx = (rawX + offX) / sc;
-                const cy = (rawY + offY) / sc;
-                const dx = cx - resizeDragRef.current.startX;
-                const dy = cy - resizeDragRef.current.startY;
-                const newMaxWidth = Math.max(20, resizeDragRef.current.startMaxWidth + dx);
-                const minHeight = ann.fontSize * 1.35;
-                const newHeight = Math.max(minHeight, resizeDragRef.current.startHeight + dy);
-                currentSizeRef.current = { maxWidth: newMaxWidth, height: newHeight };
-                // Live preview — does NOT push history; update width and height separately
-                updateAnnotation(ann.id, ann.text, newMaxWidth);
-                updateAnnotationSize(ann.id, newHeight);
+                if (!resizeDragRef.current) return;
+                const b = stage.container().getBoundingClientRect();
+                const sc2 = stage.scaleX();
+                const cx = (me.clientX - b.left - stage.x()) / sc2;
+                const cy = (me.clientY - b.top - stage.y()) / sc2;
+                const newW = Math.max(20, resizeDragRef.current.startMaxWidth + cx - resizeDragRef.current.startX);
+                const minH = ann.fontSize * 1.35;
+                const newH = Math.max(minH, resizeDragRef.current.startHeight + cy - resizeDragRef.current.startY);
+                currentSizeRef.current = { maxWidth: newW, height: newH };
+                updateAnnotation(ann.id, ann.text, newW);
+                updateAnnotationSize(ann.id, newH);
               };
               const onUp = () => {
-                if (resizeDragRef.current) {
-                  // Single history entry for the entire drag
-                  resizeAnnotation(ann.id, currentSizeRef.current.maxWidth, currentSizeRef.current.height);
-                }
+                if (resizeDragRef.current) resizeAnnotation(ann.id, currentSizeRef.current.maxWidth, currentSizeRef.current.height);
                 resizeDragRef.current = null;
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);

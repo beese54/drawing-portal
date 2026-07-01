@@ -41,7 +41,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 Plans:
 - [x] 02-01-PLAN.md — Add `height` field to AnnotationElement type and store actions (updateAnnotationSize, resizeAnnotation) with persist migration
-- [ ] 02-02-PLAN.md — Wire height sync and resize handles in AnnotationNode; fix textarea width/height/color in DrawingCanvas
+- [x] 02-02-PLAN.md — Wire height sync and resize handles in AnnotationNode; fix textarea width/height/color in DrawingCanvas
 **UI hint**: yes
 
 ### Phase 3: Symbol Size Normalisation
@@ -72,6 +72,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 (Phases 1–3 are independe
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. JSON-Driven Templates | 0/TBD | Not started | - |
-| 2. Annotation Fixes & Resize | 1/2 | In progress | - |
+| 2. Annotation Fixes & Resize | 2/2 | Awaiting human verify (checkpoint) | - |
 | 3. Symbol Size Normalisation | 0/TBD | Not started | - |
 | 4. Codebase Audit | 0/TBD | Not started | - |
