@@ -296,6 +296,7 @@ export interface AnnotationElement {
   fontSize: number;
   color: string;
   maxWidth: number;
+  height: number;
 }
 
 export interface AnnotationTemplate {
