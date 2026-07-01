@@ -309,6 +309,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     screenY: number;
     fontSize: number;
     maxWidth: number;
+    height: number;
   } | null>(null);
   const cancelEditRef = useRef(false);
 
@@ -1055,14 +1056,14 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   );
 
   const handleAnnotationDblClick = useCallback(
-    (id: string, x: number, y: number, text: string, fontSize: number, maxWidth: number) => {
+    (id: string, x: number, y: number, text: string, fontSize: number, maxWidth: number, height: number) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
       // Exit any multi-select state so the annotation renders in AnnotationsLayer after editing
       setSelected(id);
       const screenX = x * stageScale - stageOffsetX + rect.left;
       const screenY = y * stageScale - stageOffsetY + rect.top;
-      setEditingAnnotation({ id, text, screenX, screenY, fontSize, maxWidth });
+      setEditingAnnotation({ id, text, screenX, screenY, fontSize, maxWidth, height });
     },
     [setSelected, stageOffsetX, stageOffsetY, stageScale],
   );
@@ -1696,8 +1697,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           onBlur={(e) => {
             if (cancelEditRef.current) { cancelEditRef.current = false; return; }
             const v = e.target.value.trim();
-            const newMaxWidth = Math.round(e.target.offsetWidth / stageScale);
-            if (v) updateAnnotation(editingAnnotation.id, v, newMaxWidth);
+            if (v) updateAnnotation(editingAnnotation.id, v);
             else removeAnnotation(editingAnnotation.id);
             setEditingAnnotation(null);
           }}
@@ -1707,8 +1707,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
               e.preventDefault();
               const ta = e.target as HTMLTextAreaElement;
               const v = ta.value.trim();
-              const newMaxWidth = Math.round(ta.offsetWidth / stageScale);
-              if (v) updateAnnotation(editingAnnotation.id, v, newMaxWidth);
+              if (v) updateAnnotation(editingAnnotation.id, v);
               else removeAnnotation(editingAnnotation.id);
               setEditingAnnotation(null);
             }
@@ -1717,18 +1716,18 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
             position: 'fixed',
             left: editingAnnotation.screenX - 3 * stageScale,
             top: editingAnnotation.screenY - 3 * stageScale,
-            width: editingAnnotation.maxWidth * stageScale,
-            minHeight: editingAnnotation.fontSize * stageScale * 1.35,
+            width: (editingAnnotation.maxWidth + 6) * stageScale,
+            height: (editingAnnotation.height + 6) * stageScale,
             fontSize: editingAnnotation.fontSize * stageScale,
             fontFamily: 'inherit',
             lineHeight: 1.35,
             color: '#1a1a1a',
-            background: 'rgba(255,255,220,0.97)',
+            background: 'rgba(255,255,220,0.95)',
             border: `${1.5 * stageScale}px solid #0066cc`,
             borderRadius: 2 * stageScale,
             padding: `${3 * stageScale}px`,
             outline: 'none',
-            resize: 'horizontal',
+            resize: 'none',
             boxSizing: 'border-box',
             zIndex: 3000,
             overflow: 'hidden',

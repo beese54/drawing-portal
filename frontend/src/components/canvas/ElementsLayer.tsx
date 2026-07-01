@@ -259,7 +259,7 @@ interface ElementsLayerProps {
   onElementClick?: (id: string, symbolId: string) => void;
   onElementDblClick?: (id: string) => void;
   rubberBand?: RubberBandRect | null;
-  onAnnotationDblClick?: (id: string, x: number, y: number, text: string, fontSize: number, maxWidth: number) => void;
+  onAnnotationDblClick?: (id: string, x: number, y: number, text: string, fontSize: number, maxWidth: number, height: number) => void;
 }
 
 /**
