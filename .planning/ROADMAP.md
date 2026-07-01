@@ -40,7 +40,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Width and height changes persist when the user closes edit mode and remain after saving/exporting
 **Plans**: 2 plans
 Plans:
-- [ ] 02-01-PLAN.md — Add `height` field to AnnotationElement type and store actions (updateAnnotationSize, resizeAnnotation) with persist migration
+- [x] 02-01-PLAN.md — Add `height` field to AnnotationElement type and store actions (updateAnnotationSize, resizeAnnotation) with persist migration
 - [ ] 02-02-PLAN.md — Wire height sync and resize handles in AnnotationNode; fix textarea width/height/color in DrawingCanvas
 **UI hint**: yes
 
@@ -72,6 +72,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 (Phases 1–3 are independe
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. JSON-Driven Templates | 0/TBD | Not started | - |
-| 2. Annotation Fixes & Resize | 0/2 | Not started | - |
+| 2. Annotation Fixes & Resize | 1/2 | In progress | - |
 | 3. Symbol Size Normalisation | 0/TBD | Not started | - |
 | 4. Codebase Audit | 0/TBD | Not started | - |
