@@ -63,11 +63,13 @@ interface CanvasStore {
   setSourcePressure: (bar: number | null) => void;
 
   // Annotations
-  addAnnotation: (ann: AnnotationElement) => void;
+  addAnnotation: (ann: Omit<AnnotationElement, 'height'> & { height?: number }) => void;
   moveAnnotation: (id: string, x: number, y: number) => void;
   removeAnnotation: (id: string) => void;
   removeAnnotations: (ids: string[]) => void;
   updateAnnotation: (id: string, text: string, maxWidth?: number) => void;
+  updateAnnotationSize: (id: string, height: number) => void;
+  resizeAnnotation: (id: string, maxWidth: number, height: number) => void;
 
   // Scale change — resize all content proportionally, anchored to canvas bottom (lowerMRL)
   rescaleAll: (oldScale: number, newScale: number, virtualHeight: number) => void;
@@ -400,7 +402,8 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
 
     addAnnotation: (ann) => {
       pushHistory();
-      set((state) => ({ annotations: [...state.annotations, ann] }));
+      const annotationWithHeight: AnnotationElement = { height: ann.fontSize * 1.35 * 2, ...ann };
+      set((state) => ({ annotations: [...state.annotations, annotationWithHeight] }));
     },
 
     moveAnnotation: (id, x, y) =>
@@ -414,6 +417,22 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
           a.id === id ? { ...a, text, ...(maxWidth !== undefined && { maxWidth }) } : a
         ),
       })),
+
+    updateAnnotationSize: (id, height) =>
+      set((state) => ({
+        annotations: state.annotations.map((a) =>
+          a.id === id ? { ...a, height } : a
+        ),
+      })),
+
+    resizeAnnotation: (id, maxWidth, height) => {
+      pushHistory();
+      set((state) => ({
+        annotations: state.annotations.map((a) =>
+          a.id === id ? { ...a, maxWidth, height } : a
+        ),
+      }));
+    },
 
     removeAnnotation: (id) => {
       pushHistory();
@@ -635,7 +654,7 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
   };
 }, {
   name: 'schematic-canvas',
-  version: 1,
+  version: 2,
   storage: createJSONStorage(() => localStorage),
   partialize: (state) => ({
     elements:          state.elements,
@@ -646,6 +665,19 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
   migrate: (_persisted, version) => {
     // Version mismatch (schema changed) — discard saved data and start fresh
     if (version < 1) return {} as CanvasStore;
+    if (version === 1) {
+      const p = _persisted as {
+        annotations?: Array<{ fontSize: number; height?: number } & Record<string, unknown>>;
+        [key: string]: unknown;
+      };
+      return {
+        ...p,
+        annotations: (p.annotations ?? []).map((a) => ({
+          ...a,
+          height: a.height ?? a.fontSize * 1.35 * 2,
+        })),
+      } as unknown as CanvasStore;
+    }
     return _persisted as CanvasStore;
   },
 }));
