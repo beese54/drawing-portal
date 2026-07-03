@@ -14,6 +14,36 @@ interface HistoryEntry {
   annotations: AnnotationElement[];
 }
 
+export interface DcvAssemblySpec {
+  /** Ordered nearest-the-fixture first (i.e. most downstream first). */
+  elements: CanvasElement[];
+  targetPipeId: string | null;
+  snapX: number;
+  snapY: number;
+}
+
+/** Inserts one or more backflow-protection assemblies (e.g. Gate Valve + 2 Check
+ *  Valves, or Vacuum Breaker + Check Valve), truncating each assembly's target
+ *  pipe (if any) to end at its outermost element's inlet. */
+function applyDcvAssemblies(
+  state: { elements: CanvasElement[]; pipes: PipeElement[] },
+  assemblies: DcvAssemblySpec[],
+): { elements: CanvasElement[]; pipes: PipeElement[] } {
+  let elements = state.elements;
+  let pipes = state.pipes;
+  for (const { elements: asmEls, targetPipeId, snapX, snapY } of assemblies) {
+    elements = [...elements, ...asmEls];
+    if (targetPipeId) {
+      const orig = pipes.find((p) => p.id === targetPipeId);
+      if (orig) {
+        const pipeA: PipeElement = { id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY };
+        pipes = [...pipes.filter((p) => p.id !== targetPipeId), pipeA];
+      }
+    }
+  }
+  return { elements, pipes };
+}
+
 const MAX_HISTORY = 50;
 
 interface CanvasStore {
@@ -38,7 +68,7 @@ interface CanvasStore {
   addElement: (el: CanvasElement) => void;
   loadTemplate: (elements: CanvasElement[], pipes: PipeElement[]) => void;
   loadSchematic: (elements: CanvasElement[], pipes: PipeElement[]) => void;
-  appendTemplate: (elements: CanvasElement[], pipes: PipeElement[]) => void;
+  appendTemplate: (elements: CanvasElement[], pipes: PipeElement[], annotations?: AnnotationElement[]) => void;
   updateElementPosition: (id: string, x: number, y: number) => void;
   moveElement: (id: string, newX: number, newY: number, oldPorts: { x: number; y: number }[], newPorts: { x: number; y: number }[]) => void;
   moveMultiple: (elementIds: string[], dx: number, dy: number, pipeIds?: string[], annotationIds?: string[]) => void;
@@ -52,7 +82,7 @@ interface CanvasStore {
   updatePipeEndpoints: (id: string, startX: number, startY: number, endX: number, endY: number) => void;
   insertElementOnPipe: (pipeId: string, element: CanvasElement, snapX: number, snapY: number, terminatePipe?: boolean) => void;
   insertElementOnPipeInline: (pipeId: string, element: CanvasElement, inletPos: { x: number; y: number }, outletPos: { x: number; y: number }) => void;
-  insertDcvAssembly: (gvEl: CanvasElement, cv2El: CanvasElement, cv1El: CanvasElement, targetPipeId: string | null, snapX: number, snapY: number) => void;
+  insertDcvAssemblies: (assemblies: DcvAssemblySpec[]) => void;
   removeElement: (id: string) => void;
   removePipe: (id: string) => void;
   removeMultiple: (elementIds: string[], pipeIds: string[], annotationIds?: string[]) => void;
@@ -146,11 +176,12 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
       });
     },
 
-    appendTemplate: (elements, pipes) => {
+    appendTemplate: (elements, pipes, annotations = []) => {
       pushHistory();
       set((state) => ({
         elements: [...state.elements, ...elements],
         pipes: [...state.pipes, ...pipes],
+        annotations: [...state.annotations, ...annotations],
         selectedId: null,
         selectedIds: [],
         selectedPipeIds: [],
@@ -165,7 +196,11 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
     moveElement: (id, newX, newY, oldPorts, newPorts) => {
       pushHistory();
       set((state) => {
-        const MATCH = 2;
+        // A connected pipe endpoint sits essentially exactly on its port (aside from
+        // float rounding) — this must stay tight. Symbols render at only ~6px with
+        // ports ~3px from center, so a looser radius can wrongly capture a nearby,
+        // unrelated pipe endpoint that just happens to be close by.
+        const MATCH = 0.5;
         const updatedPipes = state.pipes.map((pipe) => {
           let { startX, startY, endX, endY } = pipe;
           for (let i = 0; i < oldPorts.length; i++) {
@@ -191,7 +226,9 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         const pipeIdSet = new Set(pipeIds);
         const annIdSet = new Set(annotationIds);
         const selectedEls = state.elements.filter((e) => idSet.has(e.id));
-        const MATCH = 3;
+        // Kept tight (see moveElement above) — a looser radius at this symbol scale
+        // wrongly sweeps in nearby, unrelated pipe endpoints on group drag.
+        const MATCH = 0.5;
 
         const oldPorts: { x: number; y: number }[] = [];
         for (const el of selectedEls) {
@@ -242,7 +279,8 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         const el = state.elements.find((e) => e.id === id);
         if (!el) return {};
         const ports = getElementPorts(el);
-        const MATCH = 2;
+        // Kept tight (see moveElement above) for the same reason.
+        const MATCH = 0.5;
         const oldPorts = ports.map((port) => { const rot = rotateOffset(port.offsetX * (el.scaleX ?? 1), port.offsetY, el.rotation); return { x: el.x + rot.x, y: el.y + rot.y }; });
         const newPorts = ports.map((port) => { const rot = rotateOffset(port.offsetX * scaleX,            port.offsetY, el.rotation); return { x: el.x + rot.x, y: el.y + rot.y }; });
         const updatedPipes = state.pipes.map((pipe) => {
@@ -320,16 +358,13 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
       });
     },
 
-    insertDcvAssembly: (gvEl, cv2El, cv1El, targetPipeId, snapX, snapY) => {
+    // Inserts one or more Gate Valve + 2 Check Valve assemblies (e.g. a dual-supply
+    // fitting needs one on each of its Hot/Cold upstream ports) as a single atomic
+    // history entry so one undo reverts the whole thing.
+    insertDcvAssemblies: (assemblies) => {
+      if (assemblies.length === 0) return;
       pushHistory();
-      set((state) => {
-        const newElements = [...state.elements, gvEl, cv2El, cv1El];
-        if (!targetPipeId) return { elements: newElements };
-        const orig = state.pipes.find((p) => p.id === targetPipeId);
-        if (!orig) return { elements: newElements };
-        const pipeA: PipeElement = { id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY };
-        return { elements: newElements, pipes: [...state.pipes.filter((p) => p.id !== targetPipeId), pipeA] };
-      });
+      set((state) => applyDcvAssemblies(state, assemblies));
     },
 
     removeElement: (id) => {

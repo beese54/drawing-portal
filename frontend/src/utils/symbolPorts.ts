@@ -212,8 +212,8 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
   ],
 
   y_type_strainer: [
-    { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
-    { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
+    { role: 'upstream',   offsetX:  24, offsetY: 0, label: 'Input'  },
+    { role: 'downstream', offsetX: -24, offsetY: 0, label: 'Output' },
   ],
   pipe_blank_off: [
     { role: 'upstream', offsetX: -24, offsetY: 0, label: 'Input' },
@@ -237,7 +237,7 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'upstream', offsetX: 0, offsetY: -24, label: 'Supply' },
   ],
   wash_basin_rectangular: [
-    { role: 'upstream', offsetX: -4, offsetY: -24, label: 'Supply' },
+    { role: 'upstream', offsetX: -3, offsetY: -24, label: 'Supply' },
   ],
 
   puddle_flange: [
@@ -321,13 +321,24 @@ export function rotateOffset(
   offsetY: number,
   rotation: number
 ): { x: number; y: number } {
-  const rad = (rotation * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  return {
-    x: Math.round(offsetX * cos - offsetY * sin),
-    y: Math.round(offsetX * sin + offsetY * cos),
-  };
+  // Exact cases for the four cardinal angles — avoids floating-point noise from
+  // Math.cos/sin (e.g. cos(90°) isn't exactly 0) which previously required
+  // rounding to whole pixels, introducing up to ~0.5px of port misalignment
+  // (very visible once zoomed in, since symbols render at only a few px).
+  switch (((rotation % 360) + 360) % 360) {
+    case 90:  return { x: -offsetY, y: offsetX };
+    case 180: return { x: -offsetX, y: -offsetY };
+    case 270: return { x: offsetY, y: -offsetX };
+    default: {
+      const rad = (rotation * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      return {
+        x: offsetX * cos - offsetY * sin,
+        y: offsetX * sin + offsetY * cos,
+      };
+    }
+  }
 }
 
 /** Absolute canvas position of a port on a given element. */

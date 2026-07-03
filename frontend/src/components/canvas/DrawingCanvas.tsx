@@ -972,16 +972,17 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     (pos: { x: number; y: number }, targetIsStage: boolean) => {
       const { pendingTemplate: pt } = useUiStore.getState();
       if (pt) {
-        // Ghost drag-to-place: offset all elements/pipes so the template centre lands on click
-        const xs = [...pt.elements.map((e) => e.x), ...pt.pipes.flatMap((p) => [p.startX, p.endX])];
-        const ys = [...pt.elements.map((e) => e.y), ...pt.pipes.flatMap((p) => [p.startY, p.endY])];
+        // Ghost drag-to-place: offset all elements/pipes/annotations so the template centre lands on click
+        const xs = [...pt.elements.map((e) => e.x), ...pt.pipes.flatMap((p) => [p.startX, p.endX]), ...pt.annotations.map((a) => a.x)];
+        const ys = [...pt.elements.map((e) => e.y), ...pt.pipes.flatMap((p) => [p.startY, p.endY]), ...pt.annotations.map((a) => a.y)];
         const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
         const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
         const dx = pos.x - cx;
         const dy = pos.y - cy;
         const elements = pt.elements.map((e) => ({ ...e, x: e.x + dx, y: e.y + dy }));
         const pipes = pt.pipes.map((p) => ({ ...p, startX: p.startX + dx, startY: p.startY + dy, endX: p.endX + dx, endY: p.endY + dy }));
-        appendTemplate(elements, pipes);
+        const annotations = pt.annotations.map((a) => ({ ...a, x: a.x + dx, y: a.y + dy }));
+        appendTemplate(elements, pipes, annotations);
         setPendingTemplate(null);
         setGhostPos(null);
         return;
@@ -1714,10 +1715,10 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           }}
           style={{
             position: 'fixed',
-            left: editingAnnotation.screenX - 3 * stageScale,
-            top: editingAnnotation.screenY - 3 * stageScale,
-            width: (editingAnnotation.maxWidth + 6) * stageScale,
-            height: (editingAnnotation.height + 6) * stageScale,
+            left: editingAnnotation.screenX - 4.5 * stageScale,
+            top: editingAnnotation.screenY - 4.5 * stageScale,
+            width: (editingAnnotation.maxWidth + 9) * stageScale,
+            height: (editingAnnotation.height + 9) * stageScale,
             fontSize: editingAnnotation.fontSize * stageScale,
             fontFamily: 'inherit',
             lineHeight: 1.35,

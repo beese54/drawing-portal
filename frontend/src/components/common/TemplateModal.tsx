@@ -11,8 +11,8 @@ export function TemplateModal({ onClose }: TemplateModalProps) {
   const applyTemplate = (templateId: string) => {
     const template = TEMPLATES.find((t) => t.id === templateId);
     if (!template) return;
-    const { elements, pipes } = template.generate();
-    setPendingTemplate({ name: template.name, elements, pipes });
+    const { elements, pipes, annotations = [] } = template.generate();
+    setPendingTemplate({ name: template.name, elements, pipes, annotations });
     onClose();
   };
 

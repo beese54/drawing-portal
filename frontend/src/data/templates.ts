@@ -1,11 +1,11 @@
-import type { CanvasElement, PipeElement } from '../types';
+import type { CanvasElement, PipeElement, AnnotationElement } from '../types';
 import { SCHEMATIC_SYMBOL_PX } from '../types';
 
 export interface Template {
   id: string;
   name: string;
   description: string;
-  generate: () => { elements: CanvasElement[]; pipes: PipeElement[] };
+  generate: () => { elements: CanvasElement[]; pipes: PipeElement[]; annotations?: AnnotationElement[] };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -29,6 +29,16 @@ function p(
   pipeType: 'cold' | 'hot' | 'generic' = 'cold',
 ): PipeElement {
   return { id: crypto.randomUUID(), pipeType, startX: x1, startY: y1, endX: x2, endY: y2 };
+}
+
+function ann(
+  x: number, y: number,
+  text: string,
+  fontSize = 2,
+  color = '#1a1a1a',
+): AnnotationElement {
+  const height = fontSize * 1.35 * Math.max(1, text.split('\n').length);
+  return { id: crypto.randomUUID(), x, y, text, fontSize, color, maxWidth: fontSize * text.length * 0.6 + 4, height };
 }
 
 // ── 2 Storey Residential ─────────────────────────────────────────────────────
@@ -349,6 +359,84 @@ function generate2StoryResidential(): { elements: CanvasElement[]; pipes: PipeEl
   return { elements, pipes };
 }
 
+// ── 2x Pump Manifold — without bypass ───────────────────────────────────────────
+
+function generate2PumpManifoldNoBypass(): { elements: CanvasElement[]; pipes: PipeElement[] } {
+  const elements: CanvasElement[] = [
+    el("tee_junction", "Tee Junction", 279.97, 198.73, 180, { upstreamPortIndex: 0 }),
+    el("gate_valve", "Gate Valve", 279.97, 192.73, 270),
+    el("pressure_vessel_schematic", "Pressure Vessel (Schematic)", 279.97, 186.73, 0),
+    el("elbow_bend", "Elbow Bend", 336.64, 196.05, 180, { upstreamPortIndex: 0 }),
+    el("tee_junction", "Tee Junction", 333.89, 190.3, 90, { upstreamPortIndex: 1 }),
+    el("elbow_bend", "Elbow Bend", 331.14, 184.55, 0, { upstreamPortIndex: 1 }),
+    el("gate_valve", "Gate Valve", 325.39, 181.8, 180),
+    el("y_type_strainer", "Y-Type Strainer", 319.39, 181.8, 0),
+    el("flexible_connection", "Flexible Connection", 313.39, 181.8, 180),
+    el("flexible_connection", "Flexible Connection", 310.87, 190.4, 180),
+    el("gate_valve", "Gate Valve", 322.87, 190.4, 180),
+    el("y_type_strainer", "Y-Type Strainer", 316.87, 190.4, 0),
+    el("jockey_pump", "Jockey Pump", 308.31, 181.8, 180, { width: 10, height: 10 }),
+    el("jockey_pump", "Jockey Pump", 305.78, 190.4, 180, { width: 10, height: 10 }),
+    el("flexible_connection", "Flexible Connection", 302.81, 181.8, 180),
+    el("flexible_connection", "Flexible Connection", 300.28, 190.4, 180),
+    el("gate_valve", "Gate Valve", 296.81, 181.8, 180),
+    el("gate_valve", "Gate Valve", 294.28, 190.4, 180),
+    el("elbow_bend", "Elbow Bend", 291.06, 184.55, 270, { upstreamPortIndex: 1 }),
+    el("tee_junction", "Tee Junction", 288.31, 190.3, 270, { upstreamPortIndex: 1 }),
+    el("elbow_bend", "Elbow Bend", 285.56, 196.05, 90, { upstreamPortIndex: 0 }),
+  ];
+
+  const pipes: PipeElement[] = [
+    p(330.89, 190.3, 325.87, 190.4, "cold"),
+  ];
+
+  return { elements, pipes };
+}
+
+// ── 2x Pump Manifold — with bypass ──────────────────────────────────────────────
+
+function generate2PumpManifoldWithBypass(): { elements: CanvasElement[]; pipes: PipeElement[]; annotations: AnnotationElement[] } {
+  const elements: CanvasElement[] = [
+    el("tee_junction", "Tee Junction", 335.84, 160, 90, { upstreamPortIndex: 1 }),
+    el("jockey_pump", "Jockey Pump", 307.44, 159.93, 180, { width: 10, height: 10 }),
+    el("gate_valve", "Gate Valve", 324.44, 159.93, 180),
+    el("gate_valve", "Gate Valve", 296.44, 159.93, 180),
+    el("gate_valve", "Gate Valve", 314.7, 174.42, 180),
+    el("flexible_connection", "Flexible Connection", 302.44, 159.93, 180),
+    el("flexible_connection", "Flexible Connection", 312.44, 159.93, 0, { scaleX: -1 }),
+    el("jockey_pump", "Jockey Pump", 310.18, 151.5, 180, { width: 10, height: 10 }),
+    el("gate_valve", "Gate Valve", 327.26, 151.5, 180),
+    el("gate_valve", "Gate Valve", 298.68, 151.5, 180),
+    el("flexible_connection", "Flexible Connection", 304.68, 151.5, 180),
+    el("flexible_connection", "Flexible Connection", 315.26, 151.5, 0, { scaleX: -1 }),
+    el("check_valve", "Check Valve", 308.7, 174.42, 180),
+    el("elbow_bend", "Elbow Bend", 292.93, 154.25, 270, { upstreamPortIndex: 1 }),
+    el("tee_junction", "Tee Junction", 290.18, 165.92, 90, { upstreamPortIndices: [0, 1], carriesFluid: 'cold' }),
+    el("elbow_bend", "Elbow Bend", 333.09, 171.75, 90, { upstreamPortIndex: 0 }),
+    el("elbow_bend", "Elbow Bend", 292.8, 171.54, 180, { upstreamPortIndex: 0, carriesFluid: 'cold' }),
+    el("tee_junction", "Tee Junction", 335.84, 166, 270, { upstreamPortIndex: 2 }),
+    el("tee_junction", "Tee Junction", 284.18, 165.92, 180, { upstreamPortIndex: 0, carriesFluid: 'cold' }),
+    el("gate_valve", "Gate Valve", 284.18, 159.92, 270),
+    el("pressure_vessel_schematic", "Pressure Vessel (Schematic)", 284.18, 153.92, 0),
+    el("elbow_bend", "Elbow Bend", 333.09, 154.25, 0, { upstreamPortIndex: 1 }),
+    el("tee_junction", "Tee Junction", 290.18, 160, 270, { upstreamPortIndices: [1, 2] }),
+    el("y_type_strainer", "Y-Type Strainer", 321.26, 151.5, 0),
+    el("y_type_strainer", "Y-Type Strainer", 318.44, 159.93, 0),
+  ];
+
+  const pipes: PipeElement[] = [
+    p(305.7, 174.42, 295.63, 174.42, "cold"),
+    p(332.84, 160, 327.44, 159.93, "cold"),
+    p(330.34, 174.5, 317.7, 174.42, "cold"),
+  ];
+
+  const annotations: AnnotationElement[] = [
+    ann(301.18, 181.69, "Normally closed"),
+  ];
+
+  return { elements, pipes, annotations };
+}
+
 // ── Exported template registry ────────────────────────────────────────────────
 
 export const TEMPLATES: Template[] = [
@@ -362,5 +450,22 @@ export const TEMPLATES: Template[] = [
       'wash basin (dual supply), water closet and bidet. Ground floor includes wet kitchen ' +
       '(sinks + washing machine), dry kitchen (tap points) and a standalone toilet.',
     generate: generate2StoryResidential,
+  },
+  {
+    id: '2x-pump-manifold-no-bypass',
+    name: '2x Pump Manifold — Without Bypass',
+    description:
+      'Twin jockey pump manifold, each leg with flexible connections either side of the pump, ' +
+      'isolation gate valves, and a Y-type strainer. Both legs tee together at a shared pressure ' +
+      'vessel branch on the inlet side and rejoin via elbows/tee on the outlet side.',
+    generate: generate2PumpManifoldNoBypass,
+  },
+  {
+    id: '2x-pump-manifold-with-bypass',
+    name: '2x Pump Manifold — With Bypass',
+    description:
+      'Twin jockey pump manifold as above, plus a normally-closed bypass line (gate valve + check valve) ' +
+      'connecting the inlet and outlet mains directly, allowing manual bypass of both pumps for maintenance.',
+    generate: generate2PumpManifoldWithBypass,
   },
 ];

@@ -7,6 +7,8 @@ import { PipeElement } from './PipeElement';
 import { AnnotationNode } from './AnnotationsLayer';
 import { symbolsApi } from '../../api/client';
 import { SYMBOL_PORTS, getElementPorts, getPortPosition, rotateOffset, getEffectivePortRole, getEffectivePortLabel, getScaledPortOffset } from '../../utils/symbolPorts';
+import { buildBackflowAssemblies } from '../../utils/dcvAssembly';
+import { buildElementAdjacency, isElementProtected } from '../../utils/backflowProtection';
 import { getSymbolSizePx, isBackflowRiskElement, getBackflowRule, FIXTURE_MWELS_CATEGORY } from '../../types';
 import type { CanvasElement, PipeElement as PipeElementType, PipeType } from '../../types';
 import { computePortConnectionStatus } from '../../utils/portConnectionStatus';
@@ -17,123 +19,14 @@ const TINT_SYMBOL_IDS = new Set(['tee_junction', 'elbow_bend']);
 
 // Elements that transform or originate fluid — BFS stops here instead of passing through.
 // Without this, the BFS can cross a water heater from its hot output back to its cold input.
+// Pumps are deliberately NOT included — they move fluid onward without changing whether
+// it's hot or cold, so tracing color through them is correct (unlike a water heater/tank).
 const FLUID_BOUNDARY_SYMBOLS = new Set([
-  'water_heater', 'pump', 'jockey_pump',
+  'water_heater',
   'water_tank', 'cold_water_tank', 'pressure_vessel_schematic',
 ]);
 
 const TINT_MATCH = 3; // px — kept tight so only exact port-to-endpoint connections trigger the tint
-const PORT_MATCH = 2; // px — same threshold as portConnectionStatus.ts
-
-/**
- * Build a bidirectional element adjacency map from actual pipe connections and
- * direct port-to-port snaps. Two elements are adjacent only if a pipe endpoint
- * (or another element's port) lies within PORT_MATCH px of one of their ports.
- * Physically nearby but unconnected elements produce no edge.
- */
-function buildElementAdjacency(
-  elements: CanvasElement[],
-  pipes: PipeElementType[],
-): Map<string, Set<string>> {
-  const adj = new Map<string, Set<string>>();
-  const addEdge = (a: string, b: string) => {
-    if (a === b) return;
-    if (!adj.has(a)) adj.set(a, new Set());
-    if (!adj.has(b)) adj.set(b, new Set());
-    adj.get(a)!.add(b);
-    adj.get(b)!.add(a);
-  };
-
-  // For each pipe, collect all elements whose ports match either endpoint,
-  // then link every pair among them (handles T-splits where one endpoint
-  // touches two adjacent ports).
-  for (const pipe of pipes) {
-    const endpointEls: [string[], string[]] = [[], []];
-    for (const [ei, cx, cy] of [
-      [0, pipe.startX, pipe.startY],
-      [1, pipe.endX,   pipe.endY  ],
-    ] as [number, number, number][]) {
-      for (const el of elements) {
-        for (const port of getElementPorts(el)) {
-          const pos = getPortPosition(el, port);
-          if (Math.hypot(pos.x - cx, pos.y - cy) <= PORT_MATCH) {
-            endpointEls[ei].push(el.id);
-            break;
-          }
-        }
-      }
-    }
-    // Link every element at start with every element at end
-    for (const a of endpointEls[0]) {
-      for (const b of endpointEls[1]) {
-        addEdge(a, b);
-      }
-    }
-  }
-
-  // Port-to-port proximity links (symbols placed directly back-to-back, no pipe drawn)
-  for (let a = 0; a < elements.length; a++) {
-    const portsA = getElementPorts(elements[a]);
-    for (let b = a + 1; b < elements.length; b++) {
-      const portsB = getElementPorts(elements[b]);
-      let linked = false;
-      for (const pA of portsA) {
-        if (linked) break;
-        const posA = getPortPosition(elements[a], pA);
-        for (const pB of portsB) {
-          const posB = getPortPosition(elements[b], pB);
-          if (Math.hypot(posA.x - posB.x, posA.y - posB.y) <= PORT_MATCH) {
-            addEdge(elements[a].id, elements[b].id);
-            linked = true;
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  return adj;
-}
-
-/**
- * BFS through element adjacency from startId.
- * Applies the correct protection rule for the element:
- *   double_check_valve  — needs ≥ 2 check_valves reachable (SS636 §6.4 appliances)
- *   vb_and_check_valve  — needs vacuum_breaker AND check_valve reachable (SS636 §6.5 bidet)
- */
-function bfsCheckProtectionRule(
-  el: CanvasElement,
-  adj: Map<string, Set<string>>,
-  elemById: Map<string, CanvasElement>,
-  maxHops: number,
-): boolean {
-  const rule = getBackflowRule(el);
-  if (!rule) return true; // no rule — no badge
-
-  const visited = new Set<string>([el.id]);
-  const queue: { id: string; hops: number }[] = [{ id: el.id, hops: 0 }];
-  let checkValveCount = 0;
-  let hasVacuumBreaker = false;
-
-  while (queue.length > 0) {
-    const { id, hops } = queue.shift()!;
-    if (hops > 0) {
-      const sid = elemById.get(id)?.symbolId;
-      if (sid === 'check_valve') checkValveCount++;
-      if (sid === 'vacuum_breaker') hasVacuumBreaker = true;
-    }
-    if (hops >= maxHops) continue;
-    for (const nbr of adj.get(id) ?? []) {
-      if (!visited.has(nbr)) {
-        visited.add(nbr);
-        queue.push({ id: nbr, hops: hops + 1 });
-      }
-    }
-  }
-
-  if (rule === 'double_check_valve') return checkValveCount >= 2;
-  return hasVacuumBreaker && checkValveCount >= 1;
-}
 
 /** BFS backwards through the pipe/element network from a canvas position.
  *  Returns 'cold'|'hot' if a typed pipe is reachable, null otherwise.
@@ -198,18 +91,17 @@ function traceFluidFromPos(
   return null;
 }
 
-/** Returns the fluid type (cold/hot) for a tee/elbow by checking stored property first,
- *  then falling back to a BFS traversal from each port (upstream first). */
+/** Returns the fluid type (cold/hot) for a tee/elbow via BFS traversal from each port
+ *  (upstream first), falling back to a stored carriesFluid override only when the BFS
+ *  finds nothing reachable (e.g. a template placed before it's wired into the rest of
+ *  the drawing) — a successful live trace always wins, so this never masks a real change. */
 function getElbowTeeTint(
   el: CanvasElement,
   elements: CanvasElement[],
   pipes: PipeElementType[],
 ): PipeType | null {
-  // Always compute live from the network — carriesFluid on elbows/tees can be
-  // stale (set during placement before pipes were connected or before the pipe
-  // type was changed) and would override the correct BFS result.
   const ports = getElementPorts(el);
-  if (ports.length === 0) return null;
+  if (ports.length === 0) return el.carriesFluid ?? null;
 
   // Determine which port index is upstream
   let upstreamIdx = 0;
@@ -230,7 +122,7 @@ function getElbowTeeTint(
     const result = traceFluidFromPos(portPos.x, portPos.y, el.id, elements, pipes);
     if (result) return result;
   }
-  return null;
+  return el.carriesFluid ?? null;
 }
 
 interface DragPreview {
@@ -290,6 +182,7 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
   const moveMultiple = useCanvasStore((s) => s.moveMultiple);
   const setSelected = useCanvasStore((s) => s.setSelected);
   const drawingScale = useUiStore((s) => s.sheetConfig.drawingScale);
+  const insertDcvAssemblies = useCanvasStore((s) => s.insertDcvAssemblies);
   const symPx = getSymbolSizePx(drawingScale);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [warningTooltip, setWarningTooltip] = useState<{ x: number; y: number; lines: string[] } | null>(null);
@@ -472,18 +365,27 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
 
             const pos = getPortPosition(el, port);
             const connected = elStatus[i] ?? false;
+            const color = connected ? '#22c55e' : '#ef4444';
 
-            return (
-              <Text
+            // Drawn as vector strokes rather than a text glyph: at this size (~1px)
+            // font rasterization/hinting snaps to a coarse pixel grid regardless of
+            // how precise pos.x/pos.y are, which made the marker visibly drift from
+            // the actual port location. A vector path has no such snapping step.
+            return connected ? (
+              <Line
                 key={`${el.id}-connstatus-${i}`}
-                x={pos.x - 1}
-                y={pos.y - 1}
-                text={connected ? '✓' : '✗'}
-                fontSize={2}
-                fontStyle="bold"
-                fill={connected ? '#22c55e' : '#ef4444'}
+                points={[pos.x - 0.6, pos.y, pos.x - 0.15, pos.y + 0.45, pos.x + 0.6, pos.y - 0.5]}
+                stroke={color}
+                strokeWidth={0.35}
+                lineCap="round"
+                lineJoin="round"
                 listening={false}
               />
+            ) : (
+              <Group key={`${el.id}-connstatus-${i}`} listening={false}>
+                <Line points={[pos.x - 0.6, pos.y - 0.6, pos.x + 0.6, pos.y + 0.6]} stroke={color} strokeWidth={0.35} lineCap="round" />
+                <Line points={[pos.x - 0.6, pos.y + 0.6, pos.x + 0.6, pos.y - 0.6]} stroke={color} strokeWidth={0.35} lineCap="round" />
+              </Group>
             );
           }).filter(Boolean);
         });
@@ -539,22 +441,40 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
       {/* Backflow-risk warning badges — orange ! when no check valve is nearby */}
       {elements.flatMap((el) => {
         if (!isBackflowRiskElement(el)) return [];
-        if (bfsCheckProtectionRule(el, elementAdj, elemById, 6)) return [];
+        if (isElementProtected(el, elementAdj, elemById, 6, elements, pipes)) return [];
         const halfW = (el.width ?? symPx) / 2;
         const halfH = (el.height ?? symPx) / 2;
         const bx = el.x + halfW + 4;
         const by = el.y - halfH - 4;
         const rule = getBackflowRule(el);
         const ttLines = rule === 'vb_and_check_valve'
-          ? ['Backflow Risk (SS636 §6.5)', 'Requires a vacuum breaker and check valve connected in series']
-          : ['Backflow Risk (SS636 §6.4)', 'Requires 2 check valves connected in series upstream'];
+          ? ['Backflow Risk (SS636 §6.5)', 'Requires a vacuum breaker and check valve connected in series', 'Double-click to insert Gate Valve + Check Valve + Vacuum Breaker']
+          : ['Backflow Risk (SS636 §6.4)', 'Requires 2 check valves connected in series upstream', 'Double-click to insert Gate Valve + 2 Check Valves'];
         return [
           <Circle
             key={`bf-badge-${el.id}`}
             x={bx} y={by} radius={4}
             fill="#f97316" stroke="#fff" strokeWidth={1}
-            onMouseEnter={() => setWarningTooltip({ x: bx, y: by, lines: ttLines })}
-            onMouseLeave={() => setWarningTooltip(null)}
+            onMouseEnter={(e) => {
+              setWarningTooltip({ x: bx, y: by, lines: ttLines });
+              const stage = (e.target as Konva.Node).getStage();
+              if (stage) stage.container().style.cursor = 'pointer';
+            }}
+            onMouseLeave={(e) => {
+              setWarningTooltip(null);
+              const stage = (e.target as Konva.Node).getStage();
+              if (stage) stage.container().style.cursor = 'default';
+            }}
+            onDblClick={(e) => {
+              e.cancelBubble = true;
+              setWarningTooltip(null);
+              const asms = buildBackflowAssemblies(el.id, '', elements, pipes);
+              if (asms.length > 0) {
+                insertDcvAssemblies(asms.map((a) => ({
+                  elements: a.elements, targetPipeId: a.targetPipeId, snapX: a.snapX, snapY: a.snapY,
+                })));
+              }
+            }}
           />,
           <Text
             key={`bf-text-${el.id}`}
@@ -696,6 +616,20 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
                 />
               );
             })}
+            {/* Highlight each pipe whose endpoints are both inside the band — previously
+                missing, so a captured pipe silently added to the "N selected" count with
+                no visual indication of what was actually being selected. */}
+            {hitPipes.map((p) => (
+              <Line
+                key={`rb-hit-pipe-${p.id}`}
+                points={[p.startX, p.startY, p.endX, p.endY]}
+                stroke="#0066cc"
+                strokeWidth={2}
+                opacity={0.35}
+                lineCap="round"
+                listening={false}
+              />
+            ))}
             {/* Highlight each annotation whose origin is inside the band */}
             {hitAnns.map((ann) => {
               const lineCount = Math.max(1, ann.text.split('\n').length);

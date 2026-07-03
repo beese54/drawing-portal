@@ -1,12 +1,14 @@
 import {
   CanvasElement,
   PipeElement,
+  AnnotationElement,
   MrlConfig,
   DrawingMetadata,
   NodeType,
   HydraulicContext,
   ExportedElement,
   ExportedPipe,
+  ExportedAnnotation,
   ExportedPort,
   ExportedTankProperties,
   SupplyMode,
@@ -318,6 +320,7 @@ export function buildMetadata(
   sourcePressureBar: number | null = null,
   acks: AcknowledgmentFlags = DEFAULT_ACKS,
   titleBlock: TitleBlockData = {} as TitleBlockData,
+  annotations: AnnotationElement[] = [],
 ): DrawingMetadata {
   const { upperMrl, lowerMrl } = mrlConfig;
 
@@ -613,6 +616,20 @@ export function buildMetadata(
 
   const totalPipeLength = exportedPipes.reduce((sum, p) => sum + p.length_px, 0);
 
+  // ── Pass 5: annotations (freeform comments — e.g. "valve normally closed") ──
+  const exportedAnnotations: ExportedAnnotation[] = annotations.map((ann) => ({
+    id: ann.id,
+    type: 'annotation' as const,
+    text: ann.text,
+    position: { canvas_x: Math.round(ann.x * 100) / 100, canvas_y: Math.round(ann.y * 100) / 100 },
+    mrl: {
+      value: Math.round(pixelToMrl(ann.y, canvasHeight, upperMrl, lowerMrl) * 100) / 100,
+      unit: 'm AMSL' as const,
+    },
+    font_size: ann.fontSize,
+    color: ann.color,
+  }));
+
   return {
     schema_version: '1.0',
     exported_at: new Date().toISOString(),
@@ -633,6 +650,7 @@ export function buildMetadata(
     tank_position_acknowledged: acks.tankPositionAcknowledged,
     elements: exportedElements,
     pipes: exportedPipes,
+    annotations: exportedAnnotations,
     hydraulic_context,
     summary: {
       total_elements: exportedElements.length,

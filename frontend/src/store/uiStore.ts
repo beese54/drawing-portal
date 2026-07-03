@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { ActiveTool, FloorLevel, MrlConfig, MRL_LOWER_HARD_MIN, SheetConfig, TitleBlockData, DEFAULT_SHEET_CONFIG, getUpperMrl, PAPER_SIZES_MM, SHEET_PX_PER_MM } from '../types';
-import type { CanvasElement, PipeElement } from '../types';
+import type { CanvasElement, PipeElement, AnnotationElement } from '../types';
 import { useCanvasStore } from './canvasStore';
 
 export interface PendingTemplate {
   name: string;
   elements: CanvasElement[];
   pipes: PipeElement[];
+  annotations: AnnotationElement[];
 }
 
 export interface PdfBackground {

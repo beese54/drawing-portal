@@ -660,10 +660,21 @@ export interface DrawingMetadata {
   title_block: TitleBlockData;
   elements: ExportedElement[];
   pipes: ExportedPipe[];
+  annotations: ExportedAnnotation[];
   hydraulic_context: HydraulicContext;
   summary: {
     total_elements: number;
     total_pipes: number;
     total_pipe_length_px: number;
   };
+}
+
+export interface ExportedAnnotation {
+  id: string;
+  type: 'annotation';
+  text: string;
+  position: { canvas_x: number; canvas_y: number };
+  mrl: { value: number; unit: 'm AMSL' };
+  font_size: number;
+  color: string;
 }

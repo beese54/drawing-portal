@@ -47,9 +47,14 @@ Added (50+):
 ### Canvas Features
 
 - **Real-time `!` warning badges** on the canvas for:
-  - Backflow risk symbols (bidet spray, hose connections) — with hover tooltips explaining the regulation
+  - Backflow risk symbols (bidet spray, water heater, washing machine, dishwasher, water dispenser, bib tap) — with hover tooltips explaining the regulation
   - Long bath exceeding 250L capacity limit — with hover tooltip
   - MWELS-applicable fixtures with no efficiency rating set — with hover tooltip
+- **One-click backflow protection assembly insert** — double-click a backflow-risk `!` badge to auto-insert the required protection assembly upstream, correctly oriented to match the fitting's actual rotation:
+  - SS636 §6.4 (water heater, washing machine, dishwasher, water dispenser, bib tap) → Gate Valve + 2 Check Valves
+  - SS636 §6.5 (bidet spray) → Gate Valve + Check Valve + Vacuum Breaker
+  - Dual-supply fixtures (e.g. washing machine with Hot + Cold enabled) get an independent assembly per supply line, skipping any line that's already protected
+  - Same assembly also offered automatically via a toast when drag-connecting a backflow-risk fitting to a pipe
 - **Badge consistency** — all `!` badges use the same style (orange, same size, same positioning)
 - **Symbol properties popover** — double-clicking a symbol (or clicking its `!` MWELS badge) opens a small floating panel to the right of the symbol showing:
   - Dual supply ports (hot + cold) toggle and swap, for applicable symbols
@@ -59,10 +64,23 @@ Added (50+):
 - **Long bath capacity panel** — floating panel appears on select
 - **Water tank properties modal** — double-click to open
 - **PDF background layer** — import a PDF as a canvas underlay
-- **Annotations layer** — add text labels to the canvas
+- **Annotations layer** — add text labels to the canvas; editable width/height with edit-mode and display-mode now pixel-matched; included in the JSON metadata export (with MRL elevation) so notes like "valve normally closed" carry through to compliance review
 - **Sheet setup modal** — paper size, drawing scale, title block
-- **Templates** — pre-built schematic starting points
-- **Pipe colouring** by type (cold = blue, hot = red)
+- **Templates** — pre-built schematic starting points, including annotation support. Available: 2-storey residential, 2x pump manifold (with and without bypass)
+- **Pipe colouring** by type (cold = blue, hot = red) — tee/elbow tint now correctly traces through pumps (which don't change fluid type) and stops only at genuine fluid-transforming/originating symbols (water heater, tanks)
+
+---
+
+## Session Fixes — 2026-07-03
+
+- **Annotation sizing** — edit-mode textarea and display-mode rendering now use matching padding math, so text wraps identically in both; vertical resize was silently broken (height only ever synced from measured text, not the user's drag) — fixed to read from the store directly like width already did
+- **Symbol rotation precision** — `rotateOffset()` used floating-point trig + rounding for 90/180/270° rotations, causing ports to drift up to ~0.5px off their true position (very visible zoomed in on 6px symbols); replaced with exact integer math for the four cardinal angles
+- **Connection-status indicator** — was rendered as a 2px font glyph (`✓`/`✗`), which gets snapped by font hinting regardless of underlying precision; replaced with vector-drawn strokes for true sub-pixel accuracy
+- **Group-drag false capture** — the "does this pipe endpoint belong to a moved symbol" match radius (2–3px) was large relative to 6px symbols, occasionally sweeping in unrelated nearby pipes on multi-select drag; tightened to 0.5px
+- **Rubber-band selection visibility** — pipes captured by a drag-select box weren't highlighted in the live preview (only elements/annotations were), making the "N selected" count opaque; added the missing highlight
+- **Y-type strainer geometry** — mirrored to match the real device's cross-section (mesh chamber/cleanout cap on the outlet side); Input/Output port sides corrected to match
+- **Tee/elbow color tracing** — pumps were incorrectly treated as a fluid-type boundary (like a water heater), blocking cold/hot tint from propagating through a valve→pump→valve chain even though a pump doesn't change fluid type
+- **Backflow assembly orientation** — component rotation is now computed per-component instead of once for the whole assembly, since components can have different native port axes (vacuum breaker defaults to vertical, check/gate valve to horizontal) — mixing them with a single shared rotation misoriented whichever component didn't match the assumed axis
 
 ---
 
@@ -70,6 +88,7 @@ Added (50+):
 
 - [ ] **Verify:** RAG knowledge base and AI evaluation still functional on deployed instance?
 - [ ] **Verify:** Symbol manager (custom SVG upload)
+- [ ] Auto-insert for vb_and_check_valve rule (bidet spray) — done; consider extending double-click auto-insert pattern to other warning types (MWELS rating, long bath capacity) if useful
 - [ ] _(add items here)_
 
 ---

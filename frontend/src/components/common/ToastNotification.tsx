@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useUiStore } from '../../store/uiStore';
 import { useCanvasStore } from '../../store/canvasStore';
-import { SCHEMATIC_SYMBOL_PX } from '../../types';
-import { SYMBOL_PORTS, getPortPosition } from '../../utils/symbolPorts';
+import { SCHEMATIC_SYMBOL_PX, getBackflowRule } from '../../types';
+import { buildBackflowAssemblies } from '../../utils/dcvAssembly';
 
 const AUTO_DISMISS_MS = 7000;
 const STEP = SCHEMATIC_SYMBOL_PX;
@@ -141,7 +141,7 @@ export function ToastNotification() {
 export function DcvToastNotification() {
   const toast = useUiStore((s) => s.dcvToast);
   const dismiss = useUiStore((s) => s.dismissDcvToast);
-  const { elements, insertDcvAssembly } = useCanvasStore();
+  const insertDcvAssemblies = useCanvasStore((s) => s.insertDcvAssemblies);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -154,79 +154,20 @@ export function DcvToastNotification() {
 
   if (!toast) return null;
 
+  const { elements: allElements } = useCanvasStore.getState();
+  const rule = getBackflowRule(allElements.find((e) => e.id === toast.elementId) ?? { symbolId: '' });
+  const assemblyLabel = rule === 'vb_and_check_valve' ? 'Gate Valve → CV → Vacuum Breaker' : 'Gate Valve → CV → CV';
+  const ruleRef = rule === 'vb_and_check_valve' ? 'SS636 §6.5' : 'SS636 §6.4';
+
   const handleInsert = () => {
-    const existing = elements.find((e) => e.id === toast.elementId);
-    const { elementX, elementY, pipeId } = toast;
-
-    // Find the upstream pipe (the one that ENDS near the element's upstream port).
-    // For terminal elements dropped on a pipe, insertElementOnPipe replaces the original
-    // pipe (new UUID) so the stored pipeId may be stale — use proximity fallback.
-    // For inline elements (water heater), insertElementOnPipeInline creates pipeA (upstream,
-    // ends at element inlet) and pipeB (downstream); checking endX/endY selects pipeA.
-    const allPipes = useCanvasStore.getState().pipes;
-    let targetPipe = allPipes.find((p) => p.id === pipeId);
-    if (!targetPipe) {
-      let closest = 30;
-      for (const p of allPipes) {
-        const dEnd = Math.hypot(p.endX - elementX, p.endY - elementY);
-        if (dEnd < closest) { closest = dEnd; targetPipe = p; }
-      }
+    const { pipeId } = toast;
+    const { elements: currElements, pipes: currPipes } = useCanvasStore.getState();
+    const asms = buildBackflowAssemblies(toast.elementId, pipeId, currElements, currPipes);
+    if (asms.length > 0) {
+      insertDcvAssemblies(asms.map((a) => ({
+        elements: a.elements, targetPipeId: a.targetPipeId, snapX: a.snapX, snapY: a.snapY,
+      })));
     }
-
-    // Assembly components are always standard size regardless of the fitting's size multiplier.
-    const cvWidth  = SCHEMATIC_SYMBOL_PX;
-    const cvHeight = SCHEMATIC_SYMBOL_PX;
-    const cvFluid  = existing?.carriesFluid;
-    const cvHalfPort = SCHEMATIC_SYMBOL_PX / 2; // = 3 (scaled port offset for standard elements)
-
-    // Anchor = fitting's actual upstream port so CV1's downstream aligns exactly with it,
-    // even when the fitting is a different size (e.g. water heater at 1.7× scale).
-    const fittingPorts = existing ? (SYMBOL_PORTS[existing.symbolId] ?? []) : [];
-    const fittingUpstream = fittingPorts.find((p) => p.role === 'upstream');
-    const anchor = fittingUpstream && existing
-      ? getPortPosition(existing, fittingUpstream)
-      : { x: elementX, y: elementY };
-
-    // Pipe flow direction unit vector from targetPipe; determines assembly orientation.
-    let ux = 0; let uy = 1; // default: vertical (downward flow)
-    let asmRotation = 90;
-    if (targetPipe) {
-      const dx = targetPipe.endX - targetPipe.startX;
-      const dy = targetPipe.endY - targetPipe.startY;
-      const len = Math.hypot(dx, dy);
-      if (len > 0) {
-        ux = dx / len;
-        uy = dy / len;
-        asmRotation = Math.abs(uy) >= Math.abs(ux) ? 90 : 0;
-      }
-    }
-
-    // Place elements upstream of anchor.
-    // CV1.downstream touches anchor; CV2.downstream touches CV1.upstream; GV.downstream touches CV2.upstream.
-    const makeAssemblyEl = (symbolId: string, symbolName: string, distFromAnchor: number) => ({
-      id: crypto.randomUUID(),
-      symbolId,
-      symbolName,
-      x: anchor.x - ux * distFromAnchor,
-      y: anchor.y - uy * distFromAnchor,
-      rotation: asmRotation,
-      width: cvWidth,
-      height: cvHeight,
-      ...(cvFluid !== undefined && { carriesFluid: cvFluid }),
-    });
-
-    // Each element's downstream port is cvHalfPort (=3) from its center toward the fitting.
-    // Adjacent same-size elements are STEP (=6) apart center-to-center.
-    const cv1El = makeAssemblyEl('check_valve', 'Check Valve', cvHalfPort);
-    const cv2El = makeAssemblyEl('check_valve', 'Check Valve', cvHalfPort + STEP);
-    const gvEl  = makeAssemblyEl('gate_valve',  'Gate Valve',  cvHalfPort + STEP * 2);
-
-    // Single atomic history entry for the whole assembly.
-    const gvPorts = SYMBOL_PORTS['gate_valve'] ?? [];
-    const gvUpstream = gvPorts.find((p) => p.role === 'upstream');
-    const gvInletPos = gvUpstream ? getPortPosition(gvEl, gvUpstream) : { x: gvEl.x, y: gvEl.y };
-    insertDcvAssembly(gvEl, cv2El, cv1El, targetPipe?.id ?? null, gvInletPos.x, gvInletPos.y);
-
     dismiss();
   };
 
@@ -254,7 +195,7 @@ export function DcvToastNotification() {
             Backflow-risk appliance detected
           </div>
           <div style={{ fontSize: 11, color: '#b8d0f0', lineHeight: 1.45 }}>
-            Insert <strong>Gate Valve → CV → CV</strong> upstream (SS636 §6.4)?
+            Insert <strong>{assemblyLabel}</strong> upstream ({ruleRef})?
           </div>
         </div>
         <button

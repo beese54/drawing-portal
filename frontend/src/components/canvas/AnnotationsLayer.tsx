@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { Layer, Group, Rect, Text } from 'react-konva';
 import Konva from 'konva';
 import { useCanvasStore } from '../../store/canvasStore';
@@ -16,21 +16,26 @@ interface AnnotationNodeProps {
 
 export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, selectDisabled = false, onDblClick }: AnnotationNodeProps) {
   const textRef = useRef<Konva.Text>(null);
-  const [textHeight, setTextHeight] = useState(ann.height > 0 ? ann.height : ann.fontSize * 1.35 * 2);
   const setSelected = useCanvasStore((s) => s.setSelected);
   const moveAnnotation = useCanvasStore((s) => s.moveAnnotation);
   const updateAnnotationSize = useCanvasStore((s) => s.updateAnnotationSize);
   const updateAnnotation = useCanvasStore((s) => s.updateAnnotation);
   const resizeAnnotation = useCanvasStore((s) => s.resizeAnnotation);
 
-  const resizeDragRef = useRef<{ startX: number; startY: number; startMaxWidth: number; startHeight: number } | null>(null);
-  const currentSizeRef = useRef({ maxWidth: ann.maxWidth, height: textHeight });
+  // Rendered box height always comes straight from ann.height (same as ann.maxWidth
+  // drives width) so manual vertical resize is reflected immediately, with no local
+  // state to fall out of sync.
+  const displayHeight = ann.height > 0 ? ann.height : ann.fontSize * 1.35 * 2;
 
+  const resizeDragRef = useRef<{ startX: number; startY: number; startMaxWidth: number; startHeight: number } | null>(null);
+  const currentSizeRef = useRef({ maxWidth: ann.maxWidth, height: displayHeight });
+
+  // Auto-grow the box when wrapped text content no longer fits (e.g. after typing
+  // more text) — never shrinks, so a manual vertical resize is never overridden.
   useEffect(() => {
     if (textRef.current) {
       const h = textRef.current.height();
-      setTextHeight(h);
-      if (Math.abs(h - ann.height) > 0.5) {
+      if (h - displayHeight > 0.5) {
         updateAnnotationSize(ann.id, h);
       }
     }
@@ -38,7 +43,7 @@ export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, s
   }, [ann.text, ann.maxWidth, ann.fontSize]);
 
   // Keep currentSizeRef in sync on every render so mouseup handlers see latest values
-  currentSizeRef.current = { maxWidth: ann.maxWidth, height: textHeight };
+  currentSizeRef.current = { maxWidth: ann.maxWidth, height: displayHeight };
 
   return (
     <Group
@@ -47,7 +52,7 @@ export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, s
       draggable={draggable}
       onClick={(e) => { if (e.evt.button === 0 && !selectDisabled) setSelected(ann.id); }}
       onTap={() => { if (!selectDisabled) setSelected(ann.id); }}
-      onDblClick={() => onDblClick?.(ann.id, ann.x, ann.y, ann.text, ann.fontSize, ann.maxWidth, textHeight)}
+      onDblClick={() => onDblClick?.(ann.id, ann.x, ann.y, ann.text, ann.fontSize, ann.maxWidth, displayHeight)}
       onDragEnd={(e) => {
         moveAnnotation(ann.id, e.target.x(), e.target.y());
       }}
@@ -61,10 +66,10 @@ export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, s
       }}
     >
       <Rect
-        x={-3}
-        y={-3}
-        width={ann.maxWidth + 6}
-        height={textHeight + 6}
+        x={-4.5}
+        y={-4.5}
+        width={ann.maxWidth + 9}
+        height={displayHeight + 9}
         fill="rgba(255,255,220,0.95)"
         stroke={isSelected ? '#0066cc' : '#bbb'}
         strokeWidth={isSelected ? 1.5 : 0.5}
@@ -85,10 +90,10 @@ export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, s
         <Group>
           {/* Right edge — invisible hit area, resizes maxWidth */}
           <Rect
-            x={ann.maxWidth + 1}
+            x={ann.maxWidth + 0.5}
             y={0}
             width={8}
-            height={textHeight}
+            height={displayHeight}
             fill="transparent"
             onMouseEnter={(e) => {
               const stage = (e.target as Konva.Node).getStage();
@@ -128,7 +133,7 @@ export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, s
           {/* Bottom edge — invisible hit area, resizes height */}
           <Rect
             x={0}
-            y={textHeight + 1}
+            y={displayHeight + 0.5}
             width={ann.maxWidth}
             height={8}
             fill="transparent"
@@ -170,8 +175,8 @@ export function AnnotationNode({ ann, isSelected, isEditing, draggable = true, s
 
           {/* Bottom-right corner — invisible hit area, resizes both */}
           <Rect
-            x={ann.maxWidth + 1}
-            y={textHeight + 1}
+            x={ann.maxWidth + 0.5}
+            y={displayHeight + 0.5}
             width={12}
             height={12}
             fill="transparent"
