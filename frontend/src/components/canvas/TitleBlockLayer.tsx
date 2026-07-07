@@ -73,6 +73,7 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
     let pending = uniqueSymbols.length;
     uniqueSymbols.forEach(({ symbolId }) => {
       const img = new window.Image();
+      img.crossOrigin = 'anonymous';
       const done = () => { pending--; if (pending === 0) setLegendImgs(new Map(map)); };
       img.onload = () => { map.set(symbolId, img); done(); };
       img.onerror = done;
