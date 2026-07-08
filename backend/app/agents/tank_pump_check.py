@@ -8,7 +8,6 @@ from app.agents.compliance_checks import CheckResult
 from app.agents.graph_utils import build_adjacency
 
 PUB_APPROVED_MATERIALS = {"FRP", "GRP", "SS_316", "RC"}
-PLASTIC_MATERIALS = {"pvc", "upvc", "cpvc"}
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +54,13 @@ def _check_bypass_line(elements: list[dict], pipes: list[dict]) -> list[str]:
     adj = build_adjacency(elements, pipes)
     results: list[str] = []
 
+    # A legitimate bypass line routes around a pump without needing another pump to
+    # get from one side to the other — so every pump is excluded from every search,
+    # not just the one currently being tested. Otherwise, in a twin/multi-pump
+    # manifold, the parallel duty leg (with its own gate valves) looks like a valid
+    # "bypass" for its neighbor, which is a false positive.
+    all_pump_ids = {p["id"] for p in pumps}
+
     for pump in pumps:
         pump_id = pump["id"]
         pump_name = pump.get("symbol_name", "Pump")
@@ -72,7 +78,7 @@ def _check_bypass_line(elements: list[dict], pipes: list[dict]) -> list[str]:
         for i in range(len(neighbors)):
             for j in range(i + 1, len(neighbors)):
                 src, dst = neighbors[i], neighbors[j]
-                bypass_path = _find_path_excluding(adj, src, dst, {pump_id})
+                bypass_path = _find_path_excluding(adj, src, dst, all_pump_ids)
                 if bypass_path is None:
                     continue
                 found_bypass = True

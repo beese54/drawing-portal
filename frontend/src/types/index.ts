@@ -146,7 +146,7 @@ export const ROTATABLE_SYMBOL_IDS = [
   'check_valve', 'gate_valve', 'tee_junction', 'pump', 'elbow_bend', 'water_tank', 'water_heater', 'water_meter',
   // new inline valves & equipment
   'solenoid_valve', 'motorised_valve', 'globe_valve', 'prv_with_sensor',
-  'jockey_pump', 'sub_meter', 'cold_water_tank',
+  'sub_meter', 'cold_water_tank',
   'pressure_gauge_cock', 'pressure_gauge_prv', 'sight_glass', 'strainer',
   'cap_off_valve', 'multiport_valve', 'sampling_tap',
   // section 6 — hot water / contamination
@@ -165,7 +165,7 @@ export const CLOCKWISE_SYMBOL_IDS = [
   'tee_junction', 'elbow_bend', 'check_valve', 'gate_valve',
   // new inline valves & equipment
   'solenoid_valve', 'motorised_valve', 'globe_valve', 'prv_with_sensor',
-  'jockey_pump', 'sub_meter', 'cold_water_tank',
+  'sub_meter', 'cold_water_tank',
   'pressure_gauge_cock', 'pressure_gauge_prv', 'sight_glass', 'strainer',
   'cap_off_valve', 'multiport_valve', 'sampling_tap',
   // section 6 — hot water / contamination
@@ -441,6 +441,13 @@ export interface PipeElement {
   startY: number;
   endX: number;
   endY: number;
+  /** Element + port this endpoint is bound to, if any. Undefined means
+   *  "unbound" — endpoint sync falls back to proximity matching against
+   *  that element's ports, same as pre-migration behavior. */
+  startElementId?: string;
+  startPortIndex?: number;
+  endElementId?: string;
+  endPortIndex?: number;
 }
 
 export interface SymbolMeta {

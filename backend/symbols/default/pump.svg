@@ -1,15 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="10.0 0.0 54.0 64.0" width="64" height="64">
-  <!-- Triangle drawn first so circle white fill hides the legs inside the circle -->
-  <polygon points="15,62 32,35 49,62" fill="none" stroke="#1a1a1a" stroke-width="2"
-           stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Circle volute: white fill covers triangle apex + upper legs inside circle -->
-  <circle cx="32" cy="36" r="20" fill="white" stroke="#1a1a1a" stroke-width="2"/>
-  <!-- White mask covers the circle arc inside the casing interior -->
-  <polygon points="12,2 40,2 24,18 12,36" fill="white" stroke="none"/>
-  <!-- Casing: left wall + top wall + diagonal (no right wall) -->
-  <line x1="12" y1="2" x2="12" y2="36" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <line x1="12" y1="2" x2="40" y2="2" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <line x1="40" y1="2" x2="24" y2="18" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
-  <!-- IN connection stub (right midpoint of circle) -->
-  <line x1="52" y1="36" x2="64" y2="36" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round"/>
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+ <g>
+  <title>Layer 1</title>
+  <line stroke-linecap="undefined" stroke-linejoin="undefined" id="svg_1" y2="100.99999" x2="253.99999" y1="100.99999" x1="251.99999" stroke="#000" fill="none"/>
+  <ellipse ry="14.13793" rx="14.23645" id="svg_25" cy="31.99015" cx="32.04926" stroke="#000" fill="none"/>
+  <path transform="rotate(89.5179 35.5678 31.8744)" stroke="#000" id="svg_26" d="m23.79442,41.77598l11.7734,-19.80311l11.7734,19.80311l-23.5468,0z" fill="none"/>
+ </g>
+
 </svg>

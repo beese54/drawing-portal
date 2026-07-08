@@ -46,8 +46,8 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'downstream', offsetX:  24, offsetY:   0, label: 'Output' },
   ],
   pump: [
-    { role: 'upstream',   offsetX:  24, offsetY:  +3, label: 'IN (suction)'    },  // right of circle  (SVG x=64, y=36)
-    { role: 'downstream', offsetX: -12, offsetY: -24, label: 'OUT (discharge)' },  // top-left corner   (SVG x=12, y=0)
+    { role: 'upstream',   offsetX: -10, offsetY: 0, label: 'Input'  },
+    { role: 'downstream', offsetX:  12, offsetY: 0, label: 'Output' },
   ],
   tee_junction: [
     { role: 'upstream',   offsetX: -24, offsetY:   0, label: 'in'  },
@@ -126,10 +126,6 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
   prv_with_sensor: [
     { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
     { role: 'downstream', offsetX:  24, offsetY: 0, label: 'Output' },
-  ],
-  jockey_pump: [
-    { role: 'upstream',   offsetX: -10, offsetY: 0, label: 'Input'  },
-    { role: 'downstream', offsetX:  12, offsetY: 0, label: 'Output' },
   ],
   sub_meter: [
     { role: 'upstream',   offsetX: -24, offsetY: 0, label: 'Input'  },
@@ -404,6 +400,20 @@ export function getEffectivePortLabel(
     return portIndex === element.upstreamPortIndex ? 'in' : 'out';
   }
   return port.label;
+}
+
+/** Index of the port on `element` closest to (x, y) — used to bind a newly
+ *  created pipe endpoint to the port it was drawn/snapped onto. */
+export function findElementPortIndexAt(element: CanvasElement, x: number, y: number): number | undefined {
+  const ports = getElementPorts(element);
+  let best: number | undefined;
+  let bestDist = Infinity;
+  for (let i = 0; i < ports.length; i++) {
+    const pos = getPortPosition(element, ports[i]);
+    const d = Math.hypot(pos.x - x, pos.y - y);
+    if (d < bestDist) { bestDist = d; best = i; }
+  }
+  return best;
 }
 
 // ─── Port snap ────────────────────────────────────────────────────────────────

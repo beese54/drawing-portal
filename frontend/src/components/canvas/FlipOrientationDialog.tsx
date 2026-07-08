@@ -47,15 +47,15 @@ const WATER_HEATER_DOTS_RTL: DotDef[] = [
   { left: 2,  top: 27, color: '#e63329', label: 'Output', labelLeft: 14  },
 ];
 
-// pump: IN stub at right (SVG x=64,y=36), OUT casing opening at top-left (SVG x=12,y=2)
+// pump: ports on left and right sides of the ellipse, vertically centered
 const PUMP_DOTS_LTR: DotDef[] = [
-  { left: 59, top: 31, color: '#007bff', label: 'IN',  labelLeft: -28 },
-  { left:  8, top:  2, color: '#e63329', label: 'OUT', labelLeft:  20 },
+  { left: 14, top: 32, color: '#007bff', label: 'IN',  labelLeft: 14 },
+  { left: 50, top: 32, color: '#e63329', label: 'OUT', labelLeft: 28 },
 ];
-// mirrored: IN moves to left, OUT moves to top-right
+// mirrored: IN moves to right, OUT moves to left
 const PUMP_DOTS_RTL: DotDef[] = [
-  { left:  2, top: 31, color: '#007bff', label: 'IN',  labelLeft: 14 },
-  { left: 52, top:  2, color: '#e63329', label: 'OUT', labelLeft: 28 },
+  { left: 50, top: 32, color: '#007bff', label: 'IN',  labelLeft: 28 },
+  { left: 14, top: 32, color: '#e63329', label: 'OUT', labelLeft: 14 },
 ];
 
 // symbols that use scaleX=-1 for Left←Right (image stays upright, ports mirror)

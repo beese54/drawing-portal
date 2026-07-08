@@ -34,7 +34,6 @@
     { "id": "ball_float_valve",     "name": "Ball Float Valve",           "category": "backflow_prevention", "filename": "default/ball_float_valve.svg",          "created_at": "2026-05-05T00:00:00+00:00" },
 
     { "id": "pump",                 "name": "Pump",                       "category": "pumps",               "filename": "default/pump.svg",                      "created_at": "2026-04-01T00:00:00+00:00" },
-    { "id": "jockey_pump",          "name": "Jockey Pump",                "category": "pumps",               "filename": "default/jockey_pump.svg",               "created_at": "2026-05-05T00:00:00+00:00" },
     { "id": "control_panel",        "name": "Control Panel (FMCP)",       "category": "pumps",               "filename": "default/control_panel.svg",             "created_at": "2026-05-05T00:00:00+00:00" },
 
     { "id": "water_tank",           "name": "Water Tank",                 "category": "tanks",               "filename": "default/water_tank.svg",                "created_at": "2026-04-01T00:00:00+00:00" },

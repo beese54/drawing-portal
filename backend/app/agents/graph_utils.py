@@ -57,8 +57,13 @@ def build_adjacency(elements: list[dict], pipes: list[dict]) -> dict[str, set[st
                     adj[other_id].add(el_id)
 
     # Method 4: port-position proximity (5 px threshold)
-    # Only fires for pairs not already connected via Methods 1-3 to avoid phantom
-    # edges between stacked (visually overlapping) but unconnected symbols.
+    # Only fires for pairs not already connected via Methods 1-3, and only
+    # between ports that are themselves still unconnected (no connects_to_element_id).
+    # Without that per-port guard, two elements that are each separately wired to
+    # a shared third component (e.g. a pair of flexible connections flanking a
+    # small pump symbol) can end up spuriously linked directly to each other
+    # purely because their free-standing ports happen to sit close together in a
+    # tightly-packed manifold — silently skipping the real component between them.
     for i, el_a in enumerate(elements):
         for el_b in elements[i + 1:]:
             if el_b["id"] in adj.get(el_a["id"], set()):
@@ -67,11 +72,15 @@ def build_adjacency(elements: list[dict], pipes: list[dict]) -> dict[str, set[st
             for pa in el_a.get("ports", []):
                 if linked:
                     break
+                if pa.get("connects_to_element_id"):
+                    continue  # port already explicitly wired elsewhere
                 pos_a = pa.get("position", {})
                 ax, ay = pos_a.get("canvas_x"), pos_a.get("canvas_y")
                 if ax is None or ay is None:
                     continue
                 for pb in el_b.get("ports", []):
+                    if pb.get("connects_to_element_id"):
+                        continue  # port already explicitly wired elsewhere
                     pos_b = pb.get("position", {})
                     bx, by = pos_b.get("canvas_x"), pos_b.get("canvas_y")
                     if bx is None or by is None:

@@ -176,6 +176,126 @@ def test_bypass_without_gate_valve_warns():
     assert any("⚠" in d and "bypass" in d.lower() for d in r.detail)
 
 
+def test_twin_pump_manifold_without_bypass_does_not_false_positive():
+    """
+    Twin duty pump manifold, both legs tied together at a shared inlet and
+    outlet tee, with NO dedicated bypass line anywhere. Each pump's alternate
+    path runs through the other leg (which has its own gate valves) — this
+    must NOT be mistaken for a real bypass line around either pump.
+    """
+    elements = [
+        tank(),
+        el("tee_left", "tee_junction"),
+        el("tee_right", "tee_junction"),
+        el("gvA1", "gate_valve"),
+        pump_("pumpA", rated_head=20.0),
+        el("gvA2", "gate_valve"),
+        el("gvB1", "gate_valve"),
+        pump_("pumpB", rated_head=20.0),
+        el("gvB2", "gate_valve"),
+    ]
+    pipes = [
+        pipe("p1", "tee_left", "gvA1"),
+        pipe("p2", "gvA1", "pumpA"),
+        pipe("p3", "pumpA", "gvA2"),
+        pipe("p4", "gvA2", "tee_right"),
+        pipe("p5", "tee_left", "gvB1"),
+        pipe("p6", "gvB1", "pumpB"),
+        pipe("p7", "pumpB", "gvB2"),
+        pipe("p8", "gvB2", "tee_right"),
+    ]
+    m = meta(elements, pipes, pump_discharge_material_acknowledged=True)
+    r = check_tank_pump_installation(m)
+    assert not any("✓" in d and "bypass" in d.lower() for d in r.detail)
+    assert all("no bypass line detected" in d.lower() for d in r.detail if "bypass" in d.lower())
+
+
+def test_twin_pump_manifold_with_dedicated_bypass_passes():
+    """
+    Same twin-leg manifold, but with a real dedicated bypass line (check valve +
+    normally-closed gate valve) connecting the inlet main directly to the outlet
+    main, bypassing both pumps. Both pumps should report the bypass as detected.
+    """
+    elements = [
+        tank(),
+        el("tee_left", "tee_junction"),
+        el("tee_right", "tee_junction"),
+        el("gvA1", "gate_valve"),
+        pump_("pumpA", rated_head=20.0),
+        el("gvA2", "gate_valve"),
+        el("gvB1", "gate_valve"),
+        pump_("pumpB", rated_head=20.0),
+        el("gvB2", "gate_valve"),
+        el("bypass_cv", "check_valve"),
+        el("bypass_gv", "gate_valve"),
+    ]
+    pipes = [
+        pipe("p1", "tee_left", "gvA1"),
+        pipe("p2", "gvA1", "pumpA"),
+        pipe("p3", "pumpA", "gvA2"),
+        pipe("p4", "gvA2", "tee_right"),
+        pipe("p5", "tee_left", "gvB1"),
+        pipe("p6", "gvB1", "pumpB"),
+        pipe("p7", "pumpB", "gvB2"),
+        pipe("p8", "gvB2", "tee_right"),
+        pipe("p9", "tee_left", "bypass_cv"),
+        pipe("p10", "bypass_cv", "bypass_gv"),
+        pipe("p11", "bypass_gv", "tee_right"),
+    ]
+    m = meta(elements, pipes, pump_discharge_material_acknowledged=True)
+    r = check_tank_pump_installation(m)
+    bypass_lines = [d for d in r.detail if "[pump]" in d.lower() and "bypass" in d.lower()]
+    assert len(bypass_lines) == 2
+    assert all(d.startswith("✓") for d in bypass_lines)
+
+
+def _port(index, x, y, connects_to=None):
+    return {"index": index, "position": {"canvas_x": x, "canvas_y": y}, "connects_to_element_id": connects_to}
+
+
+def test_bypass_detection_not_fooled_by_pump_footprint_proximity():
+    """
+    Real-world regression: a pump's two flanking flexible-connection elements
+    sit close enough together (across the pump's small footprint) to trip
+    graph_utils' port-proximity fallback and appear directly linked to each
+    other — even though both are explicitly wired to the pump, not each other.
+    That phantom link used to look like a valve-less "bypass" around every
+    pump regardless of whether a real bypass line existed. Uses ports (not
+    the pipe() helper) to reproduce the exact adjacency path that broke.
+    """
+    elements = [
+        tank(),
+        {**el("na", "tee_junction"), "ports": [
+            _port(0, 0, 0, connects_to="flexA"),
+        ]},
+        {**pump_("pump1", rated_head=20.0), "ports": [
+            _port(0, 51.5, 0, connects_to="flexA"),
+            _port(1, 46.9, 0, connects_to="flexB"),
+        ]},
+        {**el("nb", "tee_junction"), "ports": [
+            _port(0, 0, 0, connects_to="flexB"),
+        ]},
+        {**el("flexA", "flexible_connection"), "ports": [
+            _port(0, 57.4, 0, connects_to=None),   # outward, wired via pipe to na
+            _port(1, 51.4, 0, connects_to="pump1"),
+        ]},
+        {**el("flexB", "flexible_connection"), "ports": [
+            _port(0, 47.4, 0, connects_to="pump1"),
+            _port(1, 41.4, 0, connects_to=None),   # outward, wired via pipe to nb
+        ]},
+        el("gv1", "gate_valve"),
+    ]
+    pipes = [
+        pipe("p1", "na", "flexA"),
+        pipe("p2", "flexB", "nb"),
+        pipe("p3", "na", "gv1"),
+        pipe("p4", "gv1", "nb"),
+    ]
+    m = meta(elements, pipes, pump_discharge_material_acknowledged=True)
+    r = check_tank_pump_installation(m)
+    assert any("✓" in d and "bypass" in d.lower() for d in r.detail)
+
+
 # ---------------------------------------------------------------------------
 # Tank capacity adequacy — Rule 4b
 # ---------------------------------------------------------------------------

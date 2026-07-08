@@ -42,7 +42,7 @@ const INLINE_SYMBOL_IDS = new Set([
   'gate_valve', 'check_valve', 'pump', 'flow_meter', 'water_heater', 'water_meter',
   // new inline valves & equipment
   'solenoid_valve', 'motorised_valve', 'globe_valve', 'prv_with_sensor',
-  'jockey_pump', 'sub_meter', 'cold_water_tank',
+  'sub_meter', 'cold_water_tank',
   'pressure_gauge_cock', 'pressure_gauge_prv', 'sight_glass', 'strainer',
   'multiport_valve',
   // section 6 inline
@@ -614,7 +614,6 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     multiple_show_unit:         1.7,
     water_heater:               1.7,
     pump:                       1.7,
-    jockey_pump:                1.7,
     long_bath:                  1.7,
     shower_bath:                1.7,
     square_bath:                1.7,
