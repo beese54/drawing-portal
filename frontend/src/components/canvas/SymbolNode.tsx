@@ -187,17 +187,7 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
           const { elements: elsNow } = useCanvasStore.getState();
           const thisEl = elsNow.find((el) => el.id === id);
           const ports = thisEl ? getElementPorts(thisEl) : (SYMBOL_PORTS[symbolId] ?? []);
-          const oldPorts = ports.map((port) => {
-            const { ox, oy } = getScaledPortOffset(symbolId, port, width, height, scaleX);
-            const rot = rotateOffset(ox, oy, rotation);
-            return { x: x + rot.x, y: y + rot.y };
-          });
-          const newPorts = ports.map((port) => {
-            const { ox, oy } = getScaledPortOffset(symbolId, port, width, height, scaleX);
-            const rot = rotateOffset(ox, oy, rotation);
-            return { x: newX + rot.x, y: newY + rot.y };
-          });
-          moveElement(id, newX, newY, oldPorts, newPorts);
+          moveElement(id, newX, newY);
           const { pipes, elements } = useCanvasStore.getState();
           const upstreamPort = ports.find((p) => p.role === 'upstream');
           if (!upstreamPort) return;

@@ -24,7 +24,7 @@ import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FL
 import { symbolsApi } from '../../api/client';
 import { closestPointOnSegment, distance } from '../../utils/geometry';
 import { inferFluidAtPoint } from '../../utils/fluidInference';
-import { SYMBOL_PORTS, rotateOffset, getPortPosition, getEffectivePortRole, DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
+import { SYMBOL_PORTS, rotateOffset, getScaledPortOffset, getPortPosition, getEffectivePortRole, getElementPorts, DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
 import { renderPdfPageToDataUrl } from '../../utils/pdfRenderer';
 
 const SNAP_THRESHOLD = 4;
@@ -413,11 +413,32 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
 
   const {
     isDrawingPipe,
+    drawState,
     anchorPoint,
     previewEnd,
     handleCanvasClick,
     handleCanvasMouseMove,
+    resumeChainFrom,
   } = useCanvasInteraction();
+
+  // If a fitting is placed at the current chain tip while a pipe is mid-draw,
+  // resume the chain from the fitting's outlet port so the user doesn't have
+  // to re-click the pipe tool to continue past it. Gated to placements near
+  // the tip so an unrelated drag-and-drop elsewhere on the canvas doesn't
+  // yank the dangling pipe preview over to it.
+  const RESUME_PROXIMITY_PX = 60;
+  const maybeResumePipeChain = useCallback(
+    (placedEl: CanvasElement, placedAtX: number, placedAtY: number) => {
+      if (!isDrawingPipe || drawState !== 'waiting_second' || !anchorPoint) return;
+      if (Math.hypot(placedAtX - anchorPoint.x, placedAtY - anchorPoint.y) > RESUME_PROXIMITY_PX) return;
+      const ports = getElementPorts(placedEl);
+      const downstreamIndex = ports.findIndex((_, i) => getEffectivePortRole(placedEl, i) === 'downstream');
+      if (downstreamIndex === -1) return;
+      const pos = getPortPosition(placedEl, ports[downstreamIndex]);
+      resumeChainFrom(pos.x, pos.y, { elementId: placedEl.id, portIndex: downstreamIndex });
+    },
+    [isDrawingPipe, drawState, anchorPoint, resumeChainFrom]
+  );
 
   // Responsive sizing — tracks viewport dimensions only; auto-fits on first measurement
   useEffect(() => {
@@ -671,7 +692,12 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           // Step 2a: Endpoint snap on the selected pipe only.
           let endpointSnapped = false;
           for (const port of portsToSnap) {
-            const rot = rotateOffset(port.offsetX, port.offsetY, 0);
+            // Snap detection must use the symbol's actual rendered size (sz), not the
+            // ±24px reference offsets defined for a 48px symbol — otherwise the snap
+            // point diverges from getPortPosition's scaled port location whenever the
+            // symbol renders at a non-48px size (any non-default drawing scale/multiplier).
+            const { ox: portOx, oy: portOy } = getScaledPortOffset(symbolId, port, sz, sz, 1);
+            const rot = rotateOffset(portOx, portOy, 0);
             const portAbsX = x + rot.x;
             const portAbsY = y + rot.y;
             for (const [ex, ey] of [
@@ -698,7 +724,12 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           // Step 2b: Body snap fallback (mid-pipe placement).
           if (!endpointSnapped) {
             for (const port of portsToSnap) {
-              const rot = rotateOffset(port.offsetX, port.offsetY, 0);
+              // Snap detection must use the symbol's actual rendered size (sz), not the
+            // ±24px reference offsets defined for a 48px symbol — otherwise the snap
+            // point diverges from getPortPosition's scaled port location whenever the
+            // symbol renders at a non-48px size (any non-default drawing scale/multiplier).
+            const { ox: portOx, oy: portOy } = getScaledPortOffset(symbolId, port, sz, sz, 1);
+            const rot = rotateOffset(portOx, portOy, 0);
               const portAbsX = x + rot.x;
               const portAbsY = y + rot.y;
               const { x: sx, y: sy, t } = closestPointOnSegment(
@@ -717,23 +748,58 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
             }
           }
         } else {
-          // Elbow, tee, custom: body snap on the selected pipe only.
+          // Elbow, tee, custom: try an endpoint snap first — the port's actual
+          // rendered offset is only a few px (SCHEMATIC_SYMBOL_PX-scaled), so a
+          // click at/near a pipe's tip can otherwise land inside the body-snap's
+          // SNAP_T_MIN/MAX exclusion zone and be wrongly treated as unconnected.
+          let endpointSnapped = false;
           for (const port of portsToSnap) {
-            const rot = rotateOffset(port.offsetX, port.offsetY, 0);
+            const { ox: portOx, oy: portOy } = getScaledPortOffset(symbolId, port, sz, sz, 1);
+            const rot = rotateOffset(portOx, portOy, 0);
             const portAbsX = x + rot.x;
             const portAbsY = y + rot.y;
-            const { x: sx, y: sy, t } = closestPointOnSegment(
-              portAbsX, portAbsY, tp.startX, tp.startY, tp.endX, tp.endY
-            );
-            const d = distance(portAbsX, portAbsY, sx, sy);
-            if (d < bestDist && t > SNAP_T_MIN && t < SNAP_T_MAX) {
-              bestDist = d;
-              bestPipeId = tp.id;
-              bestSnapX = sx;
-              bestSnapY = sy;
-              bestElX = sx - rot.x;
-              bestElY = sy - rot.y;
-              snapped = true;
+            for (const [ex, ey] of [
+              [tp.startX, tp.startY],
+              [tp.endX,   tp.endY  ],
+            ] as [number, number][]) {
+              const d = distance(portAbsX, portAbsY, ex, ey);
+              if (d < bestDist) {
+                bestDist = d;
+                bestPipeId = tp.id;
+                bestSnapX = ex;
+                bestSnapY = ey;
+                bestElX = ex - rot.x;
+                bestElY = ey - rot.y;
+                snapped = true;
+                endpointSnapped = true;
+              }
+            }
+          }
+
+          // Body snap fallback (mid-pipe placement).
+          if (!endpointSnapped) {
+            for (const port of portsToSnap) {
+              // Snap detection must use the symbol's actual rendered size (sz), not the
+              // ±24px reference offsets defined for a 48px symbol — otherwise the snap
+              // point diverges from getPortPosition's scaled port location whenever the
+              // symbol renders at a non-48px size (any non-default drawing scale/multiplier).
+              const { ox: portOx, oy: portOy } = getScaledPortOffset(symbolId, port, sz, sz, 1);
+              const rot = rotateOffset(portOx, portOy, 0);
+              const portAbsX = x + rot.x;
+              const portAbsY = y + rot.y;
+              const { x: sx, y: sy, t } = closestPointOnSegment(
+                portAbsX, portAbsY, tp.startX, tp.startY, tp.endX, tp.endY
+              );
+              const d = distance(portAbsX, portAbsY, sx, sy);
+              if (d < bestDist && t > SNAP_T_MIN && t < SNAP_T_MAX) {
+                bestDist = d;
+                bestPipeId = tp.id;
+                bestSnapX = sx;
+                bestSnapY = sy;
+                bestElX = sx - rot.x;
+                bestElY = sy - rot.y;
+                snapped = true;
+              }
             }
           }
         }
@@ -807,8 +873,10 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         if (isBackflowRiskElement(placedEl)) {
           showDcvToast(placedEl.id, placedEl.x, placedEl.y, bestPipeId);
         }
+        if (!TERMINAL_SYMBOL_IDS.has(symbolId)) maybeResumePipeChain(placedEl, x, y);
       } else {
         addElement(el);
+        maybeResumePipeChain(el, x, y);
       }
 
       // Bidet proximity nudge
@@ -831,7 +899,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         if (nearTap) showBidetToast(nearTap.id, nearTap.x, nearTap.y);
       }
     },
-    [addElement, insertElementOnPipe, insertElementOnPipeInline, setPendingTee, setPendingElbow, setPendingFlip, showBidetToast, showDcvToast]
+    [addElement, insertElementOnPipe, insertElementOnPipeInline, setPendingTee, setPendingElbow, setPendingFlip, showBidetToast, showDcvToast, maybeResumePipeChain]
   );
 
 
@@ -865,7 +933,8 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       if (pendingTee.snapped) {
         const inletPort = (SYMBOL_PORTS['tee_junction'] ?? [])[primaryInletIndex];
         if (inletPort) {
-          const rot = rotateOffset(inletPort.offsetX, inletPort.offsetY, rotation);
+          const { ox, oy } = getScaledPortOffset('tee_junction', inletPort, pendingTee.element.width, pendingTee.element.height, 1);
+          const rot = rotateOffset(ox, oy, rotation);
           elX = pendingTee.snapX - rot.x;
           elY = pendingTee.snapY - rot.y;
         }
@@ -885,10 +954,11 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       } else {
         addElement(finalEl);
       }
+      maybeResumePipeChain(finalEl, pendingTee.snapX, pendingTee.snapY);
       setPendingTee(null);
       teeConfirmedRef.current = false;
     },
-    [pendingTee, addElement, insertElementOnPipe]
+    [pendingTee, addElement, insertElementOnPipe, maybeResumePipeChain]
   );
 
   const handleElbowPortConfirm = useCallback(
@@ -902,7 +972,8 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       if (pendingElbow.snapped) {
         const inletPort = (SYMBOL_PORTS['elbow_bend'] ?? [])[upstreamPortIndex];
         if (inletPort) {
-          const rot = rotateOffset(inletPort.offsetX, inletPort.offsetY, rotation);
+          const { ox, oy } = getScaledPortOffset('elbow_bend', inletPort, pendingElbow.element.width, pendingElbow.element.height, 1);
+          const rot = rotateOffset(ox, oy, rotation);
           elX = pendingElbow.snapX - rot.x;
           elY = pendingElbow.snapY - rot.y;
         }
@@ -916,9 +987,10 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       } else {
         addElement(finalEl);
       }
+      maybeResumePipeChain(finalEl, pendingElbow.snapX, pendingElbow.snapY);
       setPendingElbow(null);
     },
-    [pendingElbow, addElement, insertElementOnPipe]
+    [pendingElbow, addElement, insertElementOnPipe, maybeResumePipeChain]
   );
 
   const handleFlipConfirm = useCallback(
@@ -936,7 +1008,8 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           const inletPort = (SYMBOL_PORTS[symbolId] ?? []).find((p) => p.role === 'upstream');
           if (inletPort) {
             const sx = scaleX ?? 1;
-            const rot = rotateOffset(inletPort.offsetX * sx, inletPort.offsetY, rotation);
+            const { ox, oy } = getScaledPortOffset(symbolId, inletPort, finalEl.width, finalEl.height, sx);
+            const rot = rotateOffset(ox, oy, rotation);
             elX = pendingFlip.snapX - rot.x;
             elY = pendingFlip.snapY - rot.y;
           }
@@ -951,7 +1024,8 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           const inletPort = (SYMBOL_PORTS[symbolId] ?? []).find((p) => p.role === 'upstream');
           if (inletPort) {
             const sx = scaleX ?? 1;
-            const rot = rotateOffset(inletPort.offsetX * sx, inletPort.offsetY, rotation);
+            const { ox, oy } = getScaledPortOffset(symbolId, inletPort, finalEl.width, finalEl.height, sx);
+            const rot = rotateOffset(ox, oy, rotation);
             elX = pendingFlip.snapX - rot.x;
             elY = pendingFlip.snapY - rot.y;
           }
@@ -1439,7 +1513,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         <PipeDraftLayer
           anchorPoint={anchorPoint}
           previewEnd={previewEnd}
-          isActive={isDrawingPipe}
+          isActive={isDrawingPipe && !draggingSymbolId}
           activeTool={activeTool}
         />
       </Stage>

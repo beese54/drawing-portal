@@ -33,6 +33,7 @@ export function useCanvasInteraction() {
 
   const [drawState, setDrawState] = useState<PipeDrawState>('idle');
   const [anchorPoint, setAnchorPoint] = useState<{ x: number; y: number } | null>(null);
+  const [anchorPortRef, setAnchorPortRef] = useState<{ elementId: string; portIndex: number } | null>(null);
   const [previewEnd, setPreviewEnd] = useState<{ x: number; y: number } | null>(null);
   const [shiftHeld, setShiftHeld] = useState(false);
 
@@ -56,6 +57,7 @@ export function useCanvasInteraction() {
     if (!isPipeTool) {
       setDrawState('idle');
       setAnchorPoint(null);
+      setAnchorPortRef(null);
       setPreviewEnd(null);
     } else {
       setDrawState('waiting_first');
@@ -101,6 +103,7 @@ export function useCanvasInteraction() {
 
       if (drawState === 'waiting_first') {
         setAnchorPoint({ x, y });
+        setAnchorPortRef(nearPort ? { elementId: nearPort.elementId, portIndex: nearPort.portIndex } : null);
         setPreviewEnd({ x, y });
         setDrawState('waiting_second');
       } else if (drawState === 'waiting_second' && anchorPoint) {
@@ -115,6 +118,10 @@ export function useCanvasInteraction() {
           startY: anchorPoint.y,
           endX: end.x,
           endY: end.y,
+          startElementId: anchorPortRef?.elementId,
+          startPortIndex: anchorPortRef?.portIndex,
+          endElementId: nearPort?.elementId,
+          endPortIndex: nearPort?.portIndex,
         };
         addPipe(pipe);
         setSelected(pipe.id);
@@ -129,11 +136,12 @@ export function useCanvasInteraction() {
 
         // Resume chaining immediately from the end point
         setAnchorPoint(end);
+        setAnchorPortRef(nearPort ? { elementId: nearPort.elementId, portIndex: nearPort.portIndex } : null);
         setPreviewEnd(end);
         setDrawState('waiting_second');
       }
     },
-    [isPipeTool, drawState, anchorPoint, applyConstraint, addPipe, activeTool]
+    [isPipeTool, drawState, anchorPoint, anchorPortRef, applyConstraint, addPipe, activeTool]
   );
 
   const handleCanvasMouseMove = useCallback(
@@ -145,6 +153,20 @@ export function useCanvasInteraction() {
     [drawState, applyConstraint]
   );
 
+  // Re-arms the pipe tool's chaining state from an external point (e.g. the
+  // outlet port of a fitting just placed mid-chain) so the next canvas click
+  // continues the run without the user re-clicking the pipe tool.
+  const resumeChainFrom = useCallback(
+    (x: number, y: number, portRef?: { elementId: string; portIndex: number }) => {
+      if (!isPipeTool) return;
+      setAnchorPoint({ x, y });
+      setAnchorPortRef(portRef ?? null);
+      setPreviewEnd({ x, y });
+      setDrawState('waiting_second');
+    },
+    [isPipeTool]
+  );
+
   return {
     isDrawingPipe: isPipeTool,
     drawState,
@@ -152,5 +174,6 @@ export function useCanvasInteraction() {
     previewEnd,
     handleCanvasClick,
     handleCanvasMouseMove,
+    resumeChainFrom,
   };
 }

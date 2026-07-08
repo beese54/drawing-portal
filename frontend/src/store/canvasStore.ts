@@ -1,7 +1,58 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { AnnotationElement, CanvasElement, PipeElement, TankProperties, AXIS_WIDTH } from '../types';
-import { SYMBOL_PORTS, getElementPorts, rotateOffset } from '../utils/symbolPorts';
+import { SYMBOL_PORTS, getElementPorts, getPortPosition, findElementPortIndexAt, rotateOffset } from '../utils/symbolPorts';
+
+// A connected pipe endpoint sits essentially exactly on its port (aside from
+// float rounding) — this must stay tight. Symbols render at only ~6px with
+// ports ~3px from center, so a looser radius can wrongly capture a nearby,
+// unrelated pipe endpoint that just happens to be close by.
+const PORT_MATCH = 0.5;
+
+/**
+ * Single sync point for "an element moved/rotated/flipped/resized — bring its
+ * connected pipe endpoints along". Any pipe endpoint bound to `newElement`'s id
+ * (via startElementId/endElementId + …PortIndex) is recomputed exactly from the
+ * new element state. Unbound endpoints (legacy data, or pipes never explicitly
+ * connected) fall back to matching the old port position by proximity, same as
+ * the pre-migration behavior.
+ */
+function syncConnectedPipeEndpoints(
+  pipes: PipeElement[],
+  oldElement: CanvasElement,
+  newElement: CanvasElement,
+): PipeElement[] {
+  const oldPorts = getElementPorts(oldElement).map((port) => getPortPosition(oldElement, port));
+  const newPorts = getElementPorts(newElement).map((port) => getPortPosition(newElement, port));
+
+  return pipes.map((pipe) => {
+    let { startX, startY, endX, endY } = pipe;
+
+    if (pipe.startElementId === newElement.id && pipe.startPortIndex !== undefined && newPorts[pipe.startPortIndex]) {
+      ({ x: startX, y: startY } = newPorts[pipe.startPortIndex]);
+    } else if (pipe.startElementId === undefined) {
+      for (let i = 0; i < oldPorts.length; i++) {
+        if (Math.hypot(startX - oldPorts[i].x, startY - oldPorts[i].y) < PORT_MATCH) {
+          ({ x: startX, y: startY } = newPorts[i]);
+          break;
+        }
+      }
+    }
+
+    if (pipe.endElementId === newElement.id && pipe.endPortIndex !== undefined && newPorts[pipe.endPortIndex]) {
+      ({ x: endX, y: endY } = newPorts[pipe.endPortIndex]);
+    } else if (pipe.endElementId === undefined) {
+      for (let i = 0; i < oldPorts.length; i++) {
+        if (Math.hypot(endX - oldPorts[i].x, endY - oldPorts[i].y) < PORT_MATCH) {
+          ({ x: endX, y: endY } = newPorts[i]);
+          break;
+        }
+      }
+    }
+
+    return { ...pipe, startX, startY, endX, endY };
+  });
+}
 
 interface Clipboard {
   elements: CanvasElement[];
@@ -70,7 +121,7 @@ interface CanvasStore {
   loadSchematic: (elements: CanvasElement[], pipes: PipeElement[]) => void;
   appendTemplate: (elements: CanvasElement[], pipes: PipeElement[], annotations?: AnnotationElement[]) => void;
   updateElementPosition: (id: string, x: number, y: number) => void;
-  moveElement: (id: string, newX: number, newY: number, oldPorts: { x: number; y: number }[], newPorts: { x: number; y: number }[]) => void;
+  moveElement: (id: string, newX: number, newY: number) => void;
   moveMultiple: (elementIds: string[], dx: number, dy: number, pipeIds?: string[], annotationIds?: string[]) => void;
   updateElementRotation: (id: string, rotation: number) => void;
   updateElementScaleX: (id: string, scaleX: number) => void;
@@ -193,27 +244,15 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         elements: state.elements.map((el) => el.id === id ? { ...el, x, y } : el),
       })),
 
-    moveElement: (id, newX, newY, oldPorts, newPorts) => {
+    moveElement: (id, newX, newY) => {
       pushHistory();
       set((state) => {
-        // A connected pipe endpoint sits essentially exactly on its port (aside from
-        // float rounding) — this must stay tight. Symbols render at only ~6px with
-        // ports ~3px from center, so a looser radius can wrongly capture a nearby,
-        // unrelated pipe endpoint that just happens to be close by.
-        const MATCH = 0.5;
-        const updatedPipes = state.pipes.map((pipe) => {
-          let { startX, startY, endX, endY } = pipe;
-          for (let i = 0; i < oldPorts.length; i++) {
-            const op = oldPorts[i];
-            const np = newPorts[i];
-            if (Math.hypot(startX - op.x, startY - op.y) < MATCH) { startX = np.x; startY = np.y; }
-            if (Math.hypot(endX - op.x, endY - op.y) < MATCH)     { endX = np.x;   endY = np.y;   }
-          }
-          return { ...pipe, startX, startY, endX, endY };
-        });
+        const oldEl = state.elements.find((e) => e.id === id);
+        if (!oldEl) return {};
+        const newEl = { ...oldEl, x: newX, y: newY };
         return {
-          elements: state.elements.map((el) => el.id === id ? { ...el, x: newX, y: newY } : el),
-          pipes: updatedPipes,
+          elements: state.elements.map((e) => e.id === id ? newEl : e),
+          pipes: syncConnectedPipeEndpoints(state.pipes, oldEl, newEl),
         };
       });
     },
@@ -226,37 +265,21 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         const pipeIdSet = new Set(pipeIds);
         const annIdSet = new Set(annotationIds);
         const selectedEls = state.elements.filter((e) => idSet.has(e.id));
-        // Kept tight (see moveElement above) — a looser radius at this symbol scale
-        // wrongly sweeps in nearby, unrelated pipe endpoints on group drag.
-        const MATCH = 0.5;
-
-        const oldPorts: { x: number; y: number }[] = [];
-        for (const el of selectedEls) {
-          const ports = SYMBOL_PORTS[el.symbolId] ?? [];
-          for (const port of ports) {
-            const rot = rotateOffset(port.offsetX * (el.scaleX ?? 1), port.offsetY, el.rotation);
-            oldPorts.push({ x: el.x + rot.x, y: el.y + rot.y });
-          }
-        }
 
         const newElements = state.elements.map((el) =>
           idSet.has(el.id) ? { ...el, x: el.x + dx, y: el.y + dy } : el
         );
 
-        const newPipes = state.pipes.map((pipe) => {
-          if (pipeIdSet.has(pipe.id)) {
-            return { ...pipe, startX: pipe.startX + dx, startY: pipe.startY + dy, endX: pipe.endX + dx, endY: pipe.endY + dy };
-          }
-          let { startX, startY, endX, endY } = pipe;
-          let startMoved = false;
-          let endMoved = false;
-          for (const op of oldPorts) {
-            if (!startMoved && Math.hypot(startX - op.x, startY - op.y) < MATCH) { startX += dx; startY += dy; startMoved = true; }
-            if (!endMoved  && Math.hypot(endX   - op.x, endY   - op.y) < MATCH) { endX   += dx; endY   += dy; endMoved   = true; }
-            if (startMoved && endMoved) break;
-          }
-          return { ...pipe, startX, startY, endX, endY };
-        });
+        let newPipes = state.pipes.map((pipe) =>
+          pipeIdSet.has(pipe.id)
+            ? { ...pipe, startX: pipe.startX + dx, startY: pipe.startY + dy, endX: pipe.endX + dx, endY: pipe.endY + dy }
+            : pipe
+        );
+
+        for (const oldEl of selectedEls) {
+          const newEl = newElements.find((e) => e.id === oldEl.id)!;
+          newPipes = syncConnectedPipeEndpoints(newPipes, oldEl, newEl);
+        }
 
         const newAnnotations = state.annotations.map((a) =>
           annIdSet.has(a.id) ? { ...a, x: a.x + dx, y: a.y + dy } : a
@@ -268,31 +291,27 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
 
     updateElementRotation: (id, rotation) => {
       pushHistory();
-      set((state) => ({
-        elements: state.elements.map((e) => e.id === id ? { ...e, rotation } : e),
-      }));
+      set((state) => {
+        const oldEl = state.elements.find((e) => e.id === id);
+        if (!oldEl) return {};
+        const newEl = { ...oldEl, rotation };
+        return {
+          elements: state.elements.map((e) => e.id === id ? newEl : e),
+          pipes: syncConnectedPipeEndpoints(state.pipes, oldEl, newEl),
+        };
+      });
     },
 
     updateElementScaleX: (id, scaleX) => {
       pushHistory();
       set((state) => {
-        const el = state.elements.find((e) => e.id === id);
-        if (!el) return {};
-        const ports = getElementPorts(el);
-        // Kept tight (see moveElement above) for the same reason.
-        const MATCH = 0.5;
-        const oldPorts = ports.map((port) => { const rot = rotateOffset(port.offsetX * (el.scaleX ?? 1), port.offsetY, el.rotation); return { x: el.x + rot.x, y: el.y + rot.y }; });
-        const newPorts = ports.map((port) => { const rot = rotateOffset(port.offsetX * scaleX,            port.offsetY, el.rotation); return { x: el.x + rot.x, y: el.y + rot.y }; });
-        const updatedPipes = state.pipes.map((pipe) => {
-          let { startX, startY, endX, endY } = pipe;
-          for (let i = 0; i < oldPorts.length; i++) {
-            const op = oldPorts[i]; const np = newPorts[i];
-            if (Math.hypot(startX - op.x, startY - op.y) < MATCH) { startX = np.x; startY = np.y; }
-            if (Math.hypot(endX   - op.x, endY   - op.y) < MATCH) { endX   = np.x; endY   = np.y; }
-          }
-          return { ...pipe, startX, startY, endX, endY };
-        });
-        return { elements: state.elements.map((e) => e.id === id ? { ...e, scaleX } : e), pipes: updatedPipes };
+        const oldEl = state.elements.find((e) => e.id === id);
+        if (!oldEl) return {};
+        const newEl = { ...oldEl, scaleX };
+        return {
+          elements: state.elements.map((e) => e.id === id ? newEl : e),
+          pipes: syncConnectedPipeEndpoints(state.pipes, oldEl, newEl),
+        };
       });
     },
 
@@ -331,10 +350,19 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
       set((state) => {
         const orig = state.pipes.find((p) => p.id === pipeId);
         if (!orig) return { elements: [...state.elements, element] };
-        const pipeA: PipeElement = { id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY };
+        const portIndex = findElementPortIndexAt(element, snapX, snapY);
+        const pipeA: PipeElement = {
+          id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY,
+          startElementId: orig.startElementId, startPortIndex: orig.startPortIndex,
+          endElementId: element.id, endPortIndex: portIndex,
+        };
         const newPipes = terminatePipe
           ? [...state.pipes.filter((p) => p.id !== pipeId), pipeA]
-          : [...state.pipes.filter((p) => p.id !== pipeId), pipeA, { id: crypto.randomUUID(), pipeType: orig.pipeType, startX: snapX, startY: snapY, endX: orig.endX, endY: orig.endY } as PipeElement];
+          : [...state.pipes.filter((p) => p.id !== pipeId), pipeA, {
+              id: crypto.randomUUID(), pipeType: orig.pipeType, startX: snapX, startY: snapY, endX: orig.endX, endY: orig.endY,
+              startElementId: element.id, startPortIndex: portIndex,
+              endElementId: orig.endElementId, endPortIndex: orig.endPortIndex,
+            } as PipeElement];
         return { elements: [...state.elements, element], pipes: newPipes };
       });
     },
@@ -347,13 +375,23 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         const origDx = orig.endX - orig.startX;
         const origDy = orig.endY - orig.startY;
         const newPipes: PipeElement[] = state.pipes.filter((p) => p.id !== pipeId);
+        const inletPortIndex = findElementPortIndexAt(element, inletPos.x, inletPos.y);
+        const outletPortIndex = findElementPortIndexAt(element, outletPos.x, outletPos.y);
         const pipeALen = Math.hypot(inletPos.x - orig.startX, inletPos.y - orig.startY);
-        if (pipeALen > 1) newPipes.push({ id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: inletPos.x, endY: inletPos.y });
+        if (pipeALen > 1) newPipes.push({
+          id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: inletPos.x, endY: inletPos.y,
+          startElementId: orig.startElementId, startPortIndex: orig.startPortIndex,
+          endElementId: element.id, endPortIndex: inletPortIndex,
+        });
         const pipeBdx = orig.endX - outletPos.x;
         const pipeBdy = orig.endY - outletPos.y;
         const pipeBLen = Math.hypot(pipeBdx, pipeBdy);
         const sameDir = pipeBdx * origDx + pipeBdy * origDy >= 0;
-        if (pipeBLen > 1 && sameDir) newPipes.push({ id: crypto.randomUUID(), pipeType: orig.pipeType, startX: outletPos.x, startY: outletPos.y, endX: orig.endX, endY: orig.endY });
+        if (pipeBLen > 1 && sameDir) newPipes.push({
+          id: crypto.randomUUID(), pipeType: orig.pipeType, startX: outletPos.x, startY: outletPos.y, endX: orig.endX, endY: orig.endY,
+          startElementId: element.id, startPortIndex: outletPortIndex,
+          endElementId: orig.endElementId, endPortIndex: orig.endPortIndex,
+        });
         return { elements: [...state.elements, element], pipes: newPipes };
       });
     },
@@ -567,8 +605,21 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         dy = target.y - cy;
       }
 
-      const newElements: CanvasElement[] = state.clipboard.elements.map((el) => ({ ...el, id: crypto.randomUUID(), x: el.x + dx, y: el.y + dy }));
-      const newPipes: PipeElement[] = state.clipboard.pipes.map((pipe) => ({ ...pipe, id: crypto.randomUUID(), startX: pipe.startX + dx, startY: pipe.startY + dy, endX: pipe.endX + dx, endY: pipe.endY + dy }));
+      const idMap = new Map<string, string>();
+      const newElements: CanvasElement[] = state.clipboard.elements.map((el) => {
+        const newId = crypto.randomUUID();
+        idMap.set(el.id, newId);
+        return { ...el, id: newId, x: el.x + dx, y: el.y + dy };
+      });
+      // Pipe endpoint element references only make sense if the referenced element
+      // was copied too (and thus has a mapped new id) — otherwise drop to "unbound".
+      const newPipes: PipeElement[] = state.clipboard.pipes.map((pipe) => ({
+        ...pipe,
+        id: crypto.randomUUID(),
+        startX: pipe.startX + dx, startY: pipe.startY + dy, endX: pipe.endX + dx, endY: pipe.endY + dy,
+        startElementId: pipe.startElementId ? idMap.get(pipe.startElementId) : undefined,
+        endElementId: pipe.endElementId ? idMap.get(pipe.endElementId) : undefined,
+      }));
       set({
         elements: [...state.elements, ...newElements],
         pipes: [...state.pipes, ...newPipes],
