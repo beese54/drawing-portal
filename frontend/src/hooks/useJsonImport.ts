@@ -7,7 +7,6 @@ function importTankProperties(tp: ExportedTankProperties): TankProperties {
   const num = (v: number | null): number | undefined => (v !== null ? v : undefined);
   return {
     ...(tp.material !== null && { material: tp.material }),
-    ...(tp.pressure_vessel_present !== null && { pressureVesselPresent: tp.pressure_vessel_present }),
     ...(tp.is_sunken_tank !== null && { isSunkenTank: tp.is_sunken_tank }),
     ...(tp.length_m !== null && { lengthM: num(tp.length_m) }),
     ...(tp.width_m !== null && { widthM: num(tp.width_m) }),

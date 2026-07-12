@@ -77,7 +77,6 @@ function exportTankProperties(props: TankProperties | undefined): ExportedTankPr
   const num = (v: number | undefined): number | null => (typeof v === 'number' ? v : null);
   return {
     material:                   p.material ?? null,
-    pressure_vessel_present:    typeof p.pressureVesselPresent === 'boolean' ? p.pressureVesselPresent : null,
     length_m:                   num(p.lengthM),
     width_m:                    num(p.widthM),
     height_m:                   num(p.heightM),

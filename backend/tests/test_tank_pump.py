@@ -23,7 +23,6 @@ def tank(id_="t1", **tp_overrides):
         "inlet_pipe_m_amsl": 29.5,
         "outlet_pipe_diameter_m": 0.08,
         "distance_outlet_to_base_m": 0.08,  # 80 mm — within 75–100 mm
-        "pressure_vessel_present": True,
         "is_sunken_tank": False,
         "occupants": None,
         "effective_capacity_l": None,
@@ -127,6 +126,59 @@ def test_outlet_to_base_out_of_range_fails():
     m = meta([tank(distance_outlet_to_base_m=0.05)])  # 50 mm — below 75 mm minimum
     r = check_tank_pump_installation(m)
     assert any("✗" in d and "outlet" in d.lower() for d in r.detail)
+
+
+# ---------------------------------------------------------------------------
+# Pressure vessel — Rule 5 (auto-detected from schematic, no manual field)
+# ---------------------------------------------------------------------------
+
+def test_pressure_vessel_detected_passes():
+    """A pressure_vessel_schematic symbol reachable from the pump auto-detects as present."""
+    elements = [
+        tank(),
+        pump_("pump1", rated_head=20.0),
+        el("na", "tee_junction"),
+        el("pv1", "pressure_vessel_schematic"),
+    ]
+    pipes = [
+        pipe("p1", "pump1", "na"),
+        pipe("p2", "na", "pv1"),
+    ]
+    m = meta(elements, pipes, pump_discharge_material_acknowledged=True)
+    r = check_tank_pump_installation(m)
+    assert any("✓" in d and "pressure" in d.lower() and "vessel" in d.lower() for d in r.detail)
+
+
+def test_pressure_vessel_far_from_pump_still_detected():
+    """Vessel several fittings away through a manifold — no depth cap on the search."""
+    elements = [
+        tank(),
+        pump_("pump1", rated_head=20.0),
+        el("n1", "tee_junction"),
+        el("n2", "elbow_bend"),
+        el("n3", "check_valve"),
+        el("n4", "tee_junction"),
+        el("n5", "gate_valve"),
+        el("pv1", "pressure_vessel_schematic"),
+    ]
+    pipes = [
+        pipe("p1", "pump1", "n1"),
+        pipe("p2", "n1", "n2"),
+        pipe("p3", "n2", "n3"),
+        pipe("p4", "n3", "n4"),
+        pipe("p5", "n4", "n5"),
+        pipe("p6", "n5", "pv1"),
+    ]
+    m = meta(elements, pipes, pump_discharge_material_acknowledged=True)
+    r = check_tank_pump_installation(m)
+    assert any("✓" in d and "pressure" in d.lower() and "vessel" in d.lower() for d in r.detail)
+
+
+def test_pressure_vessel_absent_warns():
+    """No pressure_vessel_schematic anywhere in the schematic — warns, doesn't fail or skip."""
+    m = base_meta(extra_elements=[pump_("pump1", rated_head=20.0)])
+    r = check_tank_pump_installation(m)
+    assert any("⚠" in d and "pressure" in d.lower() and "vessel" in d.lower() for d in r.detail)
 
 
 # ---------------------------------------------------------------------------

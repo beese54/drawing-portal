@@ -111,6 +111,41 @@ def _check_bypass_line(elements: list[dict], pipes: list[dict]) -> list[str]:
     return results
 
 
+def _auto_detect_pressure_vessel(elements: list[dict], pipes: list[dict]) -> bool:
+    """
+    Detect whether a pressure/hydro-pneumatic vessel symbol is connected to a
+    pump in the schematic, so this can be verified from the drawing instead of
+    relying solely on the manual "Pressure Vessel" checkbox in Tank Properties.
+
+    No depth cap: a vessel can sit many fittings away from the pump through a
+    realistic manifold (flexible connections, elbows, tees, strainers, gate
+    valves), so this checks whole-graph reachability — same approach as the
+    bypass-line search above, rather than a fixed hop limit.
+    """
+    vessel_ids = {e["id"] for e in elements if e.get("symbol_id") == "pressure_vessel_schematic"}
+    pump_ids = [e["id"] for e in elements if e.get("symbol_id") == "pump"]
+    if not vessel_ids or not pump_ids:
+        return False
+
+    adj = build_adjacency(elements, pipes)
+
+    for pump_id in pump_ids:
+        visited = {pump_id}
+        frontier = [pump_id]
+        while frontier:
+            next_frontier: list[str] = []
+            for node in frontier:
+                for nbr in adj.get(node, ()):
+                    if nbr in vessel_ids:
+                        return True
+                    if nbr not in visited:
+                        visited.add(nbr)
+                        next_frontier.append(nbr)
+            frontier = next_frontier
+
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Main check
 # ---------------------------------------------------------------------------
@@ -151,6 +186,7 @@ def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
     sub_statuses: list[str] = []
     skipped_critical: list[str] = []
     pipe_by_id = {p["id"]: p for p in pipes}
+    pressure_vessel_auto = _auto_detect_pressure_vessel(elements, pipes)
 
     for idx, tank in enumerate(tanks, start=1):
         tp: dict = tank.get("tank_properties") or {}
@@ -165,7 +201,6 @@ def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
         inlet_amsl      = tp.get("inlet_pipe_m_amsl")
         outlet_to_base  = tp.get("distance_outlet_to_base_m")
         material        = tp.get("material")
-        pressure_vessel = tp.get("pressure_vessel_present")
         is_sunken       = tp.get("is_sunken_tank")
 
         # Rule 1: overflow diameter > inlet diameter
@@ -290,15 +325,16 @@ def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
             )
             skipped_critical.append(f"[{name}] Required 1-day storage (m³)")
 
-        # Rule 5: pressure vessel (advisory)
-        if pressure_vessel is None:
-            detail.append(f"– [{name}] Pressure vessel presence not specified.")
-        elif pressure_vessel:
-            detail.append(f"✓ [{name}] Pressure/hydro-pneumatic vessel is present.")
+        # Rule 5: pressure vessel — auto-detected from the schematic (pressure_vessel_schematic
+        # symbol connected to a pump).
+        if pressure_vessel_auto:
+            detail.append(
+                f"✓ [{name}] Pressure/hydro-pneumatic vessel symbol detected connected to the pump."
+            )
             sub_statuses.append("PASS")
         else:
             detail.append(
-                f"⚠ [{name}] No pressure vessel installed. Review if a hydro-pneumatic vessel "
+                f"⚠ [{name}] No pressure vessel detected. Review if a hydro-pneumatic vessel "
                 f"is required with the pump manifold to prevent excessive cycling."
             )
             sub_statuses.append("WARN")

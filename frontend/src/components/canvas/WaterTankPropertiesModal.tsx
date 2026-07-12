@@ -201,7 +201,7 @@ export function WaterTankPropertiesModal({ tankId, onClose }: Props) {
           {/* ── LEFT: inputs ─────────────────────────────── */}
           <div style={{ padding: '14px 16px', borderRight: '1px solid #f1f5f9' }}>
 
-            {/* Material + checkboxes on one line */}
+            {/* Material + Sunken Tank checkbox on one line */}
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 10 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <label style={LBL}>Material</label>
@@ -216,11 +216,6 @@ export function WaterTankPropertiesModal({ tankId, onClose }: Props) {
                   ))}
                 </select>
               </div>
-              <CheckField
-                label="Pressure Vessel"
-                checked={draft.pressureVesselPresent ?? false}
-                onChange={(v) => setDraft({ ...draft, pressureVesselPresent: v })}
-              />
               <CheckField
                 label="Sunken Tank"
                 checked={draft.isSunkenTank ?? false}

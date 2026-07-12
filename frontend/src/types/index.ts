@@ -354,7 +354,6 @@ export const TANK_MATERIAL_OPTIONS = [
 export interface TankProperties {
   // Quick-panel
   material?: TankMaterial;
-  pressureVesselPresent?: boolean;
   isSunkenTank?: boolean;
 
   // Dimensions (m) — drive auto-calculated capacity
@@ -540,7 +539,6 @@ export interface ExportedElement {
  */
 export interface ExportedTankProperties {
   material: string | null;
-  pressure_vessel_present: boolean | null;
 
   // Dimensions
   length_m: number | null;
