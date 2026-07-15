@@ -14,6 +14,11 @@ interface CheckboxItem {
   label: string;
   description: string;
   applicable: boolean;
+  /** Whether this item must be checked before Evaluate is enabled. Items the
+   *  compliance engine can verify automatically (appliance/bidet backflow
+   *  protection) are non-blocking — the engine only falls back to this
+   *  acknowledgment if its own automated check can't resolve the assembly. */
+  blocking: boolean;
 }
 
 export function AcknowledgmentModal({ elements, onConfirm, onCancel }: Props) {
@@ -29,36 +34,42 @@ export function AcknowledgmentModal({ elements, onConfirm, onCancel }: Props) {
       label: 'PUB-approved materials',
       description: 'I (LP/PE) confirm that all pipework will be installed using PUB-approved materials and sizes.',
       applicable: true,
+      blocking: true,
     },
     {
       key: 'pumpDischargeMaterialAcknowledged',
       label: 'Pump discharge — non-plastic materials',
       description: 'I (LP/PE) confirm that all pump discharge pipes are made of PUB-approved non-plastic materials (e.g. copper, stainless steel, galvanised steel). Plastic pipes such as PVC/uPVC must NOT be used on pump discharge lines.',
       applicable: hasPump,
+      blocking: true,
     },
     {
       key: 'heaterTypeAcknowledged',
       label: 'Direct-supply heater type',
       description: 'I (LP/PE) confirm that all heaters taking direct supply are mains-pressure type (storage or instantaneous water heaters), as required under SS 636.',
       applicable: hasHeater,
+      blocking: true,
     },
     {
       key: 'applianceCheckValveAcknowledged',
-      label: 'Appliance double check valves — unlisted appliances',
-      description: 'I (LP/PE) confirm that double check valves are installed for any appliances not yet represented in the symbol library (ice maker, coffee maker, refrigerator, balancing tank) where required under SS 636 §8.3.8. Appliances already on the schematic (dishwasher, washing machine, water dispenser, landscape taps) are verified automatically by the compliance engine.',
+      label: 'Appliance double check valves — unlisted appliances (optional)',
+      description: 'Appliances already on the schematic (dishwasher, washing machine, water dispenser, landscape taps) are verified automatically by the compliance engine — you do not need to check this box for those. Only check this if you have appliances not yet represented in the symbol library (ice maker, coffee maker, refrigerator, balancing tank) that need a double check valve under SS 636 §8.3.8.',
       applicable: hasAppliance,
+      blocking: false,
     },
     {
       key: 'bidetVacuumBreakerAcknowledged',
-      label: 'Bidet spray — double check valve equivalent',
-      description: 'Where a double check valve assembly is used in place of the standard vacuum breaker and check valve assembly, I (LP/PE) confirm this is an approved equivalent under SS 636 §8.3.3. Note: the standard vacuum breaker and check valve assembly is verified automatically by the compliance engine.',
+      label: 'Bidet spray — double check valve equivalent (optional)',
+      description: 'The standard vacuum breaker and check valve assembly is verified automatically by the compliance engine — you do not need to check this box if that’s what you’ve drawn. Only check this if you used a double check valve assembly in place of the standard vacuum breaker and check valve assembly, as an approved equivalent under SS 636 §8.3.3.',
       applicable: hasBidet,
+      blocking: false,
     },
     {
       key: 'tankPositionAcknowledged',
       label: 'Tank/pump not below sanitary pipes',
       description: 'I (LP/PE) confirm that tanks and pumps are NOT installed in a position below any sanitary pipe, floor trap, sewer waste pipe, rainwater downpipe, or other non-potable water pipe.',
       applicable: hasTank || hasPump,
+      blocking: true,
     },
   ];
 
@@ -70,7 +81,7 @@ export function AcknowledgmentModal({ elements, onConfirm, onCancel }: Props) {
 
   const [checks, setChecks] = useState<AcknowledgmentFlags>(initialState);
 
-  const allChecked = applicableItems.every((i) => checks[i.key]);
+  const allChecked = applicableItems.filter((i) => i.blocking).every((i) => checks[i.key]);
 
   const toggle = (key: keyof AcknowledgmentFlags) => {
     setChecks((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -161,12 +172,12 @@ export function AcknowledgmentModal({ elements, onConfirm, onCancel }: Props) {
         }}>
           {!allChecked && (
             <span style={{ fontSize: 11, color: '#b45309', flex: 1 }}>
-              Please confirm all items above to proceed.
+              Please confirm all required items above to proceed.
             </span>
           )}
           {allChecked && (
             <span style={{ fontSize: 11, color: '#15803d', flex: 1 }}>
-              All items confirmed — ready to evaluate.
+              Required items confirmed — ready to evaluate.
             </span>
           )}
           <button

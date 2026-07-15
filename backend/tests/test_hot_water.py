@@ -119,6 +119,32 @@ def test_rule64_multiple_appliances_one_protected_one_not():
     assert has_fail_line(r.detail, "Rule 6.4")   # dishwasher fails
 
 
+def test_rule64_all_appliances_protected_no_ack_warn():
+    """
+    Regression: when every appliance already has an automated check_valve pass,
+    the acknowledgment gate must NOT add an extra WARN — a correctly drawn
+    schematic should not require ticking the ack box.
+    """
+    elements = [
+        el("wm1", "washing_machine", backflow_requirement="check_valve"),
+        el("dw1", "dishwasher", backflow_requirement="check_valve"),
+        el("cv1", "check_valve"),
+        el("cv2", "check_valve"),
+    ]
+    pipes = [pipe("p1", "cv1", "wm1"), pipe("p2", "cv2", "dw1")]
+    r = check_hot_water_contamination(meta(elements, pipes))
+    assert not has_warn_line(r.detail, "Rule 6.4")
+    assert not any("acknowledgment" in d.lower() and "6.4" in d for d in r.detail)
+
+
+def test_rule64_unresolved_appliance_still_requires_ack():
+    """When an appliance fails the automated check, the ack gate still applies."""
+    m = meta([el("dw1", "dishwasher", backflow_requirement="check_valve")])
+    r = check_hot_water_contamination(m)
+    assert has_fail_line(r.detail, "Rule 6.4")
+    assert any("acknowledgment" in d.lower() and "6.4" in d for d in r.detail)
+
+
 # ---------------------------------------------------------------------------
 # Rule 6.5 — Bidet spray vacuum breaker
 # ---------------------------------------------------------------------------
@@ -163,6 +189,19 @@ def test_rule65_wrong_assembly_order_fails():
     pipes_ = [pipe("p1", "vb1", "cv1"), pipe("p2", "cv1", "b1")]
     r = check_hot_water_contamination(meta(elements, pipes_))
     assert has_fail_line(r.detail, "Rule 6.5")
+
+
+def test_rule65_correct_assembly_no_ack_warn():
+    """Regression: a correctly drawn bidet assembly must not require the ack checkbox."""
+    elements = [
+        el("b1", "bidet_spray", backflow_requirement="vacuum_breaker"),
+        el("vb1", "vacuum_breaker"),
+        el("cv1", "check_valve"),
+    ]
+    pipes_ = [pipe("p1", "cv1", "vb1"), pipe("p2", "vb1", "b1")]
+    r = check_hot_water_contamination(meta(elements, pipes_))
+    assert not has_warn_line(r.detail, "Rule 6.5")
+    assert not any("acknowledgment" in d.lower() and "6.5" in d for d in r.detail)
 
 
 # ---------------------------------------------------------------------------
