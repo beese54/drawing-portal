@@ -19,34 +19,7 @@ from collections import Counter, defaultdict
 from typing import Any
 from app.agents.compliance_checks import CheckResult
 from app.agents.graph_utils import build_adjacency
-
-
-
-def _bfs_find(
-    adj: dict[str, set[str]],
-    start: str,
-    target_symbol_ids: set[str],
-    elem_by_id: dict[str, dict],
-    max_hops: int = 4,
-) -> tuple[str | None, int]:
-    """BFS from start; returns (element_id, hops) of first matching symbol, or (None, -1)."""
-    visited: set[str] = set()
-    queue: list[tuple[str, int]] = [(start, 0)]
-    while queue:
-        node, dist = queue.pop(0)
-        if node in visited:
-            continue
-        visited.add(node)
-        if dist > 0:
-            el = elem_by_id.get(node, {})
-            if el.get("symbol_id") in target_symbol_ids:
-                return node, dist
-        if dist >= max_hops:
-            continue
-        for nbr in adj.get(node, []):
-            if nbr not in visited:
-                queue.append((nbr, dist + 1))
-    return None, -1
+from app.agents.backflow_assembly import bfs_find as _bfs_find, check_assembly_order, DEFAULT_MAX_HOPS
 
 
 # ---------------------------------------------------------------------------
@@ -105,8 +78,8 @@ def _check_heater_protection(
         name = heater.get("symbol_name", "Water Heater")
         hid = heater["id"]
 
-        cv_id, cv_hops = _bfs_find(adj, hid, {"check_valve"}, elem_by_id, max_hops=4)
-        prv_id, _ = _bfs_find(adj, hid, {"pressure_relief_valve"}, elem_by_id, max_hops=4)
+        cv_id, cv_hops = _bfs_find(adj, hid, {"check_valve"}, elem_by_id)
+        prv_id, _ = _bfs_find(adj, hid, {"pressure_relief_valve"}, elem_by_id)
 
         if cv_id and prv_id:
             lines.append(
@@ -122,7 +95,7 @@ def _check_heater_protection(
             )
         else:
             lines.append(
-                f"✗ Rule 6.3: [{name}] No check valve found within 4 hops of the water heater. "
+                f"✗ Rule 6.3: [{name}] No check valve found within {DEFAULT_MAX_HOPS} hops of the water heater. "
                 f"A check valve (with PRV or as double check valve assembly) is required on the heater inlet "
                 f"to prevent backflow — Reg 28(1)."
             )
@@ -194,26 +167,30 @@ def _check_bidet_vacuum_breaker(
     for el in bidets:
         name = el.get("symbol_name", "Bidet Spray")
         el_id = el["id"]
-        vb_id, vb_hops = _bfs_find(adj, el_id, {"vacuum_breaker"}, elem_by_id, max_hops=5)
-        cv_id, cv_hops = _bfs_find(adj, el_id, {"check_valve"},    elem_by_id, max_hops=5)
+        result = check_assembly_order(
+            el_id, adj, elem_by_id,
+            outer_type="check_valve", inner_type="vacuum_breaker",
+        )
+        cv_id, cv_hops = result.outer_id, result.outer_hops
+        vb_id, vb_hops = result.inner_id, result.inner_hops
 
-        if not vb_id and not cv_id:
+        if result.reason == "missing_both":
             lines.append(
                 f"✗ Rule 6.5: [{name}] No vacuum breaker or check valve detected. "
                 f"A vacuum breaker and check valve assembly must be installed on all bidet spray connections."
             )
-        elif not vb_id:
+        elif result.reason == "missing_inner":
             lines.append(
                 f"✗ Rule 6.5: [{name}] No vacuum breaker found. "
                 f"Both a vacuum breaker AND check valve are required for bidet spray installations."
             )
-        elif not cv_id:
+        elif result.reason == "missing_outer":
             lines.append(
                 f"⚠ Rule 6.5: [{name}] Vacuum breaker detected but no check valve found. "
                 f"Both a vacuum breaker AND check valve are required for bidet spray installations."
             )
-        elif cv_hops <= vb_hops:
-            # check_valve is closer to (or same distance as) bidet_spray than vacuum_breaker —
+        elif result.reason == "wrong_order":
+            # check_valve is not strictly farther from the bidet spray than vacuum_breaker —
             # assembly order is wrong: correct order is inlet → check_valve → vacuum_breaker → bidet_spray.
             lines.append(
                 f"✗ Rule 6.5: [{name}] Assembly order incorrect — check valve must be upstream of "
@@ -296,7 +273,7 @@ def _deduplicate_rule_lines(lines: list[str]) -> list[str]:
 # Main check
 # ---------------------------------------------------------------------------
 
-def check_hot_water_contamination(metadata: dict[str, Any]) -> CheckResult:
+def check_hot_water_contamination(metadata: dict[str, Any], adj: dict[str, set[str]] | None = None) -> CheckResult:
     """
     Section 6 — Hot water / Contamination prevention checks.
 
@@ -313,7 +290,7 @@ def check_hot_water_contamination(metadata: dict[str, Any]) -> CheckResult:
     elements: list[dict] = metadata.get("elements", [])
     pipes: list[dict] = metadata.get("pipes", [])
     elem_by_id = {e["id"]: e for e in elements}
-    adj = build_adjacency(elements, pipes)
+    adj = adj if adj is not None else build_adjacency(elements, pipes)
 
     heaters = [e for e in elements if e.get("symbol_id") == "water_heater"]
     bidets   = [e for e in elements if e.get("symbol_id") == "bidet_spray"]
@@ -384,7 +361,8 @@ def check_hot_water_contamination(metadata: dict[str, Any]) -> CheckResult:
         elif line.startswith("✗"):
             sub_statuses.append("FAIL")
 
-    if appliances:
+    r64_all_resolved = bool(r64_lines) and all(line.startswith("✓") for line in r64_lines)
+    if appliances and not r64_all_resolved:
         appl_ack = metadata.get("appliance_check_valve_acknowledged", False)
         if appl_ack:
             detail.append(
@@ -409,7 +387,8 @@ def check_hot_water_contamination(metadata: dict[str, Any]) -> CheckResult:
         elif line.startswith("✗"):
             sub_statuses.append("FAIL")
 
-    if bidets:
+    r65_all_resolved = bool(r65_lines) and all(line.startswith("✓") for line in r65_lines)
+    if bidets and not r65_all_resolved:
         bidet_ack = metadata.get("bidet_vacuum_breaker_acknowledged", False)
         if bidet_ack:
             detail.append(

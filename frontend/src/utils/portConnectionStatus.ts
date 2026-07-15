@@ -1,8 +1,8 @@
 import type { CanvasElement, PipeElement } from '../types';
-import { getElementPorts, getPortPosition } from './symbolPorts';
+import { getElementPorts, getPortPosition, PORT_MATCH_THRESHOLD_PX } from './symbolPorts';
 
 /** Same threshold used by metadataBuilder for port-to-pipe matching. */
-const PORT_MATCH_THRESHOLD = 2; // px
+const PORT_MATCH_THRESHOLD = PORT_MATCH_THRESHOLD_PX; // px
 
 /**
  * For every element port, determine whether a pipe endpoint lies within

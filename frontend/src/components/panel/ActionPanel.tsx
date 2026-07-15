@@ -93,7 +93,11 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-    await pdfImportFn?.(file);
+    try {
+      await pdfImportFn?.(file);
+    } catch (err) {
+      setEvalError(err instanceof Error ? err.message : 'PDF import failed');
+    }
   };
 
   return (

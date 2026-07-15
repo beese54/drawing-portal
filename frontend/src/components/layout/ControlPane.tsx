@@ -1,7 +1,6 @@
 import { MrlConfigPanel } from '../panel/MrlConfigPanel';
 import { SymbolPalette } from '../panel/SymbolPalette';
 import { ActionPanel } from '../panel/ActionPanel';
-import { SchematicSettingsPanel } from '../panel/SchematicSettingsPanel';
 import { WaterTankPropertiesPanel } from '../panel/WaterTankPropertiesPanel';
 import { useSymbols } from '../../hooks/useSymbols';
 import { useCanvasStore } from '../../store/canvasStore';
@@ -29,7 +28,6 @@ export function ControlPane({ canvasWidth, canvasHeight }: ControlPaneProps) {
       overflowY: 'auto',
       height: '100%',
     }}>
-      <SchematicSettingsPanel />
       {isTankSelected && <WaterTankPropertiesPanel />}
       <MrlConfigPanel />
       <SymbolPalette {...symbolsState} />

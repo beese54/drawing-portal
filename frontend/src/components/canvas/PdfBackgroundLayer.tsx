@@ -59,6 +59,10 @@ export function PdfBackgroundLayer({ dataUrl, x, y, width, height, opacity, rota
           onChange({ x: e.target.x(), y: e.target.y(), width, height });
         }}
         onTransformEnd={() => {
+          // offsetX/offsetY below are recentred from unrotated width/height only —
+          // safe today because the Transformer has rotateEnabled={false}. If rotation
+          // is ever enabled for this layer, resizing a rotated image will recentre
+          // incorrectly and this needs to account for the node's current rotation.
           const node = imageRef.current!;
           const newWidth = Math.max(50, node.width() * node.scaleX());
           const newHeight = Math.max(50, node.height() * node.scaleY());

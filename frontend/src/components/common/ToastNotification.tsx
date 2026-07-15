@@ -142,6 +142,7 @@ export function DcvToastNotification() {
   const toast = useUiStore((s) => s.dcvToast);
   const dismiss = useUiStore((s) => s.dismissDcvToast);
   const insertDcvAssemblies = useCanvasStore((s) => s.insertDcvAssemblies);
+  const allElements = useCanvasStore((s) => s.elements);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -154,7 +155,6 @@ export function DcvToastNotification() {
 
   if (!toast) return null;
 
-  const { elements: allElements } = useCanvasStore.getState();
   const rule = getBackflowRule(allElements.find((e) => e.id === toast.elementId) ?? { symbolId: '' });
   const assemblyLabel = rule === 'vb_and_check_valve' ? 'Gate Valve → CV → Vacuum Breaker' : 'Gate Valve → CV → CV';
   const ruleRef = rule === 'vb_and_check_valve' ? 'SS636 §6.5' : 'SS636 §6.4';

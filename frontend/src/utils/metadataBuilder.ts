@@ -21,7 +21,7 @@ import {
 } from '../types';
 import { pixelToMrl } from './mrlMapping';
 import { distance, angleDeg } from './geometry';
-import { getElementPorts, getPortPosition, getEffectivePortRole, getEffectivePortLabel } from './symbolPorts';
+import { getElementPorts, getPortPosition, getEffectivePortRole, getEffectivePortLabel, PORT_MATCH_THRESHOLD_PX } from './symbolPorts';
 
 // ─── Symbol ID → hydraulic node type ─────────────────────────────────────────
 
@@ -100,7 +100,7 @@ function exportTankProperties(props: TankProperties | undefined): ExportedTankPr
 // ─── Connectivity helpers ─────────────────────────────────────────────────────
 
 /** Max px a pipe endpoint can be from a port and still count as connected. */
-const PORT_MATCH_THRESHOLD = 4;
+const PORT_MATCH_THRESHOLD = PORT_MATCH_THRESHOLD_PX;
 
 interface PortMatch {
   elementId: string;

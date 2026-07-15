@@ -37,7 +37,7 @@ def _find_path_excluding(
     return None
 
 
-def _check_bypass_line(elements: list[dict], pipes: list[dict]) -> list[str]:
+def _check_bypass_line(elements: list[dict], pipes: list[dict], adj: dict[str, set[str]] | None = None) -> list[str]:
     """
     Detect whether a bypass line with a gate valve exists around each pump.
 
@@ -51,7 +51,7 @@ def _check_bypass_line(elements: list[dict], pipes: list[dict]) -> list[str]:
         ]
 
     elem_by_id = {e["id"]: e for e in elements}
-    adj = build_adjacency(elements, pipes)
+    adj = adj if adj is not None else build_adjacency(elements, pipes)
     results: list[str] = []
 
     # A legitimate bypass line routes around a pump without needing another pump to
@@ -111,7 +111,7 @@ def _check_bypass_line(elements: list[dict], pipes: list[dict]) -> list[str]:
     return results
 
 
-def _auto_detect_pressure_vessel(elements: list[dict], pipes: list[dict]) -> bool:
+def _auto_detect_pressure_vessel(elements: list[dict], pipes: list[dict], adj: dict[str, set[str]] | None = None) -> bool:
     """
     Detect whether a pressure/hydro-pneumatic vessel symbol is connected to a
     pump in the schematic, so this can be verified from the drawing instead of
@@ -127,7 +127,7 @@ def _auto_detect_pressure_vessel(elements: list[dict], pipes: list[dict]) -> boo
     if not vessel_ids or not pump_ids:
         return False
 
-    adj = build_adjacency(elements, pipes)
+    adj = adj if adj is not None else build_adjacency(elements, pipes)
 
     for pump_id in pump_ids:
         visited = {pump_id}
@@ -150,7 +150,7 @@ def _auto_detect_pressure_vessel(elements: list[dict], pipes: list[dict]) -> boo
 # Main check
 # ---------------------------------------------------------------------------
 
-def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
+def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[str]] | None = None) -> CheckResult:
     """
     Tank / Pump Installation checks derived from PUB requirements and SS 245/636.
 
@@ -186,7 +186,7 @@ def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
     sub_statuses: list[str] = []
     skipped_critical: list[str] = []
     pipe_by_id = {p["id"]: p for p in pipes}
-    pressure_vessel_auto = _auto_detect_pressure_vessel(elements, pipes)
+    pressure_vessel_auto = _auto_detect_pressure_vessel(elements, pipes, adj)
 
     for idx, tank in enumerate(tanks, start=1):
         tp: dict = tank.get("tank_properties") or {}
@@ -390,7 +390,7 @@ def check_tank_pump_installation(metadata: dict[str, Any]) -> CheckResult:
             sub_statuses.append("WARN")
 
     # Rule 9: bypass line with normally-closed gate valve — topology check (one result per pump)
-    bypass_lines = _check_bypass_line(elements, pipes)
+    bypass_lines = _check_bypass_line(elements, pipes, adj)
     detail.extend(bypass_lines)
     for line in bypass_lines:
         if line.startswith("✓"):

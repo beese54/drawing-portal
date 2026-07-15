@@ -482,7 +482,7 @@ export interface ExportedPort {
   role: 'upstream' | 'downstream';
   label: string | null;
   position: { canvas_x: number; canvas_y: number };
-  mrl: { value: number; unit: 'm' };
+  mrl: { value: number; unit: 'm AMSL' };
   /** ID of the pipe whose endpoint sits on this port, or null if unconnected. */
   connected_pipe_id: string | null;
   /** Element on the other end of the connected pipe (i.e. the adjacent element in the flow graph), or null. */

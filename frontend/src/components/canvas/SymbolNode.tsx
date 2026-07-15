@@ -98,8 +98,8 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
         hitFunc={(ctx, shape) => {
           // Local space origin (0,0) is the image top-left (because offsetX/offsetY shift it).
           // Center the hit rect at (halfW, halfH) to align with the visible symbol.
-          const hw = Math.max(halfW, MIN_HIT_PX / 5);
-          const hh = Math.max(halfH, MIN_HIT_PX / 5);
+          const hw = Math.max(halfW, MIN_HIT_PX / 2);
+          const hh = Math.max(halfH, MIN_HIT_PX / 2);
           ctx.beginPath();
           ctx.rect(halfW - hw, halfH - hh, hw * 2, hh * 2);
           ctx.closePath();

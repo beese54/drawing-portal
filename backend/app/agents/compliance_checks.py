@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 from app.agents.graph_utils import build_adjacency
+from app.agents.backflow_assembly import bfs_find, check_assembly_order
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +102,7 @@ DEFAULT_DEMAND_LPS = 0.1   # fallback if fitting type unknown
 # Check 1 — Regulation 28: backflow prevention
 # ---------------------------------------------------------------------------
 
-def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
+def check_backflow_prevention(metadata: dict[str, Any], adj: dict[str, set[str]] | None = None) -> CheckResult:
     """
     Reg 28(1) + SS636 §6.4/6.5: Backflow prevention for all at-risk elements.
 
@@ -112,13 +113,17 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
 
     Uses BFS over the topology graph (direction-agnostic) so the check works
     regardless of how symbols are rotated or oriented on the canvas.
+
+    `adj` may be passed in as a pre-built adjacency graph (built once per
+    request in evaluate.py) to avoid rebuilding it for every check; if
+    omitted, it's built from `metadata` here.
     """
     elements: list[dict] = metadata.get("elements", [])
     pipes: list[dict] = metadata.get("pipes", [])
 
     elem_by_id: dict[str, dict] = {e["id"]: e for e in elements}
 
-    adjacency = build_adjacency(elements, pipes)
+    adjacency = adj if adj is not None else build_adjacency(elements, pipes)
 
     # backflow_requirement is exported by the frontend — single source of truth for which elements need protection.
     risk_elements = [
@@ -140,59 +145,44 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
     details: list[str] = []
     elements_of_interest: list[dict] = []
 
-    def bfs_find(start_id: str, target_ids: set[str]) -> tuple[int | None, str | None]:
-        visited: set[str] = set()
-        queue: list[tuple[str, int]] = [(start_id, 0)]
-        while queue:
-            current_id, dist = queue.pop(0)
-            if current_id in visited:
-                continue
-            visited.add(current_id)
-            if dist > 0:
-                el = elem_by_id.get(current_id)
-                if el and el.get("symbol_id") in target_ids:
-                    return dist, current_id
-            if dist >= 5:
-                continue
-            for neighbor_id in adjacency.get(current_id, set()):
-                if neighbor_id not in visited:
-                    queue.append((neighbor_id, dist + 1))
-        return None, None
-
     for el in risk_elements:
         el_id = el["id"]
         el_name = el.get("symbol_name", el.get("symbol_id", "Element"))
         sym_id = el.get("symbol_id", "")
 
         if el.get("backflow_requirement") == "vacuum_breaker":
-            # §6.5: needs vacuum_breaker closer than check_valve (inlet → cv → vb → bidet_spray)
-            vb_hops, vb_id = bfs_find(el_id, {"vacuum_breaker"})
-            cv_hops, cv_id = bfs_find(el_id, {"check_valve"})
+            # §6.5: needs check_valve upstream of vacuum_breaker (inlet → cv → vb → bidet_spray)
+            result = check_assembly_order(
+                el_id, adjacency, elem_by_id,
+                outer_type="check_valve", inner_type="vacuum_breaker",
+            )
+            cv_id, cv_hops = result.outer_id, result.outer_hops
+            vb_id, vb_hops = result.inner_id, result.inner_hops
 
-            if vb_hops is None and cv_hops is None:
+            if result.reason == "missing_both":
                 all_pass = False
                 details.append(
                     f"✗ {el_name}: No vacuum breaker or check valve found — "
                     "SS636 §6.5 requires a vacuum breaker + check valve assembly on all bidet spray connections."
                 )
                 elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing assembly!", "color": "red"})
-            elif vb_hops is None:
+            elif result.reason == "missing_inner":
                 all_pass = False
                 details.append(
                     f"✗ {el_name}: No vacuum breaker found — "
                     "SS636 §6.5 requires a vacuum breaker upstream of the bidet spray connection."
                 )
                 elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing vacuum breaker!", "color": "red"})
-            elif cv_hops is None:
+            elif result.reason == "missing_outer":
                 all_pass = False
                 details.append(
                     f"✗ {el_name}: Vacuum breaker found but no check valve — "
                     "SS636 §6.5 requires both a vacuum breaker AND check valve (inlet → CV → VB → bidet spray)."
                 )
                 elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing check valve!", "color": "red"})
-            elif cv_hops < vb_hops:
-                # check_valve is closer to bidet_spray than vacuum_breaker — wrong order
-                # Equal hops means BFS can't determine order; treat as compliant
+            elif result.reason == "wrong_order":
+                # check_valve is not strictly farther from the bidet spray than vacuum_breaker —
+                # wrong order (or tied hop-count, which can't be proven compliant).
                 all_pass = False
                 details.append(
                     f"✗ {el_name}: Assembly order incorrect (check valve {cv_hops} hop(s), vacuum breaker {vb_hops} hop(s)). "
@@ -215,7 +205,7 @@ def check_backflow_prevention(metadata: dict[str, Any]) -> CheckResult:
                     elements_of_interest.append({"element_id": cv_id, "label": "Check Valve", "color": "green"})
         else:
             # Reg 28(1) / §6.4: needs check_valve
-            hops, found_id = bfs_find(el_id, {"check_valve"})
+            found_id, hops = bfs_find(adjacency, el_id, {"check_valve"}, elem_by_id)
             if sym_id == "water_heater":
                 ref = "Reg 28(1)"
                 missing_msg = "Reg 28(1) requires a check valve on the water heater inlet to prevent backflow."

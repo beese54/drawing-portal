@@ -47,6 +47,7 @@ export function NumberInput({ label, value, onChange, min, max, step = 1, unit }
           max={max}
           step={step}
           onChange={handleChange}
+          onKeyDown={(e) => { if (e.key === 'e' || e.key === 'E' || e.key === '+') e.preventDefault(); }}
           style={{
             width: '100%',
             padding: '5px 8px',

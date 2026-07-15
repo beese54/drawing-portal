@@ -18,15 +18,6 @@ export interface WelsRow {
   note?: string | null;
 }
 
-export interface LlmUsage {
-  model: string;
-  provider: string;
-  input_tokens: number;
-  output_tokens: number;
-  cost_usd: number;
-  latency_ms: number;
-}
-
 export interface EvaluationResponse {
   check1_backflow: CheckResult;
   check2_supply_mode: CheckResult;
@@ -36,6 +27,4 @@ export interface EvaluationResponse {
   check6_hot_water: CheckResult;
   check7_section3_pipes: CheckResult;
   annotated_image_b64: string | null;
-  llm_summary: string | null;
-  llm_usage: LlmUsage | null;
 }

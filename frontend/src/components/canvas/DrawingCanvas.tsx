@@ -72,6 +72,13 @@ const TERMINAL_SYMBOL_IDS = new Set([
   'bib_tap_cw_cap_and_lock_schematic',
 ]);
 
+// Symbols that open the generic SymbolPropertiesModal (dual-supply fixtures, MWELS
+// fittings, and pumps). water_tank/long_bath have their own dedicated modals and are
+// checked separately at each call site.
+function isModalEligibleSymbol(symbolId: string): boolean {
+  return DUAL_SUPPLY_SYMBOLS.has(symbolId) || symbolId in FIXTURE_MWELS_CATEGORY || symbolId === 'pump';
+}
+
 /**
  * Infers what fluid type (cold/hot) flows through a given pipe.
  * For cold/hot pipes the answer is direct. For generic pipes the function looks
@@ -590,7 +597,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     } else if (symbolId === 'long_bath') {
       setSymbolPropertiesModalId(null);
       setLongBathPanelId(_id);
-    } else if (DUAL_SUPPLY_SYMBOLS.has(symbolId) || symbolId in FIXTURE_MWELS_CATEGORY || symbolId === 'pump') {
+    } else if (isModalEligibleSymbol(symbolId)) {
       setLongBathPanelId(null);
       setSymbolPropertiesModalId(_id);
     } else {
@@ -1501,9 +1508,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           onElementDblClick={(id) => {
             const el = useCanvasStore.getState().elements.find((e) => e.id === id);
             if (!el) return;
-            const hasDual  = DUAL_SUPPLY_SYMBOLS.has(el.symbolId);
-            const hasMwels = el.symbolId in FIXTURE_MWELS_CATEGORY;
-            if (hasDual || hasMwels || el.symbolId === 'pump') setSymbolPropertiesModalId(id);
+            if (isModalEligibleSymbol(el.symbolId)) setSymbolPropertiesModalId(id);
           }}
           rubberBand={rubberBandRect}
           onAnnotationDblClick={handleAnnotationDblClick}
@@ -1707,10 +1712,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       {symbolPropertiesModalId && (() => {
         const el = useCanvasStore.getState().elements.find((e) => e.id === symbolPropertiesModalId);
         if (!el) return null;
-        const hasDual  = DUAL_SUPPLY_SYMBOLS.has(el.symbolId);
-        const hasMwels = el.symbolId in FIXTURE_MWELS_CATEGORY;
-        const isPump   = el.symbolId === 'pump';
-        if (!hasDual && !hasMwels && !isPump) return null;
+        if (!isModalEligibleSymbol(el.symbolId)) return null;
         if (el.symbolId === 'long_bath') return null;
         const vp = contentToViewport(el.x, el.y);
         const halfWidthVp = ((el.width ?? getSymbolSizePx(sheetConfig.drawingScale)) / 2) * stageScale;

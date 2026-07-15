@@ -24,20 +24,5 @@ export function useSymbols() {
     fetchSymbols();
   }, [fetchSymbols]);
 
-  const uploadSymbol = useCallback(async (file: File, name: string) => {
-    await symbolsApi.upload(file, name);
-    await fetchSymbols();
-  }, [fetchSymbols]);
-
-  const renameSymbol = useCallback(async (symbolId: string, name: string) => {
-    await symbolsApi.rename(symbolId, name);
-    await fetchSymbols();
-  }, [fetchSymbols]);
-
-  const deleteSymbol = useCallback(async (symbolId: string) => {
-    await symbolsApi.delete(symbolId);
-    await fetchSymbols();
-  }, [fetchSymbols]);
-
-  return { symbols, isLoading, error, uploadSymbol, renameSymbol, deleteSymbol, refresh: fetchSymbols };
+  return { symbols, isLoading, error, refresh: fetchSymbols };
 }

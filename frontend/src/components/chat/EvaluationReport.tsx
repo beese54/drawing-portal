@@ -34,7 +34,6 @@ interface Props {
 }
 
 export function EvaluationReport({ result }: Props) {
-  const [summaryOpen, setSummaryOpen] = useState(false);
   // Changing expandMode + version forces cards to remount with the new defaultExpanded
   const [expandMode, setExpandMode] = useState<'default' | 'all' | 'none'>('default');
   const [expandVersion, setExpandVersion] = useState(0);
@@ -125,50 +124,6 @@ export function EvaluationReport({ result }: Props) {
             defaultExpanded={defaultExpandedFor(entry.check.status)}
           />
         ))}
-
-        {/* AI summary — collapsible */}
-        {result.llm_summary && (
-          <div
-            style={{
-              background: '#1e293b',
-              borderRadius: 10,
-              padding: '12px 16px',
-              border: '1px solid #334155',
-            }}
-          >
-            <button
-              onClick={() => setSummaryOpen((v) => !v)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#93c5fd',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <span>{summaryOpen ? '▾' : '▸'}</span>
-              AI Professional Summary
-            </button>
-            {summaryOpen && (
-              <p
-                style={{
-                  marginTop: 10,
-                  fontSize: 13,
-                  color: '#cbd5e1',
-                  lineHeight: 1.7,
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {result.llm_summary}
-              </p>
-            )}
-          </div>
-        )}
       </div>
     </EvalErrorBoundary>
   );

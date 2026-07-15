@@ -1,12 +1,20 @@
 import { CanvasElement } from '../types';
 
+/**
+ * Canonical "is this port connected" distance threshold, in px. Shared by
+ * portConnectionStatus.ts (pre-export warning), metadataBuilder.ts (export-time
+ * port-to-pipe matching), and ChatWindow.tsx (Evaluate-tab pre-check) so the
+ * three can't independently drift on what "connected" means.
+ */
+export const PORT_MATCH_THRESHOLD_PX = 2;
+
 export interface SymbolPortDef {
   role: 'upstream' | 'downstream';
   offsetX: number;
   offsetY: number;
   label?: string;
   /** Enforce a minimum canvas-space |offsetX| in px.
-   *  Must be > PORT_MATCH_THRESHOLD (4 px) so a center-placed pipe cannot
+   *  Must be > PORT_MATCH_THRESHOLD_PX so a center-placed pipe cannot
    *  accidentally satisfy both dual supply ports. */
   minCanvasOffsetX?: number;
 }
@@ -441,7 +449,7 @@ export function findNearestPort(
   elements: CanvasElement[],
   threshold: number,
   preferLabel?: string,
-  labelThreshold = 4,
+  labelThreshold = 16,
 ): NearestPortResult | null {
   let best: NearestPortResult | null = null;
   let bestDist = threshold;

@@ -130,7 +130,10 @@ export function MrlConfigPanel() {
             step={0.01}
             onChange={(e) => setNewFfl(e.target.value)}
             placeholder="m AM"
-            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+            onKeyDown={(e) => {
+              if (e.key === 'e' || e.key === 'E' || e.key === '+') e.preventDefault();
+              else if (e.key === 'Enter') handleAdd();
+            }}
             style={{
               width: 64, flexShrink: 0, fontSize: 11, padding: '4px 6px',
               border: '1px solid #bbb', borderRadius: 4, minWidth: 0,
@@ -138,7 +141,7 @@ export function MrlConfigPanel() {
           />
           <button
             onClick={handleAdd}
-            disabled={!newName.trim() || newFfl === ''}
+            disabled={!newName.trim() || newFfl === '' || isNaN(parseFloat(newFfl))}
             title="Add floor level"
             style={{
               border: 'none', borderRadius: 4, padding: '4px 8px',

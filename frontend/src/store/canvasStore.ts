@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { AnnotationElement, CanvasElement, PipeElement, TankProperties, AXIS_WIDTH } from '../types';
-import { SYMBOL_PORTS, getElementPorts, getPortPosition, findElementPortIndexAt, rotateOffset } from '../utils/symbolPorts';
+import { getElementPorts, getPortPosition, findElementPortIndexAt } from '../utils/symbolPorts';
 
 // A connected pipe endpoint sits essentially exactly on its port (aside from
 // float rounding) — this must stay tight. Symbols render at only ~6px with
@@ -565,10 +565,9 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
       const MATCH = 8;
       const selectedPortPositions: { x: number; y: number }[] = [];
       for (const el of selectedEls) {
-        const ports = SYMBOL_PORTS[el.symbolId] ?? [];
+        const ports = getElementPorts(el);
         for (const port of ports) {
-          const rot = rotateOffset(port.offsetX * (el.scaleX ?? 1), port.offsetY, el.rotation);
-          selectedPortPositions.push({ x: el.x + rot.x, y: el.y + rot.y });
+          selectedPortPositions.push(getPortPosition(el, port));
         }
       }
       const isNearSelectedPort = (x: number, y: number) =>

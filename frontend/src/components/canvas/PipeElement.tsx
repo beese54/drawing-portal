@@ -109,7 +109,7 @@ export function PipeElement({
         stroke={color}
         strokeWidth={strokeWidth}
         lineCap="round"
-        onClick={() => setSelected(id)}
+        onClick={(e) => { if (e.evt.button === 0) setSelected(id); }}
         onTap={() => setSelected(id)}
         hitStrokeWidth={8}
       />
