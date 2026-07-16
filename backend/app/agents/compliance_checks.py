@@ -308,6 +308,19 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
     has_pump   = any(e.get("symbol_id") == "pump" for e in elements)
     has_indirect = any(e.get("supply_mode") == "indirect_supply" for e in elements)
 
+    # A tank existing somewhere in the drawing doesn't mean every high fitting is
+    # actually fed from it — a fitting above the direct-supply limit but connected
+    # straight to the mains (bypassing the tank) is its own violation, independent
+    # of whether some other fitting in the drawing is correctly on indirect supply.
+    DIRECT_SUPPLY_LIMIT_M = _SUPPLY_MODE_TABLE[0][0]
+    offending_fittings = [
+        e for e in elements
+        if e.get("node_type") == "water_fitting"
+        and e.get("elevation_m") is not None
+        and e["elevation_m"] > DIRECT_SUPPLY_LIMIT_M
+        and e.get("supply_mode") != "indirect_supply"
+    ]
+
     details: list[str] = [
         f"Highest fitting elevation: {highest_m:.1f} m AMSL (from {elevation_source}).",
         f"Lowest fitting elevation: {lowest_m:.1f} m AMSL.",
@@ -318,6 +331,8 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
         f"  Pump present: {'Yes' if has_pump else 'No'}",
         f"  Indirect supply elements found: {'Yes' if has_indirect else 'No'}",
     ]
+
+    elements_of_interest: list[dict] = []
 
     if required_mode == "direct":
         if has_indirect:
@@ -382,12 +397,39 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
             status = "PASS"
             summary = f"Mode C supply (tank + pump) is present for {highest_m:.1f} m AMSL."
 
+    # Per-fitting bypass check: catches a specific fitting wired straight to the
+    # mains above the direct-supply limit even when the drawing has a tank and
+    # other fittings are correctly on indirect supply elsewhere. Skipped when no
+    # tank exists at all — that case is already reported above ("no tank found").
+    if has_tank and offending_fittings:
+        status = "FAIL"
+        details.append("")
+        details.append(f"Fittings above {DIRECT_SUPPLY_LIMIT_M:.0f} m AMSL bypassing the tank:")
+        for e in offending_fittings:
+            name = e.get("symbol_name", e.get("symbol_id", "Fitting"))
+            elev = e["elevation_m"]
+            reason = "connected directly to the mains" if e.get("supply_mode") == "direct_supply" else "not traceable to the tank's indirect side"
+            details.append(
+                f"✗ {name} at {elev:.1f} m AMSL is above the {DIRECT_SUPPLY_LIMIT_M:.0f} m AMSL direct-supply "
+                f"limit but is {reason} — it must be supplied from the water storage tank."
+            )
+            elements_of_interest.append({
+                "element_id": e["id"],
+                "label": f"{name} — on direct mains supply, not tank!",
+                "color": "red",
+            })
+        summary = (
+            f"{len(offending_fittings)} fitting(s) above {DIRECT_SUPPLY_LIMIT_M:.0f} m AMSL are supplied directly "
+            "from the mains instead of via the water storage tank."
+        )
+
     return CheckResult(
         check_id="SEC221",
         title="Mode of Supply",
         status=status,
         summary=summary,
         detail=details,
+        elements_of_interest=elements_of_interest,
     )
 
 
