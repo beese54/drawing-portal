@@ -5,9 +5,13 @@ Rules:
   6.1  Heat pump supply mode consistency — cold and hot supplies to fittings must be
        via the same mode (both direct or both indirect).
   6.2  Direct-supply heaters must be mains-pressure type — LP/PE acknowledgment.
-  6.3  Water heater protection assembly — check_valve + pressure_relief_valve adjacent
-       to each water_heater (graph check).  If only a check_valve is found (no PRV),
-       the evaluation warns and asks LP/PE to confirm adequacy.
+  6.3  Water heater protection assembly (graph check). Per the WSI Landed
+       checklist: "installed with EITHER check valve and pressure relief
+       valve assembly OR double check valve assembly" — i.e. PASS requires
+       (check_valve AND pressure_relief_valve) OR (two check_valve elements
+       in series, matching the same double-check-valve definition already
+       used for §6.4 appliance assemblies). A single check valve alone
+       (no PRV, not doubled) satisfies neither option.
   6.4  Double check valves for appliances (dishwasher, water_dispenser, washing_machine,
        landscape_tap) — graph check for adjacent check_valve.
   6.5  Bidet sprays — vacuum_breaker adjacent to each bidet element (graph check).
@@ -28,39 +32,77 @@ from app.agents.backflow_assembly import bfs_find as _bfs_find, check_assembly_o
 
 def _check_supply_mode_consistency(elements: list[dict]) -> str:
     """
-    If a water_heater is present, ensure cold and hot supplies are on the same mode.
-    Heuristic: if heaters are on indirect_supply but some fittings are on direct_supply
-    (or vice versa), flag a warning — the hot and cold sides would be on different modes.
+    For every fitting with distinct Hot and Cold ports, its hot and cold supply
+    must come from the same mode (both direct-from-mains or both indirect-via-tank).
+    A fitting fed hot water via a tank/pump/heater but cold water straight from
+    mains (or vice versa) is exactly the cross-connection SS636 6.1 is meant to
+    catch — it's checked per-fitting rather than as a whole-drawing aggregate,
+    since a drawing can legitimately mix direct and indirect zones (e.g. a tank
+    feeding only the water heater) as long as no single fitting's hot and cold
+    disagree.
     """
     heaters = [e for e in elements if e.get("symbol_id") == "water_heater"]
     if not heaters:
         return "– Rule 6.1: No water heater detected — heat pump supply mode check skipped."
 
-    fittings = [e for e in elements if e.get("node_type") == "water_fitting" and e.get("supply_mode")]
-    if not fittings:
-        return "– Rule 6.1: No water fittings detected — supply mode consistency check skipped."
+    checked = 0
+    mismatches: list[str] = []
+    for fitting in elements:
+        if fitting.get("node_type") != "water_fitting":
+            continue
+        ports = fitting.get("ports") or []
+        hot_mode = next((p.get("supply_mode") for p in ports if p.get("label") == "Hot"), None)
+        cold_mode = next((p.get("supply_mode") for p in ports if p.get("label") == "Cold"), None)
+        if not hot_mode or not cold_mode:
+            continue
+        checked += 1
+        if hot_mode != cold_mode:
+            mismatches.append(f"{fitting.get('symbol_id', fitting.get('id'))} (hot={hot_mode}, cold={cold_mode})")
 
-    heater_modes = {e.get("supply_mode") for e in heaters if e.get("supply_mode")}
-    fitting_modes = {e.get("supply_mode") for e in fittings}
+    if checked == 0:
+        return "– Rule 6.1: No fitting with distinct hot/cold supply ports detected — supply mode consistency check skipped."
 
-    all_modes = heater_modes | fitting_modes
-    if not all_modes:
-        return "– Rule 6.1: Supply mode not determined — connect a water meter and re-export to enable this check."
-
-    if len(all_modes) > 1:
+    if mismatches:
         return (
-            f"⚠ Rule 6.1: Mixed supply modes detected (heater: {heater_modes}, "
-            f"fittings: {fitting_modes}). For heat pump installations, cold and hot water "
-            f"supplies to fittings must be via the same mode (both direct or both indirect)."
+            f"✗ Rule 6.1: {len(mismatches)} fitting(s) have mismatched hot/cold supply modes: "
+            f"{'; '.join(mismatches)}. Cold and hot water supplied to the same fitting must "
+            f"come via the same mode (both direct or both indirect) — a mismatch risks a sudden "
+            f"pressure/temperature shift (e.g. scalding) when the user adjusts the mixer."
         )
     return (
-        f"✓ Rule 6.1: All heaters and fittings are on the same supply mode "
-        f"({next(iter(all_modes))}) — supply mode consistency satisfied."
+        f"✓ Rule 6.1: All {checked} fitting(s) with hot/cold supply have consistent supply "
+        f"modes — supply mode consistency satisfied."
     )
 
 
+def _bfs_count_symbol(
+    adj: dict[str, set[str]],
+    start_id: str,
+    target_symbol_id: str,
+    elem_by_id: dict[str, dict],
+    max_hops: int = DEFAULT_MAX_HOPS,
+) -> int:
+    """BFS from start_id; returns the count of DISTINCT elements matching target_symbol_id within max_hops."""
+    visited: set[str] = {start_id}
+    queue: list[tuple[str, int]] = [(start_id, 0)]
+    count = 0
+    while queue:
+        node, dist = queue.pop(0)
+        if dist > 0:
+            el = elem_by_id.get(node)
+            if el and el.get("symbol_id") == target_symbol_id:
+                count += 1
+        if dist >= max_hops:
+            continue
+        for nbr in adj.get(node, ()):
+            if nbr not in visited:
+                visited.add(nbr)
+                queue.append((nbr, dist + 1))
+    return count
+
+
 # ---------------------------------------------------------------------------
-# Rule 6.3 — Water heater protection assembly (check_valve + PRV)
+# Rule 6.3 — Water heater protection assembly (CV+PRV, or double check valve)
 # ---------------------------------------------------------------------------
 
 def _check_heater_protection(
@@ -69,6 +111,12 @@ def _check_heater_protection(
     elem_by_id: dict[str, dict],
     adj: dict[str, set[str]],
 ) -> list[str]:
+    """
+    PASS requires (check_valve AND pressure_relief_valve) OR a double check
+    valve assembly (two check_valve elements in series) — matching the WSI
+    Landed checklist wording exactly. A single check valve alone (no PRV,
+    not doubled) satisfies neither option and FAILs.
+    """
     heaters = [e for e in elements if e.get("symbol_id") == "water_heater"]
     if not heaters:
         return ["– Rule 6.3: No water heater detected — heater protection assembly check skipped."]
@@ -79,25 +127,32 @@ def _check_heater_protection(
         hid = heater["id"]
 
         cv_id, cv_hops = _bfs_find(adj, hid, {"check_valve"}, elem_by_id)
-        prv_id, _ = _bfs_find(adj, hid, {"pressure_relief_valve"}, elem_by_id)
+        prv_id, prv_hops = _bfs_find(adj, hid, {"pressure_relief_valve"}, elem_by_id)
+        cv_count = _bfs_count_symbol(adj, hid, "check_valve", elem_by_id)
 
         if cv_id and prv_id:
             lines.append(
-                f"✓ Rule 6.3: [{name}] Check valve and pressure relief valve assembly detected "
-                f"(preferred configuration) — backflow protection confirmed."
+                f"✓ Rule 6.3: [{name}] Check valve and pressure relief valve assembly detected — "
+                f"backflow protection confirmed."
             )
-        elif cv_id:
-            pos = "immediately adjacent" if cv_hops == 1 else f"{cv_hops} hops away"
+        elif cv_count >= 2:
             lines.append(
-                f"⚠ Rule 6.3: [{name}] Check valve found ({pos}) but no pressure relief valve detected. "
-                f"A check valve + PRV assembly is preferred. If a double check valve assembly is used "
-                f"instead, LP/PE must confirm it provides adequate backflow prevention (see acknowledgment)."
+                f"✓ Rule 6.3: [{name}] Double check valve assembly detected ({cv_count} check valves) — "
+                f"backflow protection confirmed."
             )
         else:
+            found_desc = []
+            if cv_id:
+                pos = "immediately adjacent" if cv_hops == 1 else f"{cv_hops} hops away"
+                found_desc.append(f"a single check valve ({pos})")
+            if prv_id:
+                pos = "immediately adjacent" if prv_hops == 1 else f"{prv_hops} hops away"
+                found_desc.append(f"a pressure relief valve ({pos}) with no check valve")
+            found_str = f" Found: {', '.join(found_desc)}." if found_desc else ""
             lines.append(
-                f"✗ Rule 6.3: [{name}] No check valve found within {DEFAULT_MAX_HOPS} hops of the water heater. "
-                f"A check valve (with PRV or as double check valve assembly) is required on the heater inlet "
-                f"to prevent backflow — Reg 28(1)."
+                f"✗ Rule 6.3: [{name}] No qualifying protection assembly found within {DEFAULT_MAX_HOPS} hops. "
+                f"Per the WSI checklist, the water heater must be installed with EITHER a check valve + "
+                f"pressure relief valve assembly OR a double check valve assembly.{found_str}"
             )
     return lines
 
@@ -186,7 +241,7 @@ def _check_bidet_vacuum_breaker(
             )
         elif result.reason == "missing_outer":
             lines.append(
-                f"⚠ Rule 6.5: [{name}] Vacuum breaker detected but no check valve found. "
+                f"✗ Rule 6.5: [{name}] Vacuum breaker detected but no check valve found. "
                 f"Both a vacuum breaker AND check valve are required for bidet spray installations."
             )
         elif result.reason == "wrong_order":
@@ -320,8 +375,8 @@ def check_hot_water_contamination(metadata: dict[str, Any], adj: dict[str, set[s
     detail.append(r61)
     if r61.startswith("✓"):
         sub_statuses.append("PASS")
-    elif r61.startswith("⚠"):
-        sub_statuses.append("WARN")
+    elif r61.startswith("✗"):
+        sub_statuses.append("FAIL")
 
     # ── Rule 6.2 (acknowledgment) ─────────────────────────────────────────────
     if heaters:

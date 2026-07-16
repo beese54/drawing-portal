@@ -209,7 +209,11 @@ def test_bypass_line_with_gate_valve_passes():
 
 
 def test_bypass_without_gate_valve_warns():
-    """Bypass path exists but uses check_valve instead of gate_valve."""
+    """
+    Bypass path exists but uses check_valve instead of gate_valve. Whether a
+    bypass line is actually required is installation-dependent (LP/PE
+    judgment call), so this is a WARN advisory, not a hard FAIL.
+    """
     elements = [
         tank(),
         pump_("pump1", rated_head=20.0),
@@ -260,6 +264,7 @@ def test_twin_pump_manifold_without_bypass_does_not_false_positive():
     r = check_tank_pump_installation(m)
     assert not any("✓" in d and "bypass" in d.lower() for d in r.detail)
     assert all("no bypass line detected" in d.lower() for d in r.detail if "bypass" in d.lower())
+    assert all("⚠" in d for d in r.detail if "bypass" in d.lower())
 
 
 def test_twin_pump_manifold_with_dedicated_bypass_passes():

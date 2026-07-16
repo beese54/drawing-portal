@@ -41,7 +41,11 @@ def _check_bypass_line(elements: list[dict], pipes: list[dict], adj: dict[str, s
     """
     Detect whether a bypass line with a gate valve exists around each pump.
 
-    Returns one result line per pump (starting with ✓, ⚠, or –).
+    Returns one result line per pump (✓ if found, ⚠ otherwise). A missing
+    bypass is a WARN-level advisory, not a hard FAIL: unlike a check valve,
+    whether a bypass line is actually required is installation-dependent
+    (e.g. a small single-pump setup may not need one) — that's an LP/PE
+    judgment call, so this just flags it for attention rather than blocking.
     """
     pumps = [e for e in elements if e.get("symbol_id") == "pump"]
     if not pumps:
@@ -105,7 +109,8 @@ def _check_bypass_line(elements: list[dict], pipes: list[dict], adj: dict[str, s
         else:
             results.append(
                 f"⚠ [{pump_name}] No bypass line detected — "
-                f"a bypass line with a normally-closed gate valve is required around the pump."
+                f"a bypass line with a normally-closed gate valve is required around the pump, unless LP/PE "
+                f"confirms this installation does not require one."
             )
 
     return results
@@ -395,7 +400,9 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
     for line in bypass_lines:
         if line.startswith("✓"):
             sub_statuses.append("PASS")
-        elif line.startswith(("⚠", "✗", "–")):
+        elif line.startswith("✗"):
+            sub_statuses.append("FAIL")
+        elif line.startswith(("⚠", "–")):
             sub_statuses.append("WARN")
 
     # Rule 10: pump rated head ≤ 35 m — read declared head from each pump element
