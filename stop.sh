@@ -18,5 +18,17 @@ for PORT in 8000 5173; do
   fi
 done
 
+# Also sweep by command line for stray workers no longer bound to a port —
+# see the note in start.sh about OneDrive sync + uvicorn --reload spawning
+# zombie processes. Targeted to our specific uvicorn/vite invocations only.
+powershell.exe -NoProfile -Command "
+  Get-CimInstance Win32_Process -Filter \"Name='python.exe' or Name='python3.11.exe'\" -ErrorAction SilentlyContinue |
+    Where-Object { \$_.CommandLine -like '*uvicorn*app.main*' } |
+    ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }
+  Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" -ErrorAction SilentlyContinue |
+    Where-Object { \$_.CommandLine -like '*vite*' } |
+    ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }
+" 2>/dev/null || true
+
 rm -f "$PROJECT_DIR/.pids"
 echo "Done."

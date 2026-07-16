@@ -19,6 +19,24 @@ for PORT in 8000 5173; do
     echo "  Killed processes on port $PORT"
   fi
 done
+
+# ── Kill any stray backend/frontend processes not currently bound to a port ──
+# This repo lives in a OneDrive-synced folder. OneDrive's background sync
+# touches file timestamps, which can make uvicorn's --reload file-watcher
+# think source files changed and spawn a new worker without cleanly killing
+# the old one — leaving multiple zombie python processes alive at once, each
+# possibly still answering requests with whatever code it loaded at spawn
+# time. A port-only kill misses these once they're no longer the active
+# listener, so also sweep by command line (matching only OUR specific
+# uvicorn/vite invocations, not a blanket "kill all python/node").
+powershell.exe -NoProfile -Command "
+  Get-CimInstance Win32_Process -Filter \"Name='python.exe' or Name='python3.11.exe'\" -ErrorAction SilentlyContinue |
+    Where-Object { \$_.CommandLine -like '*uvicorn*app.main*' } |
+    ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }
+  Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" -ErrorAction SilentlyContinue |
+    Where-Object { \$_.CommandLine -like '*vite*' } |
+    ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }
+" 2>/dev/null || true
 sleep 1
 
 # ── Start backend ────────────────────────────────────────────────────────────
@@ -35,7 +53,19 @@ else
 fi
 
 find "$BACKEND_DIR" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m uvicorn app.main:app --reload --port 8000 > "$PROJECT_DIR/backend.log" 2>&1 &
+
+# --reload is off by default: this repo lives in OneDrive, and OneDrive's sync
+# activity touches file timestamps in a way that makes uvicorn's file-watcher
+# spawn duplicate worker processes without cleanly killing the old one (see
+# the sweep above). Re-run backend code changes with ./stop.sh && ./start.sh
+# instead. Set BACKEND_RELOAD=1 to opt back into --reload if you've moved the
+# repo outside OneDrive and want auto-reload during development.
+RELOAD_FLAG=""
+if [ "${BACKEND_RELOAD:-0}" = "1" ]; then
+  RELOAD_FLAG="--reload"
+  echo "  (--reload enabled via BACKEND_RELOAD=1)"
+fi
+PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m uvicorn app.main:app $RELOAD_FLAG --port 8000 > "$PROJECT_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 
 # Wait for backend to be ready
