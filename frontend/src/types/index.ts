@@ -143,7 +143,7 @@ export const AMBIGUOUS_TAP_OPTIONS: { id: WaterFittingTypeId; label: string }[] 
 ];
 
 export const ROTATABLE_SYMBOL_IDS = [
-  'check_valve', 'gate_valve', 'tee_junction', 'pump', 'elbow_bend', 'water_tank', 'water_heater', 'water_meter',
+  'check_valve', 'gate_valve', 'tee_junction', 'pump', 'elbow_bend', 'water_tank', 'water_heater', 'instantaneous_water_heater', 'water_meter',
   // new inline valves & equipment
   'solenoid_valve', 'motorised_valve', 'globe_valve', 'prv_with_sensor',
   'sub_meter', 'cold_water_tank',
@@ -176,7 +176,7 @@ export const CLOCKWISE_SYMBOL_IDS = [
   'y_type_strainer', 'pipe_blank_off', 'flexible_connection', 'puddle_flange',
 ] as const;
 /** Left-to-right / right-to-left flip only (0° or 180°). */
-export const FLIP_ONLY_SYMBOL_IDS = ['pump', 'water_tank', 'water_heater', 'water_meter', 'tap_point_schematic'] as const;
+export const FLIP_ONLY_SYMBOL_IDS = ['pump', 'water_tank', 'water_heater', 'instantaneous_water_heater', 'water_meter', 'tap_point_schematic'] as const;
 
 /**
  * Of the FLIP_ONLY_SYMBOL_IDS, which ones flip via scaleX=-1 (image stays
@@ -188,7 +188,7 @@ export const FLIP_ONLY_SYMBOL_IDS = ['pump', 'water_tank', 'water_heater', 'wate
  * which is exactly the kind of drift that caused the water_heater "WH"→"HW"
  * bug (fixed via NEVER_MIRROR_IMAGE_SYMBOL_IDS below).
  */
-export const SCALE_FLIP_SYMBOL_IDS = new Set(['water_tank', 'water_heater', 'water_meter', 'pump', 'tap_point_schematic']);
+export const SCALE_FLIP_SYMBOL_IDS = new Set(['water_tank', 'water_heater', 'instantaneous_water_heater', 'water_meter', 'pump', 'tap_point_schematic']);
 
 /**
  * Symbols whose SVG has baked-in text that would read backwards if the whole
@@ -201,7 +201,7 @@ export const SCALE_FLIP_SYMBOL_IDS = new Set(['water_tank', 'water_heater', 'wat
  * SymbolNode.tsx (live canvas) and FlipOrientationDialog.tsx (placement
  * preview) so the two can't drift out of sync again.
  */
-export const NEVER_MIRROR_IMAGE_SYMBOL_IDS = new Set(['water_heater', 'water_meter']);
+export const NEVER_MIRROR_IMAGE_SYMBOL_IDS = new Set(['water_heater', 'instantaneous_water_heater', 'water_meter']);
 
 /**
  * Symbols that SS636 or PUB explicitly mandate in a drawing.
@@ -663,8 +663,6 @@ export interface AcknowledgmentFlags {
   materialsAcknowledged: boolean;
   /** Rule 8 — Pump discharge pipes use PUB-approved non-plastic materials. */
   pumpDischargeMaterialAcknowledged: boolean;
-  /** 6.2 — Heaters on direct supply are mains-pressure type (storage or instantaneous). */
-  heaterTypeAcknowledged: boolean;
   /** 6.4 — Double check valves installed for applicable appliances. */
   applianceCheckValveAcknowledged: boolean;
   /** 6.5 — Bidet sprays installed with vacuum breaker + check valve assembly. */
@@ -684,8 +682,6 @@ export interface DrawingMetadata {
   materials_acknowledged: boolean;
   /** LP/PE has acknowledged pump discharge pipes use PUB-approved non-plastic materials. */
   pump_discharge_material_acknowledged: boolean;
-  /** LP/PE has acknowledged heaters on direct supply are mains-pressure type. */
-  heater_type_acknowledged: boolean;
   /** LP/PE has acknowledged double check valves are installed for applicable appliances. */
   appliance_check_valve_acknowledged: boolean;
   /** LP/PE has acknowledged bidet sprays have vacuum breaker + check valve assembly. */

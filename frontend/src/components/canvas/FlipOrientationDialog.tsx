@@ -81,18 +81,20 @@ const TAP_POINT_DOTS_RTL: DotDef[] = [
 
 // dot configs indexed by symbolId
 const DOTS_LTR: Record<string, DotDef[]> = {
-  water_tank:          WATER_TANK_DOTS_LTR,
-  water_heater:        WATER_HEATER_DOTS_LTR,
-  water_meter:         WATER_METER_DOTS_LTR,
-  pump:                PUMP_DOTS_LTR,
-  tap_point_schematic: TAP_POINT_DOTS_LTR,
+  water_tank:                 WATER_TANK_DOTS_LTR,
+  water_heater:               WATER_HEATER_DOTS_LTR,
+  instantaneous_water_heater: WATER_HEATER_DOTS_LTR,
+  water_meter:                WATER_METER_DOTS_LTR,
+  pump:                       PUMP_DOTS_LTR,
+  tap_point_schematic:        TAP_POINT_DOTS_LTR,
 };
 const DOTS_RTL: Record<string, DotDef[]> = {
-  water_tank:          WATER_TANK_DOTS_RTL,
-  water_heater:        WATER_HEATER_DOTS_RTL,
-  water_meter:         WATER_METER_DOTS_RTL,
-  pump:                PUMP_DOTS_RTL,
-  tap_point_schematic: TAP_POINT_DOTS_RTL,
+  water_tank:                 WATER_TANK_DOTS_RTL,
+  water_heater:               WATER_HEATER_DOTS_RTL,
+  instantaneous_water_heater: WATER_HEATER_DOTS_RTL,
+  water_meter:                WATER_METER_DOTS_RTL,
+  pump:                       PUMP_DOTS_RTL,
+  tap_point_schematic:        TAP_POINT_DOTS_RTL,
 };
 
 /** Renders only the coloured dot circles on the image — labels are shown outside the image. */

@@ -1,0 +1,6 @@
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg" viewBox="0.0 7.2 64.0 47.3">
+  <line x1="0" y1="32" x2="10" y2="32" stroke="#1a1a1a" stroke-width="2"/>
+  <path d="m32.19704,52.53202c-12.13837,0 -21.97044,-9.69981 -21.97044,-21.67488c0,-11.97507 9.83208,-21.67488 21.97044,-21.67488c12.13837,0 21.97044,9.69981 21.97044,21.67488c0,11.97507 -9.83208,21.67488 -21.97044,21.67488z" fill="white" stroke="#1a1a1a" stroke-width="2"/>
+  <text text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" y="36" x="32" stroke-width="0" fill="#1a1a1a">IWH</text>
+  <line x1="54" y1="32" x2="64" y2="32" stroke="#1a1a1a" stroke-width="2"/>
+</svg>

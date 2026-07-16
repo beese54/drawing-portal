@@ -70,6 +70,10 @@ export const SYMBOL_PORTS: Record<string, SymbolPortDef[]> = {
     { role: 'upstream',   offsetX: -24, offsetY:   0, label: 'Input'  },  // left side (inlet)
     { role: 'downstream', offsetX:  24, offsetY:   0, label: 'Output' },  // right side (outlet)
   ],
+  instantaneous_water_heater: [
+    { role: 'upstream',   offsetX: -24, offsetY:   0, label: 'Input'  },  // left side (inlet)
+    { role: 'downstream', offsetX:  24, offsetY:   0, label: 'Output' },  // right side (outlet)
+  ],
   elbow_bend: [
     { role: 'upstream',   offsetX: -22, offsetY: -22, label: 'Input'  },  // top-left end of horizontal stub
     { role: 'downstream', offsetX:  22, offsetY:  22, label: 'Output' },  // bottom-right end of vertical stub

@@ -3,12 +3,14 @@ HOT_WATER — Section 6: Hot water / Contamination prevention
 
 Key behaviour under test:
 - Rule 6.1: heat pump supply mode consistency (heaters + fittings same mode)
+- Rule 6.2: direct-supply heater must be water_heater (mains-pressure storage) or
+  instantaneous_water_heater — automated symbol-type check, no acknowledgment
 - Rule 6.3: water_heater needs check_valve + pressure_relief_valve (graph)
 - Rule 6.4: §6.4 appliances (backflow_requirement=check_valve, not water_heater) need check_valve
 - Rule 6.5: bidet/bidet_spray (backflow_requirement=vacuum_breaker) needs vacuum_breaker + check_valve
 
 We test detail lines rather than overall status because acknowledgment-based sub-checks
-(6.2, 6.4 ack, 6.5 ack, 6.6) always add WARNs in test conditions.
+(6.4 ack, 6.5 ack, 6.6) always add WARNs in test conditions.
 """
 
 import pytest
@@ -36,6 +38,33 @@ def test_skip_only_tanks_and_pumps():
     # Should not be SKIP (tank_or_pump triggers a check), but also not FAIL
     r = check_hot_water_contamination(m)
     assert r.status != "SKIP"
+
+
+# ---------------------------------------------------------------------------
+# Rule 6.2 — Direct-supply heater type (automated symbol-type check)
+# ---------------------------------------------------------------------------
+
+def test_rule62_storage_heater_on_direct_supply_passes_no_ack():
+    m = meta([el("h1", "water_heater", supply_mode="direct_supply")])
+    r = check_hot_water_contamination(m)
+    assert has_pass_line(r.detail, "Rule 6.2")
+    assert not has_warn_line(r.detail, "Rule 6.2")
+
+
+def test_rule62_instantaneous_heater_on_direct_supply_passes_no_ack():
+    m = meta([el("h1", "instantaneous_water_heater", supply_mode="direct_supply")])
+    r = check_hot_water_contamination(m)
+    assert has_pass_line(r.detail, "Rule 6.2")
+    assert not has_warn_line(r.detail, "Rule 6.2")
+
+
+def test_rule62_heater_on_indirect_supply_not_applicable():
+    """A tank-fed heater isn't subject to the direct-connection type restriction at all."""
+    m = meta([el("h1", "water_heater", supply_mode="indirect_supply")])
+    r = check_hot_water_contamination(m)
+    assert not has_pass_line(r.detail, "Rule 6.2")
+    assert not has_fail_line(r.detail, "Rule 6.2")
+    assert not has_warn_line(r.detail, "Rule 6.2")
 
 
 # ---------------------------------------------------------------------------
@@ -274,6 +303,23 @@ def test_rule61_fail_mismatched_hot_cold_on_same_fitting():
     """
     elements = [
         el("h1", "water_heater"),
+        el("f1", "basin_tap", node_type="water_fitting", ports=[
+            {"label": "Hot", "supply_mode": "indirect_supply"},
+            {"label": "Cold", "supply_mode": "direct_supply"},
+        ]),
+    ]
+    r = check_hot_water_contamination(meta(elements))
+    assert has_fail_line(r.detail, "Rule 6.1")
+
+
+def test_rule61_runs_with_only_instantaneous_heater():
+    """
+    Regression: Rule 6.1's guard used to only recognise symbol_id == 'water_heater',
+    which would wrongly SKIP the whole hot/cold consistency check on a drawing whose
+    only heater is an instantaneous_water_heater.
+    """
+    elements = [
+        el("h1", "instantaneous_water_heater"),
         el("f1", "basin_tap", node_type="water_fitting", ports=[
             {"label": "Hot", "supply_mode": "indirect_supply"},
             {"label": "Cold", "supply_mode": "direct_supply"},

@@ -34,6 +34,7 @@ const NODE_TYPE_MAP: Record<string, NodeType> = {
   check_valve:           'check_valve',
   tee_junction:          'junction',
   water_heater:          'heat_exchanger',
+  instantaneous_water_heater: 'heat_exchanger',
   elbow_bend:            'bend',
   flow_meter:            'flow_meter',
   water_meter:           'flow_meter',
@@ -336,7 +337,6 @@ function buildSupplyModes(
 const DEFAULT_ACKS: AcknowledgmentFlags = {
   materialsAcknowledged: false,
   pumpDischargeMaterialAcknowledged: false,
-  heaterTypeAcknowledged: false,
   applianceCheckValveAcknowledged: false,
   bidetVacuumBreakerAcknowledged: false,
   tankPositionAcknowledged: false,
@@ -684,7 +684,6 @@ export function buildMetadata(
     sheet_config: { paper_size: paperSize, drawing_scale: drawingScale },
     materials_acknowledged: acks.materialsAcknowledged,
     pump_discharge_material_acknowledged: acks.pumpDischargeMaterialAcknowledged,
-    heater_type_acknowledged: acks.heaterTypeAcknowledged,
     appliance_check_valve_acknowledged: acks.applianceCheckValveAcknowledged,
     bidet_vacuum_breaker_acknowledged: acks.bidetVacuumBreakerAcknowledged,
     tank_position_acknowledged: acks.tankPositionAcknowledged,

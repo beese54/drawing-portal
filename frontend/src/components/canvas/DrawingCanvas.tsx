@@ -39,7 +39,7 @@ const FIT_PAD = 0.92;
 
 // Symbols where the pipe passes straight through inlet → outlet (split at both ports)
 const INLINE_SYMBOL_IDS = new Set([
-  'gate_valve', 'check_valve', 'pump', 'flow_meter', 'water_heater', 'water_meter',
+  'gate_valve', 'check_valve', 'pump', 'flow_meter', 'water_heater', 'instantaneous_water_heater', 'water_meter',
   // new inline valves & equipment
   'solenoid_valve', 'motorised_valve', 'globe_valve', 'prv_with_sensor',
   'sub_meter', 'cold_water_tank',
@@ -620,6 +620,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     foot_bath:                  1.7,
     multiple_show_unit:         1.7,
     water_heater:               1.7,
+    instantaneous_water_heater: 1.7,
     pump:                       1.7,
     long_bath:                  1.7,
     shower_bath:                1.7,

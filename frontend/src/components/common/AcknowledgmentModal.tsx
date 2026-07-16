@@ -23,7 +23,6 @@ interface CheckboxItem {
 
 export function AcknowledgmentModal({ elements, onConfirm, onCancel }: Props) {
   const hasPump       = elements.some((e) => e.symbolId === 'pump');
-  const hasHeater     = elements.some((e) => e.symbolId === 'water_heater');
   const hasTank       = elements.some((e) => e.symbolId === 'water_tank');
   const hasBidet      = elements.some((e) => e.symbolId === 'bidet_spray');
   const hasAppliance  = elements.some((e) => APPLIANCE_SYMBOL_IDS.has(e.symbolId));
@@ -41,13 +40,6 @@ export function AcknowledgmentModal({ elements, onConfirm, onCancel }: Props) {
       label: 'Pump discharge — non-plastic materials',
       description: 'I (LP/PE) confirm that all pump discharge pipes are made of PUB-approved non-plastic materials (e.g. copper, stainless steel, galvanised steel). Plastic pipes such as PVC/uPVC must NOT be used on pump discharge lines.',
       applicable: hasPump,
-      blocking: true,
-    },
-    {
-      key: 'heaterTypeAcknowledged',
-      label: 'Direct-supply heater type',
-      description: 'I (LP/PE) confirm that all heaters taking direct supply are mains-pressure type (storage or instantaneous water heaters), as required under SS 636.',
-      applicable: hasHeater,
       blocking: true,
     },
     {

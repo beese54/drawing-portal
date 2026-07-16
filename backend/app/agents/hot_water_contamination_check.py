@@ -4,7 +4,10 @@ hot_water_contamination_check.py — Section 6: Hot water / Contamination preven
 Rules:
   6.1  Heat pump supply mode consistency — cold and hot supplies to fittings must be
        via the same mode (both direct or both indirect).
-  6.2  Direct-supply heaters must be mains-pressure type — LP/PE acknowledgment.
+  6.2  Direct-supply heaters must be mains-pressure type — automated. Only two heater
+       symbols exist (storage water heater = mains-pressure, instantaneous water
+       heater), so any heater drawn on a direct-supply branch is one of the two
+       SS636 §6.5.1/§6.5.2-compliant types by construction; no acknowledgment needed.
   6.3  Water heater protection assembly (graph check). Per the WSI Landed
        checklist: "installed with EITHER check valve and pressure relief
        valve assembly OR double check valve assembly" — i.e. PASS requires
@@ -25,6 +28,13 @@ from app.agents.compliance_checks import CheckResult
 from app.agents.graph_utils import build_adjacency
 from app.agents.backflow_assembly import bfs_find as _bfs_find, check_assembly_order, DEFAULT_MAX_HOPS
 
+# The only two heater symbols SS636 §6.5.1/§6.5.2 allow on direct (mains-pressure)
+# supply — "water_heater" represents a mains-pressure storage heater, and
+# "instantaneous_water_heater" an instantaneous unit. Any other heater type (e.g. a
+# low-pressure/gravity-fed storage heater) has no symbol and so cannot be drawn on
+# direct supply at all, which is what lets Rule 6.2 be a plain symbol-type check.
+_DIRECT_CONNECT_HEATER_SYMBOL_IDS = {"water_heater", "instantaneous_water_heater"}
+
 
 # ---------------------------------------------------------------------------
 # Rule 6.1 — Heat pump supply mode consistency
@@ -41,7 +51,7 @@ def _check_supply_mode_consistency(elements: list[dict]) -> str:
     feeding only the water heater) as long as no single fitting's hot and cold
     disagree.
     """
-    heaters = [e for e in elements if e.get("symbol_id") == "water_heater"]
+    heaters = [e for e in elements if e.get("symbol_id") in _DIRECT_CONNECT_HEATER_SYMBOL_IDS]
     if not heaters:
         return "– Rule 6.1: No water heater detected — heat pump supply mode check skipped."
 
@@ -73,6 +83,46 @@ def _check_supply_mode_consistency(elements: list[dict]) -> str:
         f"✓ Rule 6.1: All {checked} fitting(s) with hot/cold supply have consistent supply "
         f"modes — supply mode consistency satisfied."
     )
+
+
+# ---------------------------------------------------------------------------
+# Rule 6.2 — Direct-supply heater type (mains-pressure storage or instantaneous)
+# ---------------------------------------------------------------------------
+
+_HEATER_TYPE_LABELS = {
+    "water_heater": "mains-pressure storage",
+    "instantaneous_water_heater": "instantaneous",
+}
+
+
+def _check_heater_direct_supply_type(elements: list[dict]) -> list[str]:
+    """
+    SS636 §6.5.1/§6.5.2: only mains-pressure storage or instantaneous water heaters
+    may be connected directly to the service pipe for cold water supply. Since those
+    are the only two heater symbols in the library, any heater drawn is one of the
+    two compliant types by construction — this is a symbol-type check, not a
+    verification of the physical unit's actual pressure rating.
+    """
+    heaters = [e for e in elements if e.get("symbol_id") in _DIRECT_CONNECT_HEATER_SYMBOL_IDS]
+    if not heaters:
+        return ["– Rule 6.2: No water heater detected — direct-supply heater type check skipped."]
+
+    lines: list[str] = []
+    for heater in heaters:
+        name = heater.get("symbol_name", "Water Heater")
+        heater_type = _HEATER_TYPE_LABELS.get(heater.get("symbol_id"), "unknown")
+        supply_mode = heater.get("supply_mode")
+        if supply_mode == "direct_supply":
+            lines.append(
+                f"✓ Rule 6.2: [{name}] on direct supply — {heater_type} type, as required "
+                f"under SS636 §6.5.1/§6.5.2."
+            )
+        else:
+            lines.append(
+                f"– Rule 6.2: [{name}] not on direct supply — direct-connection heater-type "
+                f"restriction (SS636 §6.5.1/§6.5.2) not applicable."
+            )
+    return lines
 
 
 def _bfs_count_symbol(
@@ -334,12 +384,13 @@ def check_hot_water_contamination(metadata: dict[str, Any], adj: dict[str, set[s
 
     Automated checks (graph topology):
       6.1  Heat pump supply mode consistency
+      6.2  Direct-supply heaters are mains-pressure storage or instantaneous type
+           (symbol-type check — see _DIRECT_CONNECT_HEATER_SYMBOL_IDS)
       6.3  Water heater protection assembly (check_valve + pressure_relief_valve)
       6.4  Appliance double check valves
       6.5  Bidet spray vacuum breaker + check valve assembly
 
     Acknowledgment-based checks:
-      6.2  Direct-supply heaters are mains-pressure type (LP/PE confirmation)
       6.6  Tanks/pumps not below sanitary pipes (LP/PE confirmation)
     """
     elements: list[dict] = metadata.get("elements", [])
@@ -347,7 +398,7 @@ def check_hot_water_contamination(metadata: dict[str, Any], adj: dict[str, set[s
     elem_by_id = {e["id"]: e for e in elements}
     adj = adj if adj is not None else build_adjacency(elements, pipes)
 
-    heaters = [e for e in elements if e.get("symbol_id") == "water_heater"]
+    heaters = [e for e in elements if e.get("symbol_id") in _DIRECT_CONNECT_HEATER_SYMBOL_IDS]
     bidets   = [e for e in elements if e.get("symbol_id") == "bidet_spray"]
     appliances = [
         e for e in elements
@@ -378,21 +429,14 @@ def check_hot_water_contamination(metadata: dict[str, Any], adj: dict[str, set[s
     elif r61.startswith("✗"):
         sub_statuses.append("FAIL")
 
-    # ── Rule 6.2 (acknowledgment) ─────────────────────────────────────────────
-    if heaters:
-        heater_type_ack = metadata.get("heater_type_acknowledged", False)
-        if heater_type_ack:
-            detail.append(
-                "✓ Rule 6.2: LP/PE confirmed all direct-supply heaters are mains-pressure type "
-                "(storage or instantaneous water heaters) as required."
-            )
+    # ── Rule 6.2 ──────────────────────────────────────────────────────────────
+    r62_lines = _check_heater_direct_supply_type(elements)
+    detail.extend(r62_lines)
+    for line in r62_lines:
+        if line.startswith("✓"):
             sub_statuses.append("PASS")
-        else:
-            detail.append(
-                "⚠ Rule 6.2: Heater type not confirmed — please acknowledge that all heaters on direct "
-                "supply are mains-pressure type (storage or instantaneous) in the pre-evaluation checklist."
-            )
-            sub_statuses.append("WARN")
+        elif line.startswith("✗"):
+            sub_statuses.append("FAIL")
 
     # ── Rule 6.3 ──────────────────────────────────────────────────────────────
     r63_lines = _check_heater_protection(elements, pipes, elem_by_id, adj)

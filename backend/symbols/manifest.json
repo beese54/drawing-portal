@@ -39,6 +39,7 @@
     { "id": "water_tank",           "name": "Water Tank",                 "category": "tanks",               "filename": "default/water_tank.svg",                "created_at": "2026-04-01T00:00:00+00:00" },
     { "id": "cold_water_tank",      "name": "Cold Water Tank (CWT)",      "category": "tanks",               "filename": "default/cold_water_tank.svg",           "created_at": "2026-05-05T00:00:00+00:00" },
     { "id": "water_heater",         "name": "Storage Water Heater",       "category": "tanks",               "filename": "default/storage_water_heater.svg",      "created_at": "2026-04-01T00:00:00+00:00" },
+    { "id": "instantaneous_water_heater", "name": "Instantaneous Water Heater", "category": "tanks",         "filename": "default/instantaneous_water_heater.svg", "created_at": "2026-07-16T00:00:00+00:00" },
     { "id": "pressure_vessel_schematic", "name": "Pressure Vessel (Schematic)", "category": "tanks",         "filename": "default/pressure_vessel_schematic.svg", "created_at": "2026-05-05T00:00:00+00:00" },
     { "id": "vortex_inhibitor_schematic", "name": "Vortex Inhibitor (Schematic)", "category": "tanks",      "filename": "default/vortex_inhibitor_schematic.svg","created_at": "2026-05-05T00:00:00+00:00" },
     { "id": "water_tank_air_vent",  "name": "Water Tank Air Vent",        "category": "tanks",               "filename": "default/water_tank_air_vent.svg",       "created_at": "2026-05-05T00:00:00+00:00" },

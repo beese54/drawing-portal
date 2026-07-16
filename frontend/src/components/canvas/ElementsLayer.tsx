@@ -22,7 +22,7 @@ const TINT_SYMBOL_IDS = new Set(['tee_junction', 'elbow_bend']);
 // Pumps are deliberately NOT included — they move fluid onward without changing whether
 // it's hot or cold, so tracing color through them is correct (unlike a water heater/tank).
 const FLUID_BOUNDARY_SYMBOLS = new Set([
-  'water_heater',
+  'water_heater', 'instantaneous_water_heater',
   'water_tank', 'cold_water_tank', 'pressure_vessel_schematic',
 ]);
 
