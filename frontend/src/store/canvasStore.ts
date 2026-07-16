@@ -125,7 +125,7 @@ interface CanvasStore {
   updateElementRotation: (id: string, rotation: number) => void;
   updateElementScaleX: (id: string, scaleX: number) => void;
   updateFittingType: (id: string, fittingType: string) => void;
-  updateEfficiencyRating: (id: string, rating: 2 | 3) => void;
+  updateEfficiencyRating: (id: string, rating: 1 | 2 | 3 | 4) => void;
   updateLongBathCapacity: (id: string, capacityL: number) => void;
   updatePumpRatedHead: (id: string, headM: number | undefined) => void;
   addPipe: (pipe: PipeElement) => void;

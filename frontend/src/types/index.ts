@@ -136,6 +136,36 @@ export const FIXTURE_MWELS_CATEGORY: Record<string, WaterFittingTypeId | null> =
   water_dispenser:        'water_dispenser',
 };
 
+/**
+ * fitting_type values with no MWELS tick rating table at all (a Section 6 check valve
+ * is required instead) — mirrors NON_MWELS_FITTING_IDS in backend/app/agents/compliance_checks.py.
+ * These are still keys in FIXTURE_MWELS_CATEGORY (so fitting_type is exported and the
+ * "not subject to MWELS" row appears in the check), but the tick-rating picker must not
+ * be shown for them — the backend ignores any efficiency_rating on these fittings
+ * entirely, so offering the control is misleading.
+ *
+ * washing_machine and dishwasher are NOT in this set — PUB's "Water Efficiency Rating &
+ * Requirements" (1 Dec 2021) confirms both are genuinely MWELS-graded appliances (1-4
+ * tick scale), on top of also needing a §6.4 check valve for backflow — the two
+ * requirements are independent of each other.
+ */
+export const NON_MWELS_FITTING_TYPE_IDS = new Set<WaterFittingTypeId>([
+  'water_dispenser', 'landscape_tap',
+]);
+
+/**
+ * Which tick ratings are selectable per MWELS fitting type, for the properties panel.
+ * Defaults to [2, 3] — the standard tap/cistern/valve scale. Appliances use a wider
+ * 1-4 tick scale per PUB's appliance water-consumption table (washing machines have no
+ * 1-tick tier at all). Mirrors the "2"/"3"/"4" keys present per entry in the backend's
+ * MWELS dict (compliance_checks.py).
+ */
+export const MWELS_TICK_OPTIONS: Partial<Record<WaterFittingTypeId, readonly number[]>> = {
+  washing_machine: [2, 3, 4],
+  dishwasher: [1, 2, 3, 4],
+};
+export const DEFAULT_MWELS_TICK_OPTIONS = [2, 3] as const;
+
 /** MWELS category options presented for ambiguous fixture symbols. */
 export const AMBIGUOUS_TAP_OPTIONS: { id: WaterFittingTypeId; label: string }[] = [
   { id: 'basin_tap', label: 'Basin Tap & Mixer' },
@@ -286,8 +316,9 @@ export interface CanvasElement {
   scaleX?: number;
   /** Fitting sub-type for water_fittings elements (stores WaterFittingTypeId). */
   fittingType?: string;
-  /** Water efficiency rating (WELS ticks) for water_fittings elements. */
-  efficiencyRating?: 2 | 3;
+  /** Water efficiency rating (WELS ticks) for water_fittings elements. Appliances (washing
+   *  machine, dishwasher) use a wider 1-4 tick scale — see MWELS_TICK_OPTIONS. */
+  efficiencyRating?: 1 | 2 | 3 | 4;
   /** Single upstream port index — backward-compat for 1-inlet symbols. */
   upstreamPortIndex?: number;
   /** Multiple upstream port indices — used for tee in 2-inlet mode. */
@@ -542,8 +573,8 @@ export interface ExportedElement {
   connected_pipe_ids: string[];
   /** Fitting sub-type — only present on water_fittings elements (e.g. "shower_tap", "basin_tap"). */
   fitting_type?: string;
-  /** WELS tick rating — only present on water_fittings elements. */
-  efficiency_rating?: 2 | 3;
+  /** WELS tick rating — only present on water_fittings elements. Appliances use 1-4; other fixtures use 2-3. */
+  efficiency_rating?: 1 | 2 | 3 | 4;
   /** Fluid type flowing through this element — only present on tee_junction and elbow_bend. */
   pipe_type?: PipeType | null;
   /** Tank-specific properties — only present on water_tank elements. */

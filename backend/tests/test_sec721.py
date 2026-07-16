@@ -5,8 +5,14 @@ Key behaviour under test:
 - Backend now finds MWELS elements by checking "fitting_type" in element dict
   (exported by frontend for all symbols in FIXTURE_MWELS_CATEGORY).
 - Elements without the fitting_type key are NOT included — even if they are water fittings.
-- Appliances (fitting_type in NON_MWELS_FITTING_IDS) appear as "not subject to MWELS" rows.
+- Appliances with no MWELS table entry (fitting_type in NON_MWELS_FITTING_IDS — water_dispenser,
+  landscape_tap) appear as "not subject to MWELS" rows.
+- washing_machine and dishwasher ARE MWELS-graded appliances (1-4 tick scale, per PUB's
+  "Water Efficiency Rating & Requirements", 1 Dec 2021) — they are NOT in NON_MWELS_FITTING_IDS
+  and are graded exactly like any other fixture (>=2 ticks to pass).
 - fitting_type: None means ambiguous fixture needing user selection → WARN.
+- A known fitting_type with no declared tick rating (efficiency_rating: None) → FAIL
+  (undeclared MWELS labelling is non-compliant, not just missing data).
 """
 
 import pytest
@@ -77,16 +83,19 @@ def test_fail_1_tick_below_minimum():
     assert r.table[0]["compliant"] is False
 
 
+def test_fail_no_tick_rating_set():
+    """A fitting with a known type but no declared tick rating is undeclared —
+    Handbook 7.2.1 requires every fitting to carry a declared >=2-tick label, so this
+    fails the check rather than just warning."""
+    m = meta([mwels_el("s1", "shower_head", "shower_tap", ticks=None)])
+    r = check_water_efficiency(m)
+    assert r.status == "FAIL"
+    assert r.table[0]["compliant"] is None
+
+
 # ---------------------------------------------------------------------------
 # WARN — missing data
 # ---------------------------------------------------------------------------
-
-def test_warn_no_tick_rating_set():
-    m = meta([mwels_el("s1", "shower_head", "shower_tap", ticks=None)])
-    r = check_water_efficiency(m)
-    assert r.status == "WARN"
-    assert r.table[0]["compliant"] is None
-
 
 def test_warn_ambiguous_fitting_type_none():
     """Frontend exports fitting_type=None for ambiguous fixtures (e.g. wash basin before user picks)."""
@@ -97,26 +106,69 @@ def test_warn_ambiguous_fitting_type_none():
 
 
 # ---------------------------------------------------------------------------
-# Appliance fittings — not subject to MWELS (Section 6 instead)
+# Non-MWELS appliances — no tick table exists (Section 6 check valve instead)
 # ---------------------------------------------------------------------------
 
-def test_appliance_dishwasher_skipped_in_mwels():
-    """dishwasher has fitting_type='dishwasher' → appears as 'not subject to MWELS' row, not a fail."""
-    m = meta([mwels_el("d1", "dishwasher", "dishwasher", ticks=None)])
+def test_appliance_water_dispenser_skipped_in_mwels():
+    """water_dispenser has no MWELS table entry → appears as 'not subject to MWELS' row,
+    and any tick rating on it is ignored rather than graded (there's nothing to grade it against)."""
+    m = meta([mwels_el("wd1", "water_dispenser", "water_dispenser", ticks=2)])
     r = check_water_efficiency(m)
-    # Not FAIL — appliance row is informational only
     assert r.status in ("PASS", "WARN", "SKIP")
     assert r.table is not None
-    appliance_row = next((row for row in r.table if row.get("note") and "not subject to mwels" in row["note"].lower()), None)
-    assert appliance_row is not None, "Expected 'not subject to MWELS' note for dishwasher"
+    assert r.table[0]["compliant"] is None
+    assert "not subject to mwels" in r.table[0]["note"].lower()
+    assert not any("Missing data" in d for d in r.detail)
 
 
-def test_appliance_washing_machine_skipped_in_mwels():
+# ---------------------------------------------------------------------------
+# Appliances with a real MWELS tick table — washing machine, dishwasher
+# (PUB "Water Efficiency Rating & Requirements", 1 Dec 2021 — 1-4 tick scale,
+# distinct from the 2-3 tick scale used for taps/cisterns/valves above)
+# ---------------------------------------------------------------------------
+
+def test_pass_washing_machine_4_ticks():
+    m = meta([mwels_el("wm1", "washing_machine", "washing_machine", ticks=4)])
+    r = check_water_efficiency(m)
+    assert r.status == "PASS"
+    assert r.table[0]["compliant"] is True
+    assert r.table[0]["design_flow"] == 6.0
+    assert r.table[0]["unit"] == "L/kg"
+
+
+def test_fail_washing_machine_1_tick():
+    """Washing machines have no 1-tick tier at all (rated NA below 2-tick) — a stray
+    ticks=1 value must still fail, not crash on a missing '1' key in the MWELS table."""
+    m = meta([mwels_el("wm1", "washing_machine", "washing_machine", ticks=1)])
+    r = check_water_efficiency(m)
+    assert r.status == "FAIL"
+    assert r.table[0]["compliant"] is False
+
+
+def test_fail_washing_machine_undeclared():
     m = meta([mwels_el("wm1", "washing_machine", "washing_machine", ticks=None)])
     r = check_water_efficiency(m)
-    assert r.table is not None
-    appliance_row = next((row for row in r.table if row.get("note") and "not subject to mwels" in row["note"].lower()), None)
-    assert appliance_row is not None
+    assert r.status == "FAIL"
+    assert r.table[0]["compliant"] is None
+
+
+def test_pass_dishwasher_3_ticks():
+    m = meta([mwels_el("d1", "dishwasher", "dishwasher", ticks=3)])
+    r = check_water_efficiency(m)
+    assert r.status == "PASS"
+    assert r.table[0]["compliant"] is True
+    assert r.table[0]["design_flow"] == 0.9
+    assert r.table[0]["unit"] == "L/place setting"
+
+
+def test_fail_dishwasher_1_tick():
+    """Dishwashers DO have a defined 1-tick tier (pre-Oct-2018 baseline), unlike washing
+    machines — but 1 is still below the >=2 minimum, so it fails like any other fixture."""
+    m = meta([mwels_el("d1", "dishwasher", "dishwasher", ticks=1)])
+    r = check_water_efficiency(m)
+    assert r.status == "FAIL"
+    assert r.table[0]["compliant"] is False
+    assert r.table[0]["design_flow"] == 1.5
 
 
 # ---------------------------------------------------------------------------

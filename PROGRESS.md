@@ -38,7 +38,7 @@ Added (50+):
 
 - **REG28** extended — backflow risk now covers bidet spray and hose connections, not just water heaters
 - **SEC221** corrected — elevation thresholds fixed from 125 m / 137 m to **25 m / 37 m AMSL**
-- **SEC721** enhanced — dedicated fixture symbols tracked separately; non-MWELS appliances (dishwasher, washing machine) excluded
+- **SEC721** enhanced — dedicated fixture symbols tracked separately; washing machine & dishwasher graded on their own 1-4 tick MWELS scale (L/kg, L/place-setting), water dispenser & landscape tap remain the only true non-MWELS exclusions; a fitting with no declared tick rating now fails the check instead of just warning
 - **TANK_PUMP** added — tank/pump installation requirements (PUB / SS 245 / SS 636)
 - New backend agents: `hot_water_contamination_check`, `long_bath_check`, `section3_pipe_check`, `tank_pump_check`
 
@@ -58,7 +58,7 @@ Added (50+):
 - **Badge consistency** — all `!` badges use the same style (orange, same size, same positioning)
 - **Symbol properties popover** — double-clicking a symbol (or clicking its `!` MWELS badge) opens a small floating panel to the right of the symbol showing:
   - Dual supply ports (hot + cold) toggle and swap, for applicable symbols
-  - MWELS water efficiency tick rating (2✓ or 3✓✓✓), for applicable fixtures
+  - MWELS water efficiency tick rating (2✓/3✓✓✓ for taps/cisterns/valves; 1-4✓ for washing machine & dishwasher), for applicable fixtures
   - Closes on click-outside
 - **Ctrl+scroll** — browser zoom disabled globally when Ctrl is held; canvas zoom still works normally
 - **Long bath capacity panel** — floating panel appears on select

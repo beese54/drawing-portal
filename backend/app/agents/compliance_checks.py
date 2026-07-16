@@ -72,13 +72,37 @@ MWELS: dict[str, dict] = {
         "2": 4.0,
         "3": 3.5,
     },
+    # Appliances — PUB "Water Efficiency Rating & Requirements" (1 Dec 2021) covers these
+    # under a wider 1-4 tick scale (vs. the 2-3 tick scale above). Values are each tier's
+    # upper bound (e.g. washing machine 2-tick is ">9 to 12 litres/kg" -> 12.0).
+    "washing_machine": {
+        "name": "Clothes Washing Machine",
+        "unit": "L/kg",
+        # No 1-tick tier exists for washing machines (rated NA below 2-tick).
+        "2": 12.0,
+        "3": 9.0,
+        "4": 6.0,
+    },
+    "dishwasher": {
+        "name": "Dishwasher",
+        "unit": "L/place setting",
+        "1": 1.5,
+        "2": 1.2,
+        "3": 0.9,
+        "4": 0.6,
+    },
 }
 
 # Flow-rate fittings (vs. flush-volume fittings) — used for demand summation
 FLOW_RATE_FITTING_IDS = {"shower_tap", "basin_tap", "sink_tap"}
 
-# Fittings that are not subject to MWELS (Section 6 appliances) — skipped in WELS check
-NON_MWELS_FITTING_IDS = {"dishwasher", "water_dispenser", "washing_machine", "landscape_tap"}
+# Fittings genuinely not subject to MWELS (no tick rating table exists for them) —
+# they still require a Section 6 double check valve for backflow, but that's a separate
+# concern from water efficiency labelling. washing_machine and dishwasher used to be
+# listed here too, but PUB's "Water Efficiency Rating & Requirements" (1 Dec 2021)
+# confirms both ARE MWELS-graded appliances (see the MWELS table above) — they need
+# both a declared tick rating AND a check valve, not one or the other.
+NON_MWELS_FITTING_IDS = {"water_dispenser", "landscape_tap"}
 
 
 # Design demand (L/s) for network solver — use 2-tick max converted to L/s
@@ -464,6 +488,8 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
     rows: list[dict] = []
     any_fail = False
     any_missing_data = False
+    any_undeclared = False   # tick rating never set at all — treated as non-compliant, not just a warning
+    missing_data_count = 0   # rows needing user input — excludes "not subject to MWELS" appliance rows
     total_flow_lpm = 0.0
 
     for el in mwels_els:
@@ -492,6 +518,7 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
         # Missing fitting type (ambiguous fixture with no user selection yet)
         if fitting_type is None:
             any_missing_data = True
+            missing_data_count += 1
             rows.append({
                 "element_id": el_id,
                 "name": symbol_name,
@@ -503,9 +530,13 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
             })
             continue
 
-        # Missing tick rating
+        # Missing tick rating — no MWELS label declared at all. Handbook 7.2.1 requires every
+        # fitting to carry a declared >=2-tick label, so "undeclared" is non-compliant, not
+        # merely incomplete data — it fails the check rather than just warning.
         if ticks is None:
             any_missing_data = True
+            any_undeclared = True
+            missing_data_count += 1
             rows.append({
                 "element_id": el_id,
                 "name": symbol_name,
@@ -513,13 +544,14 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
                 "design_flow": None,
                 "unit": "—",
                 "compliant": None,
-                "note": f"Click [{symbol_name}] on the canvas to set its MWELS tick rating, then re-export.",
+                "note": f"Click [{symbol_name}] on the canvas to set its MWELS tick rating — undeclared fittings fail this check.",
             })
             continue
 
         mwels_entry = MWELS.get(fitting_type)
         if mwels_entry is None:
             any_missing_data = True
+            missing_data_count += 1
             rows.append({
                 "element_id": el_id,
                 "name": symbol_name,
@@ -554,7 +586,6 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
     # Build details list
     compliant_count = sum(1 for r in rows if r.get("compliant") is True)
     non_compliant   = [r for r in rows if r.get("compliant") is False]
-    missing_count   = sum(1 for r in rows if r.get("compliant") is None)
 
     details: list[str] = [
         f"Total MWELS fittings: {len(mwels_els)}",
@@ -564,18 +595,23 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
         details.append(f"Non-compliant (< 2 ticks): {len(non_compliant)}")
         for r in non_compliant:
             details.append(f"  ✗ {r['name']}: {r['ticks']} tick(s) — minimum 2 required (PUB, from 1 Apr 2019).")
-    if missing_count:
+    if missing_data_count:
         details.append(
-            f"Missing data: {missing_count} fitting(s) — click each fixture on the canvas to set its MWELS tick rating."
+            f"Missing data: {missing_data_count} fitting(s) — click each fixture on the canvas to set its MWELS tick rating."
         )
     if total_flow_lpm > 0:
         details.append(f"Total design flow demand (flow-rate fittings): {total_flow_lpm:.1f} L/min")
     details.append("")
     details.append("Reference: PUB Handbook on Application for Water Supply 2022, Section 7.2.1.")
 
-    if any_fail:
+    if any_fail or any_undeclared:
         status = "FAIL"
-        summary = "One or more water fittings do not meet the minimum 2-tick MWELS rating."
+        if any_fail and any_undeclared:
+            summary = "One or more water fittings are below the minimum 2-tick MWELS rating or have no rating declared."
+        elif any_fail:
+            summary = "One or more water fittings do not meet the minimum 2-tick MWELS rating."
+        else:
+            summary = "One or more water fittings have no MWELS tick rating declared — undeclared fittings cannot be confirmed compliant."
     elif any_missing_data and compliant_count == 0:
         status = "WARN"
         summary = "Water fittings found but tick ratings not set — click each fixture to configure, then re-export."

@@ -9,7 +9,7 @@ import { symbolsApi } from '../../api/client';
 import { SYMBOL_PORTS, getElementPorts, getPortPosition, rotateOffset, getEffectivePortRole, getEffectivePortLabel, getScaledPortOffset } from '../../utils/symbolPorts';
 import { buildBackflowAssemblies } from '../../utils/dcvAssembly';
 import { buildElementAdjacency, isElementProtected } from '../../utils/backflowProtection';
-import { getSymbolSizePx, isBackflowRiskElement, getBackflowRule, FIXTURE_MWELS_CATEGORY } from '../../types';
+import { getSymbolSizePx, isBackflowRiskElement, getBackflowRule, FIXTURE_MWELS_CATEGORY, NON_MWELS_FITTING_TYPE_IDS } from '../../types';
 import type { CanvasElement, PipeElement as PipeElementType, PipeType } from '../../types';
 import { computePortConnectionStatus } from '../../utils/portConnectionStatus';
 import { useUiStore } from '../../store/uiStore';
@@ -488,6 +488,8 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
       {/* MWELS efficiency rating missing badges — orange ! when no rating ticks set */}
       {elements.flatMap((el) => {
         if (!(el.symbolId in FIXTURE_MWELS_CATEGORY)) return [];
+        const mwelsCategory = FIXTURE_MWELS_CATEGORY[el.symbolId];
+        if (mwelsCategory && NON_MWELS_FITTING_TYPE_IDS.has(mwelsCategory)) return [];
         if (el.efficiencyRating) return [];
         const bx = el.x + symPx / 2 + 4;
         const by = el.y - symPx / 2 - 4;

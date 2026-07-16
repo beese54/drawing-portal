@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useCanvasStore } from '../../store/canvasStore';
-import { FIXTURE_MWELS_CATEGORY, WATER_FITTING_TYPES, SCHEMATIC_SYMBOL_PX } from '../../types';
+import { FIXTURE_MWELS_CATEGORY, NON_MWELS_FITTING_TYPE_IDS, MWELS_TICK_OPTIONS, DEFAULT_MWELS_TICK_OPTIONS, WATER_FITTING_TYPES, SCHEMATIC_SYMBOL_PX } from '../../types';
 import { DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
 
 const TICK = '✓';
@@ -56,11 +56,15 @@ export function SymbolPropertiesModal({ elementId, x, y, elementHalfWidthVp = SC
 
   const fixedCategory  = FIXTURE_MWELS_CATEGORY[el.symbolId];
   const isMwelsFixture = el.symbolId in FIXTURE_MWELS_CATEGORY;
-  const showMwels      = isMwelsFixture;
+  const isApplianceFitting = !!fixedCategory && NON_MWELS_FITTING_TYPE_IDS.has(fixedCategory);
+  const showMwels      = isMwelsFixture && !isApplianceFitting;
+  const showApplianceNote = isMwelsFixture && isApplianceFitting;
 
   const categoryLabel = fixedCategory
     ? WATER_FITTING_TYPES.find((t) => t.id === fixedCategory)?.label
     : WATER_FITTING_TYPES.find((t) => t.id === el.fittingType)?.label;
+
+  const tickOptions = (fixedCategory ? MWELS_TICK_OPTIONS[fixedCategory] : undefined) ?? DEFAULT_MWELS_TICK_OPTIONS;
 
   const enabled = el.dualSupply ?? false;
   const swapped = el.swapDualSupply ?? false;
@@ -80,7 +84,7 @@ export function SymbolPropertiesModal({ elementId, x, y, elementHalfWidthVp = SC
 
       {/* Pump rated head section */}
       {isPump && (
-        <div style={{ marginBottom: showDualSupply || showMwels ? 8 : 0, paddingBottom: showDualSupply || showMwels ? 8 : 0, borderBottom: showDualSupply || showMwels ? '1px solid #eee' : 'none' }}>
+        <div style={{ marginBottom: showDualSupply || showMwels || showApplianceNote ? 8 : 0, paddingBottom: showDualSupply || showMwels || showApplianceNote ? 8 : 0, borderBottom: showDualSupply || showMwels || showApplianceNote ? '1px solid #eee' : 'none' }}>
           <div style={sectionLabel}>Pump Rated Head</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <input
@@ -116,7 +120,7 @@ export function SymbolPropertiesModal({ elementId, x, y, elementHalfWidthVp = SC
 
       {/* Dual supply section */}
       {showDualSupply && (
-        <div style={{ marginBottom: showMwels ? 8 : 0, paddingBottom: showMwels ? 8 : 0, borderBottom: showMwels ? '1px solid #eee' : 'none' }}>
+        <div style={{ marginBottom: showMwels || showApplianceNote ? 8 : 0, paddingBottom: showMwels || showApplianceNote ? 8 : 0, borderBottom: showMwels || showApplianceNote ? '1px solid #eee' : 'none' }}>
           <div style={sectionLabel}>Supply Ports</div>
           <label style={checkboxRow}>
             <input
@@ -160,13 +164,13 @@ export function SymbolPropertiesModal({ elementId, x, y, elementHalfWidthVp = SC
               {categoryLabel}
             </div>
           )}
-          <div style={{ display: 'flex', gap: 4 }}>
-            {([2, 3] as const).map((n) => (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {tickOptions.map((n) => (
               <button
                 key={n}
-                onClick={(e) => { e.stopPropagation(); updateEfficiencyRating(el.id, n); }}
+                onClick={(e) => { e.stopPropagation(); updateEfficiencyRating(el.id, n as 1 | 2 | 3 | 4); }}
                 style={{
-                  flex: 1, padding: '6px 0',
+                  flex: '1 1 40px', padding: '6px 0',
                   borderRadius: 4,
                   border: el.efficiencyRating === n ? '2px solid #1a3a5c' : '1px solid #ddd',
                   background: el.efficiencyRating === n ? '#1a3a5c' : '#f5f5f5',
@@ -183,6 +187,17 @@ export function SymbolPropertiesModal({ elementId, x, y, elementHalfWidthVp = SC
               Select a tick rating
             </div>
           )}
+        </div>
+      )}
+
+      {/* Fittings with no MWELS tick table at all (water dispenser) — Section 6 requires
+          a check valve instead, so no tick picker is offered here. */}
+      {showApplianceNote && (
+        <div style={{ marginTop: showDualSupply ? 8 : 0 }}>
+          <div style={sectionLabel}>Water Efficiency</div>
+          <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.4 }}>
+            Not subject to MWELS — Section 6 double check valve required instead.
+          </div>
         </div>
       )}
     </div>
