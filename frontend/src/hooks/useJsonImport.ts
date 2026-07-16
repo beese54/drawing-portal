@@ -1,7 +1,8 @@
 import { useCallback, useRef } from 'react';
 import { useCanvasStore } from '../store/canvasStore';
 import { useUiStore } from '../store/uiStore';
-import type { CanvasElement, PipeElement, TankProperties, DrawingMetadata, ExportedTankProperties } from '../types';
+import { DEFAULT_SHEET_CONFIG } from '../types';
+import type { CanvasElement, PipeElement, AnnotationElement, TankProperties, DrawingMetadata, ExportedTankProperties } from '../types';
 
 function importTankProperties(tp: ExportedTankProperties): TankProperties {
   const num = (v: number | null): number | undefined => (v !== null ? v : undefined);
@@ -25,7 +26,7 @@ function importTankProperties(tp: ExportedTankProperties): TankProperties {
   };
 }
 
-function parseSchematic(data: DrawingMetadata): { elements: CanvasElement[]; pipes: PipeElement[] } {
+function parseSchematic(data: DrawingMetadata): { elements: CanvasElement[]; pipes: PipeElement[]; annotations: AnnotationElement[] } {
   const elements: CanvasElement[] = data.elements.map((el) => {
     const base: CanvasElement = {
       id: el.id,
@@ -43,6 +44,9 @@ function parseSchematic(data: DrawingMetadata): { elements: CanvasElement[]; pip
       ...(el.tank_properties !== undefined && { tankProperties: importTankProperties(el.tank_properties) }),
       ...(el.upstream_port_indices !== undefined && { upstreamPortIndices: el.upstream_port_indices }),
       ...(el.upstream_port_index   !== undefined && el.upstream_port_indices === undefined && { upstreamPortIndex: el.upstream_port_index }),
+      ...(el.dual_supply !== undefined && { dualSupply: el.dual_supply }),
+      ...(el.swap_dual_supply !== undefined && { swapDualSupply: el.swap_dual_supply }),
+      ...(el.pump_rated_head_m != null && { pumpRatedHeadM: el.pump_rated_head_m }),
     };
     return base;
   });
@@ -56,13 +60,25 @@ function parseSchematic(data: DrawingMetadata): { elements: CanvasElement[]; pip
     endY: p.end.canvas_y,
   }));
 
-  return { elements, pipes };
+  const annotations: AnnotationElement[] = (data.annotations ?? []).map((ann) => ({
+    id: ann.id,
+    x: ann.position.canvas_x,
+    y: ann.position.canvas_y,
+    text: ann.text,
+    fontSize: ann.font_size,
+    color: ann.color,
+    maxWidth: ann.max_width,
+    height: ann.height,
+  }));
+
+  return { elements, pipes, annotations };
 }
 
 export function useJsonImport() {
   const loadSchematic = useCanvasStore((s) => s.loadSchematic);
   const setMrlConfig = useUiStore((s) => s.setMrlConfig);
   const setTitleBlock = useUiStore((s) => s.setTitleBlock);
+  const setSheetConfig = useUiStore((s) => s.setSheetConfig);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const openFilePicker = useCallback(() => {
@@ -80,10 +96,24 @@ export function useJsonImport() {
             alert(`Unsupported schema version "${data.schema_version}". Only version 1.0 is supported.`);
             return;
           }
-          const { elements, pipes } = parseSchematic(data);
+          const { elements, pipes, annotations } = parseSchematic(data);
+          // setSheetConfig must run before setMrlConfig — setMrlConfig derives
+          // upperMrl from whatever sheetConfig (paper size/drawing scale) is
+          // current at call time, so applying the imported sheet_config first
+          // ensures the restored lowerMrl is interpreted against the same
+          // scale it was exported with, not the importing session's own.
+          if (data.sheet_config) {
+            setSheetConfig({
+              paperSize: data.sheet_config.paper_size,
+              drawingScale: data.sheet_config.drawing_scale,
+              titleBlock: data.title_block ?? DEFAULT_SHEET_CONFIG.titleBlock,
+            });
+          } else if (data.title_block) {
+            // Backward-compat: files exported before sheet_config existed.
+            setTitleBlock(data.title_block);
+          }
           setMrlConfig({ lowerMrl: data.mrl_config.lower_mrl });
-          if (data.title_block) setTitleBlock(data.title_block);
-          loadSchematic(elements, pipes);
+          loadSchematic(elements, pipes, annotations);
         } catch (err) {
           alert(`Failed to import schematic: ${err instanceof Error ? err.message : 'Invalid JSON file.'}`);
         }
@@ -92,7 +122,7 @@ export function useJsonImport() {
     }
     fileInputRef.current.value = '';
     fileInputRef.current.click();
-  }, [loadSchematic, setMrlConfig, setTitleBlock]);
+  }, [loadSchematic, setMrlConfig, setTitleBlock, setSheetConfig]);
 
   return { openFilePicker };
 }

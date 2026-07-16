@@ -1,5 +1,5 @@
 import { useCanvasStore } from '../../store/canvasStore';
-import { CLOCKWISE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, SCHEMATIC_SYMBOL_PX } from '../../types';
+import { CLOCKWISE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, SCALE_FLIP_SYMBOL_IDS, SCHEMATIC_SYMBOL_PX } from '../../types';
 
 interface RotationPanelProps {
   elementId: string;
@@ -82,15 +82,14 @@ export function RotationPanel({ elementId, symbolId, x, y, currentRotation, curr
   }
 
   if ((FLIP_ONLY_SYMBOL_IDS as readonly string[]).includes(symbolId)) {
-    // water_tank, water_heater, water_meter use scaleX=-1 for mirror; others use rotation=180
-    const isWaterTank = symbolId === 'water_tank' || symbolId === 'water_heater' || symbolId === 'water_meter' || symbolId === 'pump' || symbolId === 'tap_point_schematic';
+    const useScaleFlip = SCALE_FLIP_SYMBOL_IDS.has(symbolId);
     return (
       <div style={posStyle}>
         <div style={labelStyle}>FLIP</div>
         <button
           onClick={(e) => {
             e.stopPropagation();
-            if (isWaterTank) {
+            if (useScaleFlip) {
               updateScaleX(elementId, currentScaleX === 1 ? -1 : 1);
             } else {
               updateRotation(elementId, currentRotation === 0 ? 180 : 0);

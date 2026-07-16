@@ -1,4 +1,5 @@
 import { symbolsApi } from '../../api/client';
+import { NEVER_MIRROR_IMAGE_SYMBOL_IDS, SCALE_FLIP_SYMBOL_IDS } from '../../types';
 
 interface FlipOrientationDialogProps {
   symbolId: string;
@@ -57,9 +58,6 @@ const PUMP_DOTS_RTL: DotDef[] = [
   { left: 50, top: 32, color: '#007bff', label: 'IN',  labelLeft: 28 },
   { left: 14, top: 32, color: '#e63329', label: 'OUT', labelLeft: 14 },
 ];
-
-// symbols that use scaleX=-1 for Left←Right (image stays upright, ports mirror)
-const SCALE_FLIP_SYMBOLS = new Set(['water_tank', 'water_heater', 'water_meter', 'pump', 'tap_point_schematic']);
 
 // water_meter: stubs at y=32, left tip at x=0, right tip at x=64
 const WATER_METER_DOTS_LTR: DotDef[] = [
@@ -141,7 +139,7 @@ function PortLegend({ dots }: { dots: DotDef[] }) {
 
 export function FlipOrientationDialog({ symbolId, symbolName, onConfirm, onCancel }: FlipOrientationDialogProps) {
   const imageUrl = symbolsApi.getImageUrl(symbolId);
-  const useScaleFlip = SCALE_FLIP_SYMBOLS.has(symbolId);
+  const useScaleFlip = SCALE_FLIP_SYMBOL_IDS.has(symbolId);
   const dotsLtr = DOTS_LTR[symbolId];
   const dotsRtl = DOTS_RTL[symbolId];
 
@@ -209,7 +207,9 @@ export function FlipOrientationDialog({ symbolId, symbolName, onConfirm, onCance
                 height={64}
                 style={{
                   display: 'block',
-                  transform: useScaleFlip ? 'scaleX(-1)' : 'rotate(180deg)',
+                  transform: useScaleFlip
+                    ? (NEVER_MIRROR_IMAGE_SYMBOL_IDS.has(symbolId) ? 'none' : 'scaleX(-1)')
+                    : 'rotate(180deg)',
                 }}
               />
               {dotsRtl && <PortDots dots={dotsRtl} />}

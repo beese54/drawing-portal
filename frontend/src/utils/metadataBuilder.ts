@@ -14,6 +14,8 @@ import {
   SupplyMode,
   TankProperties,
   TitleBlockData,
+  PaperSize,
+  DrawingScale,
   calcTankCapacityLitres,
   AcknowledgmentFlags,
   FIXTURE_MWELS_CATEGORY,
@@ -228,6 +230,21 @@ function buildHydraulicContext(
  * Pipes/elements upstream of the tank's inlet  → 'direct_supply'  (mains/direct feed)
  * Pipes/elements downstream of the tank's outlet → 'indirect_supply' (stored water distribution)
  * Water tank itself and unconnected nodes       → null
+ *
+ * Traverses via each port's `connects_to_element_id` rather than rebuilding
+ * adjacency from the pipes array alone. That field already covers BOTH
+ * pipe-mediated connections AND direct port-to-port snaps with no pipe drawn
+ * between them (Pass 2.5/2.6 above, also relied on by `traceFluid`) — a tank
+ * snapped straight onto a neighbouring symbol is otherwise invisible here,
+ * since it has no pipe touching it at all.
+ *
+ * water_fitting elements are treated as traversal leaves: BFS does not fan
+ * out through their other ports, and only the specific port that was reached
+ * gets the mode. A fitting's independent Hot and Cold ports can legitimately
+ * sit on different supply modes (that mismatch is exactly what Rule 6.1 is
+ * meant to catch) — every other node type (tee, elbow, valve, heater, pump…)
+ * is a genuine pass-through where entering via any port means all its other
+ * ports belong to the same flow zone.
  */
 function buildSupplyModes(
   exportedElements: ExportedElement[],
@@ -235,68 +252,83 @@ function buildSupplyModes(
 ): {
   elementSupply: Map<string, SupplyMode>;
   pipeSupply:    Map<string, SupplyMode>;
+  portSupply:    Map<string, SupplyMode>; // key: `${elementId}:${portIndex}`
 } {
   const elementSupply = new Map<string, SupplyMode>(exportedElements.map((el) => [el.id, null]));
   const pipeSupply    = new Map<string, SupplyMode>(exportedPipes.map((p)  => [p.id,   null]));
+  const portSupply    = new Map<string, SupplyMode>();
 
-  const waterMeters = exportedElements.filter((el) => el.symbol_id === 'water_tank');
-  if (waterMeters.length === 0) {
+  const waterTanks = exportedElements.filter((el) => el.symbol_id === 'water_tank');
+  if (waterTanks.length === 0) {
     // No tank present — entire system is direct supply
-    for (const el of exportedElements) elementSupply.set(el.id, 'direct_supply');
-    for (const p  of exportedPipes)    pipeSupply.set(p.id,   'direct_supply');
-    return { elementSupply, pipeSupply };
+    for (const el of exportedElements) {
+      elementSupply.set(el.id, 'direct_supply');
+      for (const port of el.ports) portSupply.set(`${el.id}:${port.index}`, 'direct_supply');
+    }
+    for (const p of exportedPipes) pipeSupply.set(p.id, 'direct_supply');
+    return { elementSupply, pipeSupply, portSupply };
   }
 
-  // Build adjacency: element ↔ pipes
-  const elToPipes   = new Map<string, Set<string>>();
-  const pipeToEls   = new Map<string, Set<string>>();
+  const elById  = new Map(exportedElements.map((el) => [el.id, el]));
+  const tankIds = new Set(waterTanks.map((t) => t.id)); // tanks act as traversal barriers
 
-  for (const el of exportedElements) elToPipes.set(el.id, new Set());
-  for (const p of exportedPipes) {
-    const connectedEls = new Set<string>();
-    if (p.start_connects_to) { connectedEls.add(p.start_connects_to); elToPipes.get(p.start_connects_to)?.add(p.id); }
-    if (p.end_connects_to)   { connectedEls.add(p.end_connects_to);   elToPipes.get(p.end_connects_to)?.add(p.id);   }
-    pipeToEls.set(p.id, connectedEls);
-  }
+  interface QueueItem { elementId: string; viaPortIndex: number | null; }
 
-  // Use ALL meter IDs as traversal barriers so BFS never crosses through a meter
-  const meterIds = new Set(waterMeters.map((m) => m.id)); // tanks act as traversal barriers
-
-  for (const meter of waterMeters) {
-    for (const pipeId of elToPipes.get(meter.id) ?? []) {
-      const pipe = exportedPipes.find((p) => p.id === pipeId);
-      if (!pipe) continue;
-
-      // Determine which side of the meter this pipe is on
-      let mode: SupplyMode = null;
-      if (pipe.flow_to_element_id   === meter.id) mode = 'direct_supply';
-      if (pipe.flow_from_element_id === meter.id) mode = 'indirect_supply';
+  for (const tank of waterTanks) {
+    for (const port of tank.ports) {
+      if (!port.connects_to_element_id) continue;
+      const mode: SupplyMode =
+        port.role === 'upstream'   ? 'direct_supply'   :
+        port.role === 'downstream' ? 'indirect_supply' : null;
       if (!mode) continue;
 
-      // BFS: spread mode to all reachable elements/pipes without crossing the meter
-      const visitedEls   = new Set<string>(meterIds);
-      const visitedPipes = new Set<string>();
-      const queue: string[] = [pipeId];
+      if (port.connected_pipe_id) pipeSupply.set(port.connected_pipe_id, mode);
+
+      const visitedEls = new Set<string>(tankIds); // never re-enter a tank
+      const queue: QueueItem[] = [{ elementId: port.connects_to_element_id, viaPortIndex: port.connects_to_port_index }];
 
       while (queue.length > 0) {
-        const currPipeId = queue.shift()!;
-        if (visitedPipes.has(currPipeId)) continue;
-        visitedPipes.add(currPipeId);
-        pipeSupply.set(currPipeId, mode);
+        const { elementId: curId, viaPortIndex } = queue.shift()!;
+        const curEl = elById.get(curId);
+        if (!curEl) continue;
 
-        for (const elId of pipeToEls.get(currPipeId) ?? []) {
-          if (visitedEls.has(elId)) continue;
-          visitedEls.add(elId);
-          elementSupply.set(elId, mode);
-          for (const nextPipeId of elToPipes.get(elId) ?? []) {
-            if (!visitedPipes.has(nextPipeId)) queue.push(nextPipeId);
+        if (curEl.node_type === 'water_fitting') {
+          // Terminal node — mark only the port that was actually reached, don't fan out.
+          if (viaPortIndex !== null) portSupply.set(`${curId}:${viaPortIndex}`, mode);
+          continue;
+        }
+
+        if (visitedEls.has(curId)) continue;
+        visitedEls.add(curId);
+        elementSupply.set(curId, mode);
+        for (const p of curEl.ports) portSupply.set(`${curId}:${p.index}`, mode);
+
+        for (const nextPort of curEl.ports) {
+          if (!nextPort.connects_to_element_id) continue;
+          if (nextPort.connected_pipe_id) pipeSupply.set(nextPort.connected_pipe_id, mode);
+          if (!visitedEls.has(nextPort.connects_to_element_id)) {
+            queue.push({ elementId: nextPort.connects_to_element_id, viaPortIndex: nextPort.connects_to_port_index });
           }
         }
       }
     }
   }
 
-  return { elementSupply, pipeSupply };
+  // Fittings never got an element-level mode above (they're leaves) — derive
+  // one from their own ports: a single mode if all its determined ports agree,
+  // null (ambiguous) if they conflict, so a genuinely mixed fitting doesn't
+  // silently collapse to one arbitrary value.
+  for (const el of exportedElements) {
+    if (el.node_type !== 'water_fitting') continue;
+    const modes = new Set(
+      el.ports
+        .map((p) => portSupply.get(`${el.id}:${p.index}`) ?? null)
+        .filter((m): m is 'direct_supply' | 'indirect_supply' => m !== null)
+    );
+    elementSupply.set(el.id, modes.size === 1 ? [...modes][0] : null);
+  }
+
+  return { elementSupply, pipeSupply, portSupply };
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
@@ -316,7 +348,8 @@ export function buildMetadata(
   mrlConfig: MrlConfig,
   canvasWidth: number,
   canvasHeight: number,
-  sourcePressureBar: number | null = null,
+  paperSize: PaperSize,
+  drawingScale: DrawingScale,
   acks: AcknowledgmentFlags = DEFAULT_ACKS,
   titleBlock: TitleBlockData = {} as TitleBlockData,
   annotations: AnnotationElement[] = [],
@@ -416,6 +449,7 @@ export function buildMetadata(
         connected_pipe_id: connectedPipeId,
         connects_to_element_id: null,
         connects_to_port_index: null,
+        supply_mode: null as SupplyMode, // filled in Pass 4
       };
     });
 
@@ -462,6 +496,8 @@ export function buildMetadata(
       })(),
       ...(el.upstreamPortIndices !== undefined ? { upstream_port_indices: el.upstreamPortIndices } : {}),
       ...(el.upstreamPortIndex   !== undefined && el.upstreamPortIndices === undefined ? { upstream_port_index: el.upstreamPortIndex } : {}),
+      ...(el.dualSupply !== undefined ? { dual_supply: el.dualSupply } : {}),
+      ...(el.swapDualSupply !== undefined ? { swap_dual_supply: el.swapDualSupply } : {}),
     };
   });
 
@@ -609,9 +645,12 @@ export function buildMetadata(
   const hydraulic_context = buildHydraulicContext(exportedElements, exportedPipes);
 
   // ── Pass 4: supply mode (direct / indirect relative to water meter) ────────
-  const { elementSupply, pipeSupply } = buildSupplyModes(exportedElements, exportedPipes);
-  for (const el   of exportedElements) el.supply_mode   = elementSupply.get(el.id) ?? null;
-  for (const pipe of exportedPipes)    pipe.supply_mode = pipeSupply.get(pipe.id)   ?? null;
+  const { elementSupply, pipeSupply, portSupply } = buildSupplyModes(exportedElements, exportedPipes);
+  for (const el of exportedElements) {
+    el.supply_mode = elementSupply.get(el.id) ?? null;
+    for (const port of el.ports) port.supply_mode = portSupply.get(`${el.id}:${port.index}`) ?? null;
+  }
+  for (const pipe of exportedPipes) pipe.supply_mode = pipeSupply.get(pipe.id) ?? null;
 
   const totalPipeLength = exportedPipes.reduce((sum, p) => sum + p.length_px, 0);
 
@@ -627,6 +666,8 @@ export function buildMetadata(
     },
     font_size: ann.fontSize,
     color: ann.color,
+    max_width: ann.maxWidth,
+    height: ann.height,
   }));
 
   return {
@@ -640,7 +681,7 @@ export function buildMetadata(
       range: upperMrl - lowerMrl,
     },
     canvas: { width_px: canvasWidth, height_px: canvasHeight },
-    source_pressure_bar: sourcePressureBar,
+    sheet_config: { paper_size: paperSize, drawing_scale: drawingScale },
     materials_acknowledged: acks.materialsAcknowledged,
     pump_discharge_material_acknowledged: acks.pumpDischargeMaterialAcknowledged,
     heater_type_acknowledged: acks.heaterTypeAcknowledged,

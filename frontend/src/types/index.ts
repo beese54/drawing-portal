@@ -179,6 +179,31 @@ export const CLOCKWISE_SYMBOL_IDS = [
 export const FLIP_ONLY_SYMBOL_IDS = ['pump', 'water_tank', 'water_heater', 'water_meter', 'tap_point_schematic'] as const;
 
 /**
+ * Of the FLIP_ONLY_SYMBOL_IDS, which ones flip via scaleX=-1 (image stays
+ * upright, ports mirror left/right) vs. rotation=180 (whole image rotates,
+ * used for symbols with no left/right-symmetric artwork). Single source of
+ * truth for RotationPanel.tsx (the ↔ button on a placed element) and
+ * FlipOrientationDialog.tsx (the placement-time orientation picker) — both
+ * used to carry their own hand-maintained copy of this same 5-symbol list,
+ * which is exactly the kind of drift that caused the water_heater "WH"→"HW"
+ * bug (fixed via NEVER_MIRROR_IMAGE_SYMBOL_IDS below).
+ */
+export const SCALE_FLIP_SYMBOL_IDS = new Set(['water_tank', 'water_heater', 'water_meter', 'pump', 'tap_point_schematic']);
+
+/**
+ * Symbols whose SVG has baked-in text that would read backwards if the whole
+ * image were mirrored (e.g. water_heater's "WH" flips to "HW" — both letters
+ * are individually left-right symmetric, so only their reading order visibly
+ * flips, making the bug look like an intentional-but-wrong relabel). For
+ * these symbols, only the port geometry should flip — the rendered image
+ * stays unmirrored (safe because their connector stubs are visually
+ * symmetric left/right, so nothing else changes on screen). Used by both
+ * SymbolNode.tsx (live canvas) and FlipOrientationDialog.tsx (placement
+ * preview) so the two can't drift out of sync again.
+ */
+export const NEVER_MIRROR_IMAGE_SYMBOL_IDS = new Set(['water_heater', 'water_meter']);
+
+/**
  * Symbols that SS636 or PUB explicitly mandate in a drawing.
  * Palette items in this set receive a small amber "§" tag to distinguish them
  * from neutral pipework symbols (gates, elbows, etc.) within the same category.
@@ -489,6 +514,8 @@ export interface ExportedPort {
   connects_to_element_id: string | null;
   /** Port index on that adjacent element, or null. */
   connects_to_port_index: number | null;
+  /** Whether THIS port's supply line is direct (mains) or indirect (via a water_tank). Independent per port — a water_fitting's Hot and Cold ports can differ. */
+  supply_mode: SupplyMode;
 }
 
 export type SupplyMode = 'direct_supply' | 'indirect_supply' | null;
@@ -531,6 +558,10 @@ export interface ExportedElement {
   upstream_port_index?: number;
   /** Multi-inlet upstream port override — only present when two ports are designated as inlets (tee in 2-inlet mode). */
   upstream_port_indices?: number[];
+  /** Whether Hot+Cold dual supply ports are active instead of a single generic supply port — only present on fixtures that support the toggle. Must round-trip through import or the fixture silently loses its Hot/Cold split (breaking Rule 6.1 on re-import). */
+  dual_supply?: boolean;
+  /** Whether the hot/cold side assignment is swapped — only meaningful when dual_supply is true. */
+  swap_dual_supply?: boolean;
 }
 
 /**
@@ -647,8 +678,8 @@ export interface DrawingMetadata {
   exported_at: string;
   mrl_config: { upper_mrl: number; lower_mrl: number; unit: 'm AMSL'; range: number };
   canvas: { width_px: number; height_px: number };
-  /** Source (mains) pressure in bar, as entered by the user. Null if not set. */
-  source_pressure_bar: number | null;
+  /** Sheet setup used at export time — needed to reconstruct the same paper size/drawing scale on import instead of silently reinterpreting elevations against whatever sheet config the importing session happens to have. */
+  sheet_config: { paper_size: PaperSize; drawing_scale: DrawingScale };
   /** LP/PE has acknowledged use of PUB-approved materials. */
   materials_acknowledged: boolean;
   /** LP/PE has acknowledged pump discharge pipes use PUB-approved non-plastic materials. */
@@ -682,4 +713,7 @@ export interface ExportedAnnotation {
   mrl: { value: number; unit: 'm AMSL' };
   font_size: number;
   color: string;
+  /** User-resizable text-box width in px. Must round-trip through import or a re-imported annotation silently loses its drawn box size/wrap. */
+  max_width: number;
+  height: number;
 }

@@ -8,7 +8,7 @@ import { SYMBOL_PORTS, getElementPorts, getPortPosition, getScaledPortOffset, ro
 import { closestPointOnSegment } from '../../utils/geometry';
 import { inferFluidAtPoint } from '../../utils/fluidInference';
 import type { PipeType, PipeElement } from '../../types';
-import { SCHEMATIC_SYMBOL_PX, isBackflowRiskElement } from '../../types';
+import { SCHEMATIC_SYMBOL_PX, isBackflowRiskElement, NEVER_MIRROR_IMAGE_SYMBOL_IDS } from '../../types';
 
 const FLUID_MATCH = 5; // px — slightly above CANVAS_SNAP_THRESHOLD so drag-snapped connections are always detected
 
@@ -93,7 +93,7 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
         offsetX={halfW}
         offsetY={halfH}
         rotation={rotation}
-        scaleX={scaleX}
+        scaleX={NEVER_MIRROR_IMAGE_SYMBOL_IDS.has(symbolId) ? 1 : scaleX}
         draggable={draggable}
         hitFunc={(ctx, shape) => {
           // Local space origin (0,0) is the image top-left (because offsetX/offsetY shift it).

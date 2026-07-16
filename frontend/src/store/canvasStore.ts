@@ -105,7 +105,6 @@ interface CanvasStore {
   selectedIds: string[];            // selected element IDs (multi-select)
   selectedPipeIds: string[];        // selected pipe IDs (multi-select)
   selectedAnnotationIds: string[];  // selected annotation IDs (multi-select)
-  sourcePressureBar: number | null;
   clipboard: Clipboard | null;
   history: HistoryEntry[];
   future: HistoryEntry[];
@@ -118,7 +117,7 @@ interface CanvasStore {
   // Canvas mutations
   addElement: (el: CanvasElement) => void;
   loadTemplate: (elements: CanvasElement[], pipes: PipeElement[]) => void;
-  loadSchematic: (elements: CanvasElement[], pipes: PipeElement[]) => void;
+  loadSchematic: (elements: CanvasElement[], pipes: PipeElement[], annotations?: AnnotationElement[]) => void;
   appendTemplate: (elements: CanvasElement[], pipes: PipeElement[], annotations?: AnnotationElement[]) => void;
   updateElementPosition: (id: string, x: number, y: number) => void;
   moveElement: (id: string, newX: number, newY: number) => void;
@@ -141,8 +140,6 @@ interface CanvasStore {
   updateTankProperties: (id: string, props: Partial<TankProperties>) => void;
   updateElementDimensions: (id: string, width: number, height: number) => void;
   updateCarriesFluid: (id: string, fluid: 'cold' | 'hot' | undefined) => void;
-  setSourcePressure: (bar: number | null) => void;
-
   // Annotations
   addAnnotation: (ann: Omit<AnnotationElement, 'height'> & { height?: number }) => void;
   moveAnnotation: (id: string, x: number, y: number) => void;
@@ -185,7 +182,6 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
     selectedIds: [],
     selectedPipeIds: [],
     selectedAnnotationIds: [],
-    sourcePressureBar: null,
     clipboard: null,
     history: [],
     future: [],
@@ -214,12 +210,12 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
       set({ elements, pipes, selectedId: null, selectedIds: [], selectedPipeIds: [] });
     },
 
-    loadSchematic: (elements, pipes) => {
+    loadSchematic: (elements, pipes, annotations = []) => {
       pushHistory();
       set({
         elements,
         pipes,
-        annotations: [],
+        annotations,
         selectedId: null,
         selectedIds: [],
         selectedPipeIds: [],
@@ -469,9 +465,6 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
       set((state) => ({
         elements: state.elements.map((el) => el.id === id ? { ...el, carriesFluid: fluid } : el),
       })),
-
-    setSourcePressure: (bar) =>
-      set({ sourcePressureBar: bar }),
 
     addAnnotation: (ann) => {
       pushHistory();
@@ -745,7 +738,6 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
     elements:          state.elements,
     pipes:             state.pipes,
     annotations:       state.annotations,
-    sourcePressureBar: state.sourcePressureBar,
   }),
   migrate: (_persisted, version) => {
     // Version mismatch (schema changed) — discard saved data and start fresh
