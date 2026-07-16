@@ -78,8 +78,16 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
   const halfW = width / 2;
   const halfH = height / 2;
 
-  // Invisible hit area is at least 14px so tiny symbols remain clickable/draggable
-  const MIN_HIT_PX = 14;
+  // Extra invisible click/drag margin beyond the symbol's own visible edge, per
+  // side. Symbols render on top of pipes (ElementsLayer.tsx draws pipes first,
+  // symbols second), so this hit rect always wins over a pipe underneath it —
+  // too much padding here silently steals clicks from any pipe running close to
+  // the symbol (reported 2026-07-16: a tee junction's hit area was swallowing an
+  // adjacent pipe click at typical schematic density). Pipes already have their
+  // own generous hitStrokeWidth (8-12px, see PipeElement.tsx) to stay clickable
+  // despite their thin visual stroke, so this only needs to close the gap for
+  // tiny (6px) symbols, not match a pipe's click width.
+  const HIT_PADDING_PX = 2;
 
   return (
     <>
@@ -98,8 +106,8 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
         hitFunc={(ctx, shape) => {
           // Local space origin (0,0) is the image top-left (because offsetX/offsetY shift it).
           // Center the hit rect at (halfW, halfH) to align with the visible symbol.
-          const hw = Math.max(halfW, MIN_HIT_PX / 2);
-          const hh = Math.max(halfH, MIN_HIT_PX / 2);
+          const hw = halfW + HIT_PADDING_PX;
+          const hh = halfH + HIT_PADDING_PX;
           ctx.beginPath();
           ctx.rect(halfW - hw, halfH - hh, hw * 2, hh * 2);
           ctx.closePath();
