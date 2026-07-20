@@ -22,7 +22,33 @@ const mm = (contentPx: number): number => contentPx / SHEET_PX_PER_MM;
 const MM_PER_PT = 25.4 / 72;
 const pt = (contentPx: number): number => mm(contentPx) / MM_PER_PT;
 
+/** Truncates text with an ellipsis to fit maxWidthMm at the current font — matches the Konva
+ *  legend's `wrap="none" ellipsis` behavior. jsPDF's own `text(..., {maxWidth})` doesn't
+ *  ellipsize, it wraps onto additional lines instead, which silently overflows into the row
+ *  below when a legend entry's name is long (found via a real "Pressure Vessel (Schematic)"
+ *  vs "Tee Junction" legend collision) — call this and pass the result to text() with no
+ *  maxWidth, rather than relying on jsPDF's wrapping for anything meant to stay one line. */
+function truncateToWidth(pdf: jsPDF, text: string, maxWidthMm: number): string {
+  if (pdf.getTextWidth(text) <= maxWidthMm) return text;
+  let lo = 0, hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (pdf.getTextWidth(text.slice(0, mid) + '…') <= maxWidthMm) lo = mid; else hi = mid - 1;
+  }
+  return text.slice(0, lo) + '…';
+}
+
 // ── Symbol SVG loading/caching ───────────────────────────────────────────────
+
+/** svg2pdf.js silently fails to render an SVG at small target sizes (e.g. a ~5mm legend icon)
+ *  when it has no explicit viewBox — only width/height. Derive one from the SVG's own
+ *  width/height so every symbol gets this fix regardless of how its source file was authored. */
+function ensureSvgViewBox(svgEl: SVGElement): void {
+  if (svgEl.hasAttribute('viewBox')) return;
+  const w = parseFloat(svgEl.getAttribute('width') || '');
+  const h = parseFloat(svgEl.getAttribute('height') || '');
+  if (w > 0 && h > 0) svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`);
+}
 
 /** Fetches and parses a symbol's raw SVG once per export, cached by symbolId. Returns
  *  the pristine parsed template — callers must clone before mutating (e.g. for tint). */
@@ -38,6 +64,7 @@ async function getSymbolSvgTemplate(symbolId: string, cache: Map<string, SVGElem
       cache.set(symbolId, null);
       return null;
     }
+    ensureSvgViewBox(svgEl as unknown as SVGElement);
     normalizeSvgStrokeDefaults(svgEl as unknown as SVGElement);
     cache.set(symbolId, svgEl as unknown as SVGElement);
     return svgEl as unknown as SVGElement;
@@ -70,8 +97,7 @@ function normalizeSvgStrokeDefaults(svgEl: SVGElement): void {
 }
 
 /** Recolors tee/elbow symbols to match their traced upstream fluid — vector equivalent of
- *  SymbolNode.tsx's offscreen-canvas pixel recolor. Both symbols use stroke="#1a1a1a" with
- *  no fill, so only stroke attributes need substituting. */
+ *  SymbolNode.tsx's offscreen-canvas pixel recolor. */
 function recolorSvgStroke(svgEl: SVGElement, hexColor: string): void {
   svgEl.querySelectorAll('[stroke]').forEach((node) => {
     if (node.getAttribute('stroke')?.toLowerCase() === '#1a1a1a') {
@@ -331,14 +357,16 @@ async function drawTitleBlock(
         const svgEl = template.cloneNode(true) as SVGElement;
         try {
           await svg2pdf(svgEl, pdf, { x: mm(colX + PAD), y: mm(rowY + 1), width: mm(iconSize), height: mm(iconSize) });
-        } catch {
-          // Skip icon on failure — legend text label still conveys the symbol name.
+        } catch (err) {
+          // Legend text label still conveys the symbol name even if the icon fails.
+          console.error(`PDF export: failed to place legend icon for "${symbolId}":`, err);
         }
       }
       pdf.setFontSize(pt(7));
       pdf.setTextColor(VAL_CLR);
-      pdf.text(symbolName, mm(colX + PAD + iconSize + 3), mm(rowY + 2), {
-        baseline: 'top', maxWidth: mm(colW - PAD * 2 - iconSize - 3),
+      const nameMaxWidthMm = mm(colW - PAD * 2 - iconSize - 3);
+      pdf.text(truncateToWidth(pdf, symbolName, nameMaxWidthMm), mm(colX + PAD + iconSize + 3), mm(rowY + 2), {
+        baseline: 'top',
       });
     }
     for (let ci = 0; ci < legendCols - 1; ci++) {
