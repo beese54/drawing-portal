@@ -257,6 +257,9 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
           endX={pipe.endX}
           endY={pipe.endY}
           isSelected={selectedId === pipe.id || selectedPipeIdSet.has(pipe.id)}
+          isHovered={hoveredId === pipe.id}
+          onHoverEnter={() => setHoveredId(pipe.id)}
+          onHoverLeave={() => setHoveredId(null)}
         />
       ))}
 
@@ -361,7 +364,7 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
           const elStatus = connStatus.get(el.id) ?? [];
           return ports.map((port, i) => {
             // Exception: water_meter upstream inlet is the mains source — no pipe expected
-            const isExempt = el.symbolId === 'water_meter' && port.role === 'upstream';
+            const isExempt = el.symbolId === 'water_meter' && getEffectivePortRole(el, i) === 'upstream';
             if (isExempt) return null;
 
             const pos = getPortPosition(el, port);

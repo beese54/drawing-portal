@@ -457,12 +457,7 @@ function drawPipes(pdf: jsPDF, pipes: PipeElementType[]): void {
     pdf.setLineCap('round');
     pdf.line(sx, sy, ex, ey);
 
-    if (pipe.pipeType === 'generic') {
-      pdf.circle(sx, sy, mm(0.5), 'F');
-      pdf.circle(ex, ey, mm(0.5), 'F');
-    } else {
-      drawArrowhead(pdf, sx, sy, ex, ey, mm(PIPE_ARROW_POINTER_LENGTH), mm(PIPE_ARROW_POINTER_WIDTH));
-    }
+    drawArrowhead(pdf, sx, sy, ex, ey, mm(PIPE_ARROW_POINTER_LENGTH), mm(PIPE_ARROW_POINTER_WIDTH));
   }
 }
 

@@ -1,4 +1,4 @@
-import { Arrow, Line, Circle } from 'react-konva';
+import { Arrow, Circle, Line } from 'react-konva';
 import Konva from 'konva';
 import { useCanvasStore } from '../../store/canvasStore';
 import { PipeType } from '../../types';
@@ -32,6 +32,9 @@ interface PipeElementProps {
   endX: number;
   endY: number;
   isSelected: boolean;
+  isHovered?: boolean;
+  onHoverEnter?: () => void;
+  onHoverLeave?: () => void;
 }
 
 export function PipeElement({
@@ -42,6 +45,9 @@ export function PipeElement({
   endX,
   endY,
   isSelected,
+  isHovered = false,
+  onHoverEnter,
+  onHoverLeave,
 }: PipeElementProps) {
   const setSelected = useCanvasStore((s) => s.setSelected);
   const updatePipeEndpoints = useCanvasStore((s) => s.updatePipeEndpoints);
@@ -53,25 +59,10 @@ export function PipeElement({
   const dy = endY - startY;
   if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return null;
 
-  if (pipeType === 'generic') {
-    return (
-      <>
-        <Line
-          points={[startX, startY, endX, endY]}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          lineCap="round"
-          onClick={(e) => { if (e.evt.button === 0) setSelected(id); }}
-          onTap={() => setSelected(id)}
-          hitStrokeWidth={12}
-        />
-        <Circle x={startX} y={startY} radius={0.5} fill={color} listening={false} />
-        <Circle x={endX} y={endY} radius={0.5} fill={color} listening={false} />
-      </>
-    );
-  }
-
-  // Cold/hot pipes: arrowhead at end (downstream) + draggable endpoints when selected
+  // Arrowhead at end (downstream/inlet side) + draggable endpoints when selected.
+  // All pipe types carry this start=outlet/end=inlet direction convention —
+  // it's what port-connection validation (portConnectionStatus.ts) and export
+  // flow-direction (metadataBuilder.ts) key off of.
   const isHorizontal = Math.abs(dx) >= Math.abs(dy);
   const dragCursor = isHorizontal ? 'ew-resize' : 'ns-resize';
 
@@ -107,8 +98,32 @@ export function PipeElement({
     if (stage) stage.container().style.cursor = 'default';
   };
 
+  const handleBodyMouseEnter = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    onHoverEnter?.();
+    const stage = (e.target as Konva.Node).getStage();
+    if (stage) stage.container().style.cursor = 'pointer';
+  };
+
+  const handleBodyMouseLeave = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    onHoverLeave?.();
+    const stage = (e.target as Konva.Node).getStage();
+    if (stage) stage.container().style.cursor = 'default';
+  };
+
   return (
     <>
+      {/* Hover halo — pipes have no ports to reveal like a hovered symbol
+          does, so this is their equivalent "you're over something" cue. */}
+      {isHovered && !isSelected && (
+        <Line
+          points={[startX, startY, endX, endY]}
+          stroke={color}
+          strokeWidth={strokeWidth + 2.5}
+          opacity={0.35}
+          lineCap="round"
+          listening={false}
+        />
+      )}
       <Arrow
         points={[startX, startY, endX, endY]}
         pointerLength={PIPE_ARROW_POINTER_LENGTH}
@@ -119,7 +134,9 @@ export function PipeElement({
         lineCap="round"
         onClick={(e) => { if (e.evt.button === 0) setSelected(id); }}
         onTap={() => setSelected(id)}
-        hitStrokeWidth={8}
+        onMouseEnter={handleBodyMouseEnter}
+        onMouseLeave={handleBodyMouseLeave}
+        hitStrokeWidth={12}
       />
       {/* Upstream endpoint */}
       <Circle
