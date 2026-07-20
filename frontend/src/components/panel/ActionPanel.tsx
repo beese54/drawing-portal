@@ -26,7 +26,7 @@ interface ConnectionWarning {
 export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   const clearCanvas = useCanvasStore((s) => s.clearCanvas);
   const setActiveTool = useUiStore((s) => s.setActiveTool);
-  const exportJpgFn = useUiStore((s) => s.exportJpgFn);
+  const exportPdfFn = useUiStore((s) => s.exportPdfFn);
   const openSheetSetup = useUiStore((s) => s.openSheetSetup);
   const sheetConfig = useUiStore((s) => s.sheetConfig);
   const elements = useCanvasStore((s) => s.elements);
@@ -282,7 +282,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
         Export Metadata (JSON)
       </button>
       <button
-        onClick={() => exportJpgFn?.()}
+        onClick={() => exportPdfFn?.()}
         disabled={!hasContent}
         style={{
           width: '100%', padding: '9px 12px', border: 'none', borderRadius: 6,
@@ -291,7 +291,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
           marginBottom: 8,
         }}
       >
-        Export Diagram (JPG)
+        Export Diagram (PDF)
       </button>
       <button
         onClick={() => setConfirmClear(true)}

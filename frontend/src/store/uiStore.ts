@@ -35,6 +35,14 @@ export interface DcvToast {
   pipeId: string;
 }
 
+/** Transient (non-persisted) smart-guide shown while dragging a symbol into
+ *  axis-alignment with another symbol's port — lets a later pipe between them
+ *  be a straight H/V line instead of a diagonal. */
+export interface AlignmentGuide {
+  axis: 'x' | 'y';
+  value: number;
+}
+
 interface UiStore {
   activeTool: ActiveTool;
   mrlConfig: MrlConfig;
@@ -42,7 +50,7 @@ interface UiStore {
   draggingSymbolId: string | null;
   pendingSymbol: { id: string; name: string } | null;
   pendingTemplate: PendingTemplate | null;
-  exportJpgFn: (() => void) | null;
+  exportPdfFn: (() => void) | null;
   pdfBackground: PdfBackground | null;
   pdfImportFn: ((file: File) => Promise<void>) | null;
   sheetConfig: SheetConfig;
@@ -50,6 +58,7 @@ interface UiStore {
   sheetSetupInitialTab: 'sheet' | 'titleblock';
   bidetToast: BidetToast | null;
   dcvToast: DcvToast | null;
+  alignmentGuide: AlignmentGuide | null;
   floorLevelOpacity: number;
   setActiveTool: (tool: ActiveTool) => void;
   setMrlConfig: (config: Partial<MrlConfig>) => void;
@@ -59,7 +68,7 @@ interface UiStore {
   setDraggingSymbolId: (id: string | null) => void;
   setPendingSymbol: (sym: { id: string; name: string } | null) => void;
   setPendingTemplate: (t: PendingTemplate | null) => void;
-  registerExportJpg: (fn: () => void) => void;
+  registerExportPdf: (fn: () => void) => void;
   setPdfBackground: (bg: PdfBackground | null) => void;
   updatePdfBackground: (props: Partial<PdfBackground>) => void;
   registerPdfImport: (fn: (file: File) => Promise<void>) => void;
@@ -73,6 +82,8 @@ interface UiStore {
   dismissBidetToast: () => void;
   showDcvToast: (elementId: string, elementX: number, elementY: number, pipeId: string) => void;
   dismissDcvToast: () => void;
+  setAlignmentGuide: (guide: AlignmentGuide) => void;
+  clearAlignmentGuide: () => void;
   setFloorLevelOpacity: (opacity: number) => void;
 }
 
@@ -86,7 +97,7 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   draggingSymbolId: null,
   pendingSymbol: null,
   pendingTemplate: null,
-  exportJpgFn: null,
+  exportPdfFn: null,
   pdfBackground: null,
   pdfImportFn: null,
   sheetConfig: DEFAULT_SHEET_CONFIG,
@@ -94,13 +105,14 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   sheetSetupInitialTab: 'sheet' as const,
   bidetToast: null,
   dcvToast: null,
+  alignmentGuide: null,
   floorLevelOpacity: 1,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
   setDraggingSymbolId: (id) => set({ draggingSymbolId: id }),
   setPendingSymbol: (sym) => set({ pendingSymbol: sym }),
   setPendingTemplate: (t) => set({ pendingTemplate: t }),
-  registerExportJpg: (fn) => set({ exportJpgFn: fn }),
+  registerExportPdf: (fn) => set({ exportPdfFn: fn }),
   setPdfBackground: (bg) => set({ pdfBackground: bg }),
   updatePdfBackground: (props) => set((state) => ({
     pdfBackground: state.pdfBackground ? { ...state.pdfBackground, ...props } : null,
@@ -124,6 +136,8 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   dismissBidetToast: () => set({ bidetToast: null }),
   showDcvToast: (elementId, elementX, elementY, pipeId) => set({ dcvToast: { elementId, elementX, elementY, pipeId } }),
   dismissDcvToast: () => set({ dcvToast: null }),
+  setAlignmentGuide: (guide) => set({ alignmentGuide: guide }),
+  clearAlignmentGuide: () => set({ alignmentGuide: null }),
   setFloorLevelOpacity: (opacity) => set({ floorLevelOpacity: Math.max(0, Math.min(1, opacity)) }),
 
   addFloorLevel: (floor) =>

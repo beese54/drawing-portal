@@ -1,39 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Layer, Rect, Text, Line, Image as KonvaImage } from 'react-konva';
-import {
-  TITLE_BLOCK_MM, SHEET_PX_PER_MM, PAPER_SIZES_MM, AXIS_WIDTH,
-  type SheetConfig,
-} from '../../types';
+import { type SheetConfig } from '../../types';
 import { useCanvasStore } from '../../store/canvasStore';
 import { symbolsApi } from '../../api/client';
+import {
+  computeTitleBlockLayout, BORDER, LBL_CLR, VAL_CLR, LBL_SZ, VAL_SZ, PAD,
+  LEGEND_ROW_H, LEGEND_HDR_H, LEGEND_MAX_ROWS,
+} from '../../utils/titleBlockLayout';
 
 interface Props {
   sheetConfig: SheetConfig;
   onTitleBlockClick?: () => void;
 }
 
-const BORDER  = '#2a2a2a';
-const LBL_CLR = '#555';
-const VAL_CLR = '#111';
-const LBL_SZ  = 5.5;
-const VAL_SZ  = 6.5;
-const LINE_H  = 8.5;
-const PAD     = 6;
-
-function blockH(text: string | undefined, minH: number, hasSign = false): number {
-  const lines = text?.trim() ? text.split('\n').length : 0;
-  const textH = lines * LINE_H;
-  const signH = hasSign ? 14 : 0;
-  return Math.max(minH, PAD + LBL_SZ + 6 + textH + signH + PAD);
-}
-
 export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
-  const { titleBlock, paperSize, drawingScale } = sheetConfig;
-
-  const paperW = PAPER_SIZES_MM[paperSize].w * SHEET_PX_PER_MM;
-  const paperH = PAPER_SIZES_MM[paperSize].h * SHEET_PX_PER_MM;
-  const tbW    = TITLE_BLOCK_MM * SHEET_PX_PER_MM;
-  const tbX    = AXIS_WIDTH + paperW;
+  const { titleBlock, drawingScale } = sheetConfig;
 
   const [ownerStampImg, setOwnerStampImg] = useState<HTMLImageElement | null>(null);
   useEffect(() => {
@@ -82,59 +63,19 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbolKey]);
 
-  const LEGEND_ROW_H = 12;
-  const LEGEND_HDR_H = 14;
-  const LEGEND_MAX_ROWS = 10;
-  // Use 3 cols for large symbol sets so the legend stays compact
-  const LEGEND_COLS = uniqueSymbols.length > 20 ? 3 : 2;
-  const legendRows = Math.min(Math.ceil(uniqueSymbols.length / LEGEND_COLS), LEGEND_MAX_ROWS);
-  const legendH = uniqueSymbols.length > 0 ? LEGEND_HDR_H + legendRows * LEGEND_ROW_H + 4 : 0;
-
-  // ── Fixed heights ──────────────────────────────────────────────
-  const headerH = 34;
-  const btRowH  = 20;
-  const dtRowH  = 26;
-  const bottomH = dtRowH + 3 * btRowH;
-
-  // ── Natural heights per block ──────────────────────────────────
-  const ownerStampExtraH      = ownerStampImg      ? 50 : 0;
-  const structuralStampExtraH = structuralStampImg ? 50 : 0;
-  const natOwner      = blockH(titleBlock.ownerDeveloper,     38, true) + ownerStampExtraH;
-  const natStructural = blockH(titleBlock.structuralEngineer, 38, true) + structuralStampExtraH;
-  const natProj       = blockH(titleBlock.projectName,        32);
-  const natMain       = blockH(titleBlock.mainContractor,     32);
-  const natPlumb      = blockH(titleBlock.plumbingContractor, 32);
-
-  const available = paperH - headerH - bottomH - legendH;
-  const totalNat  = natOwner + natStructural + natProj + natMain + natPlumb;
-
-  const scale = totalNat > available ? available / totalNat : 1;
-  const bonus = totalNat < available ? (available - totalNat) / 5 : 0;
-
-  const ownerH      = Math.round(natOwner      * scale + bonus);
-  const structuralH = Math.round(natStructural * scale + bonus);
-  const projH       = Math.round(natProj       * scale + bonus);
-  const mainH       = Math.round(natMain       * scale + bonus);
-  const plumbH      = available - ownerH - structuralH - projH - mainH;
-
-  // ── Y anchors ──────────────────────────────────────────────────
-  const yOwner      = headerH;
-  const yStructural = yOwner      + ownerH;
-  const yProj       = yStructural + structuralH;
-  const yMain       = yProj       + projH;
-  const yPlumb      = yMain       + mainH;
-  const yLegend     = yPlumb      + plumbH;
-  const yBottom     = paperH      - bottomH;
-  const yDt         = yBottom;
-  const yRow1       = yDt   + dtRowH;
-  const yRow2       = yRow1 + btRowH;
-  const yRow3       = yRow2 + btRowH;
-
-  // ── Bottom table column widths (3 columns) ──────────────────────
-  const c1W = Math.round(tbW * 0.45);
-  const c2W = Math.round(tbW * 0.28);
-  const c3W = tbW - c1W - c2W;
-  const bw  = 0.75;
+  const layout = useMemo(
+    () => computeTitleBlockLayout(sheetConfig, uniqueSymbols.length, !!ownerStampImg, !!structuralStampImg),
+    [sheetConfig, uniqueSymbols.length, ownerStampImg, structuralStampImg],
+  );
+  const {
+    paperH, tbW, tbX, headerH,
+    ownerStampExtraH, structuralStampExtraH,
+    ownerH, structuralH, projH, mainH, plumbH,
+    yOwner, yStructural, yProj, yMain, yPlumb,
+    legendCols: LEGEND_COLS, legendH, yLegend,
+    btRowH, dtRowH, yDt, yRow1, yRow2, yRow3,
+    c1W, c2W, c3W, borderWidth: bw,
+  } = layout;
 
   const BlockText = (x: number, y: number, label: string, text: string | undefined) => [
     <Text key={`lbl-${label}`} x={x + PAD} y={y + PAD}

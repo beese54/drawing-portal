@@ -15,7 +15,7 @@ import { computePortConnectionStatus } from '../../utils/portConnectionStatus';
 import { useUiStore } from '../../store/uiStore';
 
 // Symbols that should be tinted to match their upstream pipe colour
-const TINT_SYMBOL_IDS = new Set(['tee_junction', 'elbow_bend']);
+export const TINT_SYMBOL_IDS = new Set(['tee_junction', 'elbow_bend']);
 
 // Elements that transform or originate fluid — BFS stops here instead of passing through.
 // Without this, the BFS can cross a water heater from its hot output back to its cold input.
@@ -95,7 +95,7 @@ function traceFluidFromPos(
  *  (upstream first), falling back to a stored carriesFluid override only when the BFS
  *  finds nothing reachable (e.g. a template placed before it's wired into the rest of
  *  the drawing) — a successful live trace always wins, so this never masks a real change. */
-function getElbowTeeTint(
+export function getElbowTeeTint(
   el: CanvasElement,
   elements: CanvasElement[],
   pipes: PipeElementType[],
@@ -183,6 +183,7 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
   const setSelected = useCanvasStore((s) => s.setSelected);
   const drawingScale = useUiStore((s) => s.sheetConfig.drawingScale);
   const insertDcvAssemblies = useCanvasStore((s) => s.insertDcvAssemblies);
+  const alignmentGuide = useUiStore((s) => s.alignmentGuide);
   const symPx = getSymbolSizePx(drawingScale);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [warningTooltip, setWarningTooltip] = useState<{ x: number; y: number; lines: string[] } | null>(null);
@@ -791,6 +792,21 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
           </Group>
         );
       })()}
+      {/* Smart alignment guide — shown while dragging a symbol into axis-alignment with another port */}
+      {alignmentGuide && (
+        <Line
+          points={
+            alignmentGuide.axis === 'x'
+              ? [alignmentGuide.value, -50, alignmentGuide.value, 3000]
+              : [-50, alignmentGuide.value, 3000, alignmentGuide.value]
+          }
+          stroke="#ff00aa"
+          strokeWidth={0.35}
+          opacity={0.55}
+          dash={[3, 2]}
+          listening={false}
+        />
+      )}
     </Layer>
   );
 }

@@ -13,12 +13,20 @@ import { SCHEMATIC_SYMBOL_PX, isBackflowRiskElement, NEVER_MIRROR_IMAGE_SYMBOL_I
 const FLUID_MATCH = 5; // px — slightly above CANVAS_SNAP_THRESHOLD so drag-snapped connections are always detected
 
 // RGB values matching the pipe colors in PipeElement.tsx
-const TINT_RGB: Record<string, [number, number, number]> = {
+export const TINT_RGB: Record<string, [number, number, number]> = {
   cold: [0,   123, 255],  // #007bff
   hot:  [230,  51,  41],  // #e63329
 };
 
+/** Whether a symbol's image should be mirrored when its element has scaleX=-1 — false for
+ *  symbols with baked-in text that would read backwards (see NEVER_MIRROR_IMAGE_SYMBOL_IDS).
+ *  Single source of truth for both the Konva canvas and the PDF exporter. */
+export function shouldMirrorSymbolImage(symbolId: string): boolean {
+  return !NEVER_MIRROR_IMAGE_SYMBOL_IDS.has(symbolId);
+}
+
 const CANVAS_SNAP_THRESHOLD = 4; // px — snap when dragging symbol near another symbol's port
+const ALIGN_GUIDE_THRESHOLD = 3; // px — show/snap an alignment guide when a port nears another port's x or y, even far apart on the other axis
 
 interface SymbolNodeProps {
   id: string;
@@ -101,7 +109,7 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
         offsetX={halfW}
         offsetY={halfH}
         rotation={rotation}
-        scaleX={NEVER_MIRROR_IMAGE_SYMBOL_IDS.has(symbolId) ? 1 : scaleX}
+        scaleX={shouldMirrorSymbolImage(symbolId) ? scaleX : 1}
         draggable={draggable}
         hitFunc={(ctx, shape) => {
           // Local space origin (0,0) is the image top-left (because offsetX/offsetY shift it).
@@ -125,6 +133,41 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
           const thisEl = elements.find((el) => el.id === id);
           const myPorts = thisEl ? getElementPorts(thisEl) : (SYMBOL_PORTS[symbolId] ?? []);
           if (myPorts.length === 0) return;
+
+          // 0. Hard-lock any port that already has a pipe connected to it onto
+          // that pipe's existing H/V axis — otherwise freely dragging the
+          // symbol stretches an already-straight pipe into a diagonal one
+          // (the draw-time fix only stops *creating* a diagonal pipe, not
+          // dragging one out of an existing straight connection). Mirrors how
+          // dragging a pipe's own endpoint (PipeElement.tsx) is already
+          // locked to one axis. Relocating a connected symbol off-axis means
+          // deleting its pipe first, same as any other physical re-plumb.
+          let lockedAnyAxis = false;
+          for (let i = 0; i < myPorts.length; i++) {
+            const connectedPipe = pipes.find(
+              (p) =>
+                (p.startElementId === id && p.startPortIndex === i) ||
+                (p.endElementId === id && p.endPortIndex === i)
+            );
+            if (!connectedPipe) continue;
+            const isStart = connectedPipe.startElementId === id && connectedPipe.startPortIndex === i;
+            const fixedX = isStart ? connectedPipe.endX : connectedPipe.startX;
+            const fixedY = isStart ? connectedPipe.endY : connectedPipe.startY;
+            const pipeIsHorizontal =
+              Math.abs(connectedPipe.startX - connectedPipe.endX) >= Math.abs(connectedPipe.startY - connectedPipe.endY);
+            const { ox, oy } = getScaledPortOffset(symbolId, myPorts[i], width, height, scaleX);
+            const rot = rotateOffset(ox, oy, rotation);
+            if (pipeIsHorizontal) {
+              node.y(fixedY - rot.y);
+            } else {
+              node.x(fixedX - rot.x);
+            }
+            lockedAnyAxis = true;
+          }
+          if (lockedAnyAxis) {
+            useUiStore.getState().clearAlignmentGuide();
+            return;
+          }
 
           // For tee/elbow: snap via the user-chosen inlet port(s) only.
           // For all others: snap via any port.
@@ -153,10 +196,45 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
                 if (d < CANVAS_SNAP_THRESHOLD) {
                   node.x(dragX + (otherPos.x - myPortX));
                   node.y(dragY + (otherPos.y - myPortY));
+                  useUiStore.getState().clearAlignmentGuide();
                   return;
                 }
               }
             }
+          }
+
+          // 1.5 Alignment guide: snap this symbol into axis-alignment with another
+          // symbol's port on a shared x or y, even when far apart on the other axis,
+          // so a straight pipe can later be drawn between them instead of a diagonal.
+          {
+            let bestGuide: { axis: 'x' | 'y'; matchValue: number; delta: number; dist: number } | null = null;
+            for (const myPort of myPorts) {
+              const { ox, oy } = getScaledPortOffset(symbolId, myPort, width, height, scaleX);
+              const rot = rotateOffset(ox, oy, rotation);
+              const myPortX = dragX + rot.x;
+              const myPortY = dragY + rot.y;
+              for (const otherEl of elements) {
+                if (otherEl.id === id) continue;
+                for (const otherPort of getElementPorts(otherEl)) {
+                  const otherPos = getPortPosition(otherEl, otherPort);
+                  const dx = otherPos.x - myPortX;
+                  const dy = otherPos.y - myPortY;
+                  if (Math.abs(dx) < ALIGN_GUIDE_THRESHOLD && (!bestGuide || Math.abs(dx) < bestGuide.dist)) {
+                    bestGuide = { axis: 'x', matchValue: otherPos.x, delta: dx, dist: Math.abs(dx) };
+                  }
+                  if (Math.abs(dy) < ALIGN_GUIDE_THRESHOLD && (!bestGuide || Math.abs(dy) < bestGuide.dist)) {
+                    bestGuide = { axis: 'y', matchValue: otherPos.y, delta: dy, dist: Math.abs(dy) };
+                  }
+                }
+              }
+            }
+            if (bestGuide) {
+              if (bestGuide.axis === 'x') node.x(dragX + bestGuide.delta);
+              else node.y(dragY + bestGuide.delta);
+              useUiStore.getState().setAlignmentGuide({ axis: bestGuide.axis, value: bestGuide.matchValue });
+              return;
+            }
+            useUiStore.getState().clearAlignmentGuide();
           }
 
           // 2. Snap any port to nearest pipe body (all symbol types)
@@ -190,6 +268,7 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
           }
         }}
         onDragEnd={(e) => {
+          useUiStore.getState().clearAlignmentGuide();
           const newX = e.target.x();
           const newY = e.target.y();
           const { elements: elsNow } = useCanvasStore.getState();

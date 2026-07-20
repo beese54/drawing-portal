@@ -14,6 +14,16 @@ const PIPE_COLORS: Record<PipeType, PipeColors> = {
   hot:     { normal: '#e63329', selected: '#b51f1a' },
 };
 
+/** Arrowhead dimensions for cold/hot pipes (react-konva Arrow props) — shared with the PDF exporter. */
+export const PIPE_ARROW_POINTER_LENGTH = 2;
+export const PIPE_ARROW_POINTER_WIDTH = 2;
+
+/** Pipe stroke color/width for a given type + selection state — single source of truth for both the Konva canvas and the PDF exporter. */
+export function getPipeDrawStyle(pipeType: PipeType, isSelected: boolean): { color: string; strokeWidth: number } {
+  const { normal, selected } = PIPE_COLORS[pipeType ?? 'generic'];
+  return { color: isSelected ? selected : normal, strokeWidth: isSelected ? 1 : 0.5 };
+}
+
 interface PipeElementProps {
   id: string;
   pipeType: PipeType;
@@ -36,9 +46,7 @@ export function PipeElement({
   const setSelected = useCanvasStore((s) => s.setSelected);
   const updatePipeEndpoints = useCanvasStore((s) => s.updatePipeEndpoints);
 
-  const { normal, selected } = PIPE_COLORS[pipeType ?? 'generic'];
-  const color = isSelected ? selected : normal;
-  const strokeWidth = isSelected ? 1 : 0.5;
+  const { color, strokeWidth } = getPipeDrawStyle(pipeType, isSelected);
 
   // Skip zero-length pipes
   const dx = endX - startX;
@@ -103,8 +111,8 @@ export function PipeElement({
     <>
       <Arrow
         points={[startX, startY, endX, endY]}
-        pointerLength={2}
-        pointerWidth={2}
+        pointerLength={PIPE_ARROW_POINTER_LENGTH}
+        pointerWidth={PIPE_ARROW_POINTER_WIDTH}
         fill={color}
         stroke={color}
         strokeWidth={strokeWidth}

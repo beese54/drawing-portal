@@ -5,6 +5,7 @@ import { PipeElement, PipeType, isBackflowRiskElement } from '../types';
 import { findNearestPort } from '../utils/symbolPorts';
 
 const PORT_SNAP_THRESHOLD = 4; // px — user clicks near a port dot to connect
+const PORT_ALIGN_TOLERANCE = 1; // px — a port must already share the anchor's x or y to be used directly; otherwise connecting to it would draw a diagonal pipe
 
 type PipeDrawState = 'idle' | 'waiting_first' | 'waiting_second';
 
@@ -107,10 +108,16 @@ export function useCanvasInteraction() {
         setPreviewEnd({ x, y });
         setDrawState('waiting_second');
       } else if (drawState === 'waiting_second' && anchorPoint) {
-        // If the click snapped to a port, use the exact port position (skip H/V constraint).
-        // Applying applyConstraint after a port snap moves the endpoint off the port dot,
-        // causing the connection status indicator to show ✗ instead of ✓.
-        const end = nearPort ? { x, y } : applyConstraint(x, y);
+        // A port snap is only honoured if it already shares the anchor's x or y —
+        // using its exact position otherwise would draw a diagonal pipe. A
+        // misaligned port is treated as an ordinary click (H/V-constrained), so
+        // the pipe stops short of it instead of cutting a diagonal line across.
+        const portAligned =
+          !!nearPort &&
+          (Math.abs(nearPort.x - anchorPoint.x) < PORT_ALIGN_TOLERANCE ||
+            Math.abs(nearPort.y - anchorPoint.y) < PORT_ALIGN_TOLERANCE);
+        const usablePort = portAligned ? nearPort : null;
+        const end = usablePort ? { x: usablePort.x, y: usablePort.y } : applyConstraint(rawX, rawY);
         const pipe: PipeElement = {
           id: crypto.randomUUID(),
           pipeType: activeToPipeType(activeTool),
@@ -120,15 +127,15 @@ export function useCanvasInteraction() {
           endY: end.y,
           startElementId: anchorPortRef?.elementId,
           startPortIndex: anchorPortRef?.portIndex,
-          endElementId: nearPort?.elementId,
-          endPortIndex: nearPort?.portIndex,
+          endElementId: usablePort?.elementId,
+          endPortIndex: usablePort?.portIndex,
         };
         addPipe(pipe);
         setSelected(pipe.id);
 
         // Offer DCV insertion if the pipe endpoint snapped to a backflow-risk element's upstream port
-        if (nearPort && nearPort.role === 'upstream') {
-          const snappedEl = elements.find((e) => e.id === nearPort.elementId);
+        if (usablePort && usablePort.role === 'upstream') {
+          const snappedEl = elements.find((e) => e.id === usablePort.elementId);
           if (snappedEl && isBackflowRiskElement(snappedEl)) {
             useUiStore.getState().showDcvToast(snappedEl.id, snappedEl.x, snappedEl.y, pipe.id);
           }
@@ -136,7 +143,7 @@ export function useCanvasInteraction() {
 
         // Resume chaining immediately from the end point
         setAnchorPoint(end);
-        setAnchorPortRef(nearPort ? { elementId: nearPort.elementId, portIndex: nearPort.portIndex } : null);
+        setAnchorPortRef(usablePort ? { elementId: usablePort.elementId, portIndex: usablePort.portIndex } : null);
         setPreviewEnd(end);
         setDrawState('waiting_second');
       }

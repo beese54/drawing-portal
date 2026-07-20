@@ -26,6 +26,7 @@ import { closestPointOnSegment, distance } from '../../utils/geometry';
 import { inferFluidAtPoint } from '../../utils/fluidInference';
 import { SYMBOL_PORTS, rotateOffset, getScaledPortOffset, getPortPosition, getEffectivePortRole, getElementPorts, DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
 import { renderPdfPageToDataUrl } from '../../utils/pdfRenderer';
+import { exportSchematicToPdf } from '../../utils/pdfVectorExport';
 
 const SNAP_THRESHOLD = 4;
 const SNAP_T_MIN = 0.02;
@@ -226,7 +227,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   const setPendingSymbol = useUiStore((s) => s.setPendingSymbol);
   const pendingTemplate = useUiStore((s) => s.pendingTemplate);
   const setPendingTemplate = useUiStore((s) => s.setPendingTemplate);
-  const registerExportJpg = useUiStore((s) => s.registerExportJpg);
+  const registerExportPdf = useUiStore((s) => s.registerExportPdf);
   const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
   const showBidetToast = useUiStore((s) => s.showBidetToast);
   const showDcvToast   = useUiStore((s) => s.showDcvToast);
@@ -320,44 +321,15 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   } | null>(null);
   const cancelEditRef = useRef(false);
 
-  // Register JPG export — title block is part of the stage, so just capture the full virtual canvas
+  // Register PDF export — walks the canvas/UI store data directly and emits native PDF
+  // vector commands (lines, text, SVG-derived symbol paths) instead of rasterizing the stage.
   useEffect(() => {
-    registerExportJpg(() => {
-      const stage = stageRef.current;
-      if (!stage) return;
-
-      const prevX      = stage.x();
-      const prevY      = stage.y();
-      const prevScaleX = stage.scaleX();
-      const prevScaleY = stage.scaleY();
-      const prevWidth  = stage.width();
-      const prevHeight = stage.height();
-
-      stage.x(0);
-      stage.y(0);
-      stage.scaleX(1);
-      stage.scaleY(1);
-      stage.width(virtualWidth);
-      stage.height(virtualHeight);
-      stage.draw();
-
-      const jpgUrl = stage.toDataURL({ mimeType: 'image/jpeg', quality: 0.95, pixelRatio: 2 });
-
-      stage.x(prevX);
-      stage.y(prevY);
-      stage.scaleX(prevScaleX);
-      stage.scaleY(prevScaleY);
-      stage.width(prevWidth);
-      stage.height(prevHeight);
-      stage.draw();
-
-      const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
-      const a = document.createElement('a');
-      a.href = jpgUrl;
-      a.download = `schematic_${ts}.jpg`;
-      a.click();
+    registerExportPdf(() => {
+      exportSchematicToPdf(virtualWidth, virtualHeight).catch((err) => {
+        console.error('PDF export failed:', err);
+      });
     });
-  }, [registerExportJpg, virtualWidth, virtualHeight]);
+  }, [registerExportPdf, virtualWidth, virtualHeight]);
 
   // Delete selected element or pipe with Delete/Backspace key; Escape clears pending placement
   useEffect(() => {
