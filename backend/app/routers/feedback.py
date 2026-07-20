@@ -49,23 +49,29 @@ class FeedbackSubmission(BaseModel):
 async def submit_feedback(submission: FeedbackSubmission) -> dict:
     submitted_at = datetime.now(timezone.utc).isoformat()
 
-    # Backstop: also print to stdout so a submission survives even if the
-    # container's disk (and the SQLite file on it) doesn't survive a restart.
-    # Airbase's log stream is independent of container/disk lifecycle.
+    # Print first and unconditionally — this is the durable backstop (log
+    # stream survives even if the container's disk doesn't), so it must not
+    # be skipped or fail just because SQLite below can't write to disk.
     print(f"FEEDBACK_SUBMISSION {submitted_at} {json.dumps(submission.model_dump())}")
 
-    conn = _get_connection()
+    # Best-effort: a broken/read-only filesystem here must not turn into a
+    # 500 for the tester, since the print above already preserved the data.
     try:
-        conn.execute(
-            "INSERT INTO feedback (submitted_at, payload_json) VALUES (?, ?)",
-            (
-                submitted_at,
-                json.dumps(submission.model_dump()),
-            ),
-        )
-        conn.commit()
-    finally:
-        conn.close()
+        conn = _get_connection()
+        try:
+            conn.execute(
+                "INSERT INTO feedback (submitted_at, payload_json) VALUES (?, ?)",
+                (
+                    submitted_at,
+                    json.dumps(submission.model_dump()),
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"FEEDBACK_SQLITE_WRITE_FAILED {submitted_at} {e!r}")
+
     return {"status": "ok"}
 
 
