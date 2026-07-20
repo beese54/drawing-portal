@@ -37,6 +37,9 @@ Thumbs.db
 # Claude Code settings (local only)
 .claude/
 
+# k8s secrets (never commit real values)
+k8s/backend/secret.yaml
+
 # GSD planning directory (local only)
 .planning/
 
@@ -59,6 +62,10 @@ backend/chroma_db/
 
 # Stage 2: SQLite metrics DB (generated at runtime)
 backend/metrics.db
+
+# Temp feedback DB (generated at runtime — would otherwise get baked into the
+# Docker image via `COPY symbols/ ./symbols/` if present at build time)
+backend/symbols/feedback.db
 
 # Stage 2: Knowledge docs (user uploads — not committed)
 backend/knowledge/*

@@ -5,6 +5,7 @@ import { useJsonImport } from '../../hooks/useJsonImport';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { EvaluationModal } from '../common/EvaluationModal';
 import { AcknowledgmentModal } from '../common/AcknowledgmentModal';
+import { FeedbackModal } from '../common/FeedbackModal';
 import { TemplateModal } from '../common/TemplateModal';
 import { useUiStore } from '../../store/uiStore';
 import { getUnconnectedPorts } from '../../utils/portConnectionStatus';
@@ -21,6 +22,18 @@ interface ActionPanelProps {
 
 interface ConnectionWarning {
   issues: Array<{ elementId: string; elementName: string; portLabel: string }>;
+}
+
+// Personal escape hatch for the admin's own testing — visit once with
+// ?skipFeedback=1 and it's remembered in this browser via localStorage.
+// Does not affect other testers.
+function shouldSkipFeedback(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('skipFeedback') === '1') {
+    localStorage.setItem('skipFeedback', '1');
+    return true;
+  }
+  return localStorage.getItem('skipFeedback') === '1';
 }
 
 export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
@@ -42,6 +55,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   const [showTemplates, setShowTemplates] = useState(false);
   const [connectionWarning, setConnectionWarning] = useState<ConnectionWarning | null>(null);
   const [showAckModal, setShowAckModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [evalLoading, setEvalLoading] = useState(false);
   const [evalResult, setEvalResult] = useState<EvaluationResponse | null>(null);
   const [evalError, setEvalError] = useState<string | null>(null);
@@ -56,7 +70,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
     setClearTitleBlock(false);
   };
 
-  const handleExportMetadata = () => {
+  const runExportMetadataFlow = () => {
     const issues = getUnconnectedPorts(elements, pipes);
     if (issues.length > 0) {
       setConnectionWarning({ issues });
@@ -65,12 +79,19 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
     }
   };
 
+  const handleExportMetadata = () => {
+    if (shouldSkipFeedback()) {
+      runExportMetadataFlow();
+    } else {
+      setShowFeedbackModal(true);
+    }
+  };
+
   const handleEvaluateClick = () => {
     setShowAckModal(true);
   };
 
-  const handleAckConfirm = async (acks: AcknowledgmentFlags) => {
-    setShowAckModal(false);
+  const runEvaluation = async (acks: AcknowledgmentFlags) => {
     setEvalError(null);
     setEvalLoading(true);
     try {
@@ -85,6 +106,16 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
     } finally {
       setEvalLoading(false);
     }
+  };
+
+  const handleAckConfirm = (acks: AcknowledgmentFlags) => {
+    setShowAckModal(false);
+    runEvaluation(acks);
+  };
+
+  const handleFeedbackSubmit = () => {
+    setShowFeedbackModal(false);
+    runExportMetadataFlow();
   };
 
   const hasContent = elements.length > 0 || pipes.length > 0;
@@ -329,6 +360,9 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
           onConfirm={handleAckConfirm}
           onCancel={() => setShowAckModal(false)}
         />
+      )}
+      {showFeedbackModal && (
+        <FeedbackModal onSubmit={handleFeedbackSubmit} />
       )}
       {evalResult && (
         <EvaluationModal result={evalResult} onClose={() => setEvalResult(null)} />

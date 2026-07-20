@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     symbols_path: str = _DEFAULT_SYMBOLS_PATH
     allowed_origins: str = "http://localhost:3000,http://localhost:5173,https://spd-fe-2.app.tc1.airbase.sg"
     app_version: str = "1.0.0"
+    feedback_admin_token: str = ""
 
     @property
     def symbols_dir(self) -> Path:
@@ -27,6 +28,13 @@ class Settings(BaseSettings):
     @property
     def manifest_path(self) -> Path:
         return self.symbols_dir / "manifest.json"
+
+    @property
+    def feedback_db_path(self) -> Path:
+        # Lives under symbols_dir because that's the only volume mounted on a
+        # persistent claim (k8s/storage/persistentvolumeclaim.yaml) — anything
+        # outside it is lost on pod restart.
+        return self.symbols_dir / "feedback.db"
 
     @property
     def origins_list(self) -> list[str]:
