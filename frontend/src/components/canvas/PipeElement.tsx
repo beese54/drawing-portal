@@ -1,4 +1,4 @@
-import { Arrow, Circle, Line } from 'react-konva';
+import { Arrow, Circle } from 'react-konva';
 import Konva from 'konva';
 import { useCanvasStore } from '../../store/canvasStore';
 import { PipeType } from '../../types';
@@ -112,17 +112,14 @@ export function PipeElement({
 
   return (
     <>
-      {/* Hover halo — pipes have no ports to reveal like a hovered symbol
-          does, so this is their equivalent "you're over something" cue. */}
+      {/* Hover indicator — same treatment as a hovered symbol's port dots
+          (ElementsLayer.tsx): small filled circles with a white ring, shown
+          at the pipe's two endpoints. */}
       {isHovered && !isSelected && (
-        <Line
-          points={[startX, startY, endX, endY]}
-          stroke={color}
-          strokeWidth={strokeWidth + 2.5}
-          opacity={0.35}
-          lineCap="round"
-          listening={false}
-        />
+        <>
+          <Circle x={startX} y={startY} radius={1} fill={color} stroke="#fff" strokeWidth={0.5} listening={false} />
+          <Circle x={endX} y={endY} radius={1} fill={color} stroke="#fff" strokeWidth={0.5} listening={false} />
+        </>
       )}
       <Arrow
         points={[startX, startY, endX, endY]}
