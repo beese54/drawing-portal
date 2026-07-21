@@ -22,9 +22,6 @@ spec:
           envFrom:
             - configMapRef:
                 name: backend-config
-            - secretRef:
-                name: backend-secrets
-                optional: true
           volumeMounts:
             - name: symbols-storage
               mountPath: /app/symbols

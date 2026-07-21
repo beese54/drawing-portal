@@ -24,7 +24,13 @@ export const evaluationApi = {
 };
 
 export const feedbackApi = {
-  submit: async (payload: { rating: number; comments: string }): Promise<void> => {
+  submit: async (payload: {
+    overall_satisfaction: number;
+    likelihood_to_use_again: number;
+    ease_of_use: number;
+    confusion: string;
+    wished_features: string;
+  }): Promise<void> => {
     const res = await fetch(`${BASE_URL}/api/feedback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
