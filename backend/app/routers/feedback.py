@@ -17,6 +17,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 
+import httpx
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -71,6 +72,18 @@ async def submit_feedback(submission: FeedbackSubmission) -> dict:
             conn.close()
     except Exception as e:
         print(f"FEEDBACK_SQLITE_WRITE_FAILED {submitted_at} {e!r}")
+
+    # Best-effort: real-time visibility without depending on disk or having
+    # to dig submissions out of routine request-log noise.
+    if settings.slack_feedback_webhook_url:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(
+                    settings.slack_feedback_webhook_url,
+                    json={"text": f"⭐ {submission.rating}/5 — {submission.comments or '(no comment)'}"},
+                )
+        except Exception as e:
+            print(f"FEEDBACK_SLACK_POST_FAILED {submitted_at} {e!r}")
 
     return {"status": "ok"}
 
