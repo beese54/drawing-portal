@@ -51,6 +51,7 @@ interface UiStore {
   pendingSymbol: { id: string; name: string } | null;
   pendingTemplate: PendingTemplate | null;
   exportPdfFn: (() => void) | null;
+  captureStageRegionFn: ((region: { x: number; y: number; width: number; height: number }, pixelRatio?: number) => string | null) | null;
   pdfBackground: PdfBackground | null;
   pdfImportFn: ((file: File) => Promise<void>) | null;
   sheetConfig: SheetConfig;
@@ -69,6 +70,7 @@ interface UiStore {
   setPendingSymbol: (sym: { id: string; name: string } | null) => void;
   setPendingTemplate: (t: PendingTemplate | null) => void;
   registerExportPdf: (fn: () => void) => void;
+  registerCaptureStageRegion: (fn: (region: { x: number; y: number; width: number; height: number }, pixelRatio?: number) => string | null) => void;
   setPdfBackground: (bg: PdfBackground | null) => void;
   updatePdfBackground: (props: Partial<PdfBackground>) => void;
   registerPdfImport: (fn: (file: File) => Promise<void>) => void;
@@ -98,6 +100,7 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   pendingSymbol: null,
   pendingTemplate: null,
   exportPdfFn: null,
+  captureStageRegionFn: null,
   pdfBackground: null,
   pdfImportFn: null,
   sheetConfig: DEFAULT_SHEET_CONFIG,
@@ -113,6 +116,7 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   setPendingSymbol: (sym) => set({ pendingSymbol: sym }),
   setPendingTemplate: (t) => set({ pendingTemplate: t }),
   registerExportPdf: (fn) => set({ exportPdfFn: fn }),
+  registerCaptureStageRegion: (fn) => set({ captureStageRegionFn: fn }),
   setPdfBackground: (bg) => set({ pdfBackground: bg }),
   updatePdfBackground: (props) => set((state) => ({
     pdfBackground: state.pdfBackground ? { ...state.pdfBackground, ...props } : null,

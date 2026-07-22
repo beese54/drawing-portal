@@ -1,6 +1,7 @@
 import { useState, Component, type ReactNode } from 'react';
 import type { EvaluationResponse, CheckResult } from '../../types/evaluation';
 import { ComplianceCheckCard } from './ComplianceCheckCard';
+import { CHECK_STATUS_PRIORITY } from '../../utils/evaluationOrder';
 
 class EvalErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
   constructor(props: { children: ReactNode }) {
@@ -21,8 +22,6 @@ class EvalErrorBoundary extends Component<{ children: ReactNode }, { error: stri
     return this.props.children;
   }
 }
-
-const STATUS_PRIORITY: Record<string, number> = { FAIL: 0, WARN: 1, SKIP: 2, PASS: 3 };
 
 interface CheckEntry {
   check: CheckResult;
@@ -46,7 +45,7 @@ export function EvaluationReport({ result }: Props) {
     { check: result.check5_long_bath },
     { check: result.check6_hot_water },
     { check: result.check7_section3_pipes },
-  ].sort((a, b) => (STATUS_PRIORITY[a.check.status] ?? 4) - (STATUS_PRIORITY[b.check.status] ?? 4));
+  ].sort((a, b) => (CHECK_STATUS_PRIORITY[a.check.status] ?? 4) - (CHECK_STATUS_PRIORITY[b.check.status] ?? 4));
 
   const failCount = allChecks.filter((e) => e.check.status === 'FAIL').length;
   const warnCount = allChecks.filter((e) => e.check.status === 'WARN').length;

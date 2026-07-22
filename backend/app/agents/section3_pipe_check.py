@@ -18,6 +18,7 @@ def check_section3_pipes(metadata: dict[str, Any]) -> CheckResult:
     used in the installation comply with PUB-approved standards (SS 636 Table 1).
     """
     detail: list[str] = []
+    issues: list[dict] = []
 
     if metadata.get("materials_acknowledged", False):
         status = "PASS"
@@ -29,11 +30,13 @@ def check_section3_pipes(metadata: dict[str, Any]) -> CheckResult:
     else:
         status = "WARN"
         summary = "Pipes and fittings compliance not confirmed — LP/PE acknowledgment required."
-        detail.append(
-            "⚠ Pipes and fittings not confirmed. The LP/PE must confirm that all pipes, fittings, "
+        text = (
+            "Pipes and fittings not confirmed. The LP/PE must confirm that all pipes, fittings, "
             "and jointing materials comply with PUB-approved standards (SS 636 Table 1). "
             "Tick the acknowledgment in the pre-evaluation checklist and re-evaluate."
         )
+        detail.append(f"⚠ {text}")
+        issues.append({"status": "WARN", "text": text, "element_ids": []})
 
     detail.append("")
     detail.append("Reference: PUB WSI Checklist Section 7; SS 636:2018 Table 1.")
@@ -44,4 +47,5 @@ def check_section3_pipes(metadata: dict[str, Any]) -> CheckResult:
         status=status,
         summary=summary,
         detail=detail,
+        issues=issues,
     )

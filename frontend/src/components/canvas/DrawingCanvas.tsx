@@ -228,6 +228,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   const pendingTemplate = useUiStore((s) => s.pendingTemplate);
   const setPendingTemplate = useUiStore((s) => s.setPendingTemplate);
   const registerExportPdf = useUiStore((s) => s.registerExportPdf);
+  const registerCaptureStageRegion = useUiStore((s) => s.registerCaptureStageRegion);
   const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
   const showBidetToast = useUiStore((s) => s.showBidetToast);
   const showDcvToast   = useUiStore((s) => s.showDcvToast);
@@ -330,6 +331,44 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       });
     });
   }, [registerExportPdf, virtualWidth, virtualHeight]);
+
+  // Register per-region schematic capture for the compliance-report Word export. Rather
+  // than rasterizing the whole sheet once and cropping a tiny raster region out of it
+  // (which left every symbol crop looking upscaled and blurry — schematic symbols render
+  // at a fixed 6px logical size regardless of drawing scale, so the whole sheet is only
+  // ~1000px wide), each compliance issue gets its own small crop captured DIRECTLY at a
+  // high pixelRatio targeted just at that region. Konva re-renders the actual vector
+  // shapes fresh on every toDataURL() call, so a tiny region at a high pixelRatio is
+  // genuinely crisp — not an upscaled raster. The Stage still needs to be temporarily
+  // reset to its full untransformed size (scale 1, origin 0,0, width/height = the full
+  // virtual sheet) first, since Konva only rasterizes what's within the Stage's current
+  // width/height into each Layer's buffer before a sub-region can be read out of it — the
+  // reset/restore happens synchronously around the toDataURL call so there's no visible
+  // flicker of the live viewport.
+  useEffect(() => {
+    registerCaptureStageRegion((region, pixelRatio = 12) => {
+      const stage = stageRef.current;
+      if (!stage) return null;
+      const prevScale = stage.scale();
+      const prevPos = stage.position();
+      const prevSize = { width: stage.width(), height: stage.height() };
+      try {
+        stage.size({ width: virtualWidth, height: virtualHeight });
+        stage.scale({ x: 1, y: 1 });
+        stage.position({ x: 0, y: 0 });
+        stage.batchDraw();
+        return stage.toDataURL({
+          x: region.x, y: region.y, width: region.width, height: region.height,
+          pixelRatio, mimeType: 'image/jpeg', quality: 0.92,
+        });
+      } finally {
+        stage.size(prevSize);
+        stage.scale(prevScale ?? { x: 1, y: 1 });
+        stage.position(prevPos ?? { x: 0, y: 0 });
+        stage.batchDraw();
+      }
+    });
+  }, [registerCaptureStageRegion, virtualWidth, virtualHeight]);
 
   // Delete selected element or pipe with Delete/Backspace key; Escape clears pending placement
   useEffect(() => {

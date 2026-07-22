@@ -23,6 +23,20 @@ export const evaluationApi = {
   },
 };
 
+export const exportApi = {
+  exportDocx: async (formData: FormData): Promise<Blob> => {
+    const res = await fetch(`${BASE_URL}/api/export/docx`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+    return res.blob();
+  },
+};
+
 export const feedbackApi = {
   submit: async (payload: {
     overall_satisfaction: number;

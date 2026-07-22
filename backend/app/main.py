@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import health, symbols, evaluate, feedback
+from app.routers import health, symbols, evaluate, feedback, export
 
 app = FastAPI(title="Schematic Drawing Portal API", version=settings.app_version)
 
@@ -32,3 +32,4 @@ app.include_router(health.router, prefix="/api")
 app.include_router(symbols.router, prefix="/api/symbols")
 app.include_router(evaluate.router, prefix="/api")
 app.include_router(feedback.router, prefix="/api")
+app.include_router(export.router, prefix="/api")

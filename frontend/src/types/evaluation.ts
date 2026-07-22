@@ -1,3 +1,9 @@
+export interface ComplianceIssue {
+  status: 'FAIL' | 'WARN';
+  text: string;
+  element_ids: string[];
+}
+
 export interface CheckResult {
   check_id: string;
   title: string;
@@ -6,6 +12,7 @@ export interface CheckResult {
   detail: string[];
   table?: WelsRow[] | null;
   elements_of_interest?: Array<{ element_id: string; label: string; color: string }>;
+  issues?: ComplianceIssue[];
 }
 
 export interface WelsRow {

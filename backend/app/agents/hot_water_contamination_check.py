@@ -40,7 +40,7 @@ _DIRECT_CONNECT_HEATER_SYMBOL_IDS = {"water_heater", "instantaneous_water_heater
 # Rule 6.1 — Heat pump supply mode consistency
 # ---------------------------------------------------------------------------
 
-def _check_supply_mode_consistency(elements: list[dict]) -> str:
+def _check_supply_mode_consistency(elements: list[dict]) -> tuple[str, list[str]]:
     """
     For every fitting with distinct Hot and Cold ports, its hot and cold supply
     must come from the same mode (both direct-from-mains or both indirect-via-tank).
@@ -50,13 +50,16 @@ def _check_supply_mode_consistency(elements: list[dict]) -> str:
     since a drawing can legitimately mix direct and indirect zones (e.g. a tank
     feeding only the water heater) as long as no single fitting's hot and cold
     disagree.
+
+    Returns (detail line, mismatched fitting element_ids).
     """
     heaters = [e for e in elements if e.get("symbol_id") in _DIRECT_CONNECT_HEATER_SYMBOL_IDS]
     if not heaters:
-        return "– Rule 6.1: No water heater detected — heat pump supply mode check skipped."
+        return "– Rule 6.1: No water heater detected — heat pump supply mode check skipped.", []
 
     checked = 0
     mismatches: list[str] = []
+    mismatch_ids: list[str] = []
     for fitting in elements:
         if fitting.get("node_type") != "water_fitting":
             continue
@@ -68,9 +71,10 @@ def _check_supply_mode_consistency(elements: list[dict]) -> str:
         checked += 1
         if hot_mode != cold_mode:
             mismatches.append(f"{fitting.get('symbol_id', fitting.get('id'))} (hot={hot_mode}, cold={cold_mode})")
+            mismatch_ids.append(fitting["id"])
 
     if checked == 0:
-        return "– Rule 6.1: No fitting with distinct hot/cold supply ports detected — supply mode consistency check skipped."
+        return "– Rule 6.1: No fitting with distinct hot/cold supply ports detected — supply mode consistency check skipped.", []
 
     if mismatches:
         return (
@@ -78,11 +82,11 @@ def _check_supply_mode_consistency(elements: list[dict]) -> str:
             f"{'; '.join(mismatches)}. Cold and hot water supplied to the same fitting must "
             f"come via the same mode (both direct or both indirect) — a mismatch risks a sudden "
             f"pressure/temperature shift (e.g. scalding) when the user adjusts the mixer."
-        )
+        ), mismatch_ids
     return (
         f"✓ Rule 6.1: All {checked} fitting(s) with hot/cold supply have consistent supply "
         f"modes — supply mode consistency satisfied."
-    )
+    ), []
 
 
 # ---------------------------------------------------------------------------
@@ -95,33 +99,37 @@ _HEATER_TYPE_LABELS = {
 }
 
 
-def _check_heater_direct_supply_type(elements: list[dict]) -> list[str]:
+def _check_heater_direct_supply_type(elements: list[dict]) -> list[tuple[str, str]]:
     """
     SS636 §6.5.1/§6.5.2: only mains-pressure storage or instantaneous water heaters
     may be connected directly to the service pipe for cold water supply. Since those
     are the only two heater symbols in the library, any heater drawn is one of the
     two compliant types by construction — this is a symbol-type check, not a
     verification of the physical unit's actual pressure rating.
+
+    Returns (detail line, heater element_id) pairs.
     """
     heaters = [e for e in elements if e.get("symbol_id") in _DIRECT_CONNECT_HEATER_SYMBOL_IDS]
     if not heaters:
-        return ["– Rule 6.2: No water heater detected — direct-supply heater type check skipped."]
+        return [("– Rule 6.2: No water heater detected — direct-supply heater type check skipped.", "")]
 
-    lines: list[str] = []
+    lines: list[tuple[str, str]] = []
     for heater in heaters:
         name = heater.get("symbol_name", "Water Heater")
         heater_type = _HEATER_TYPE_LABELS.get(heater.get("symbol_id"), "unknown")
         supply_mode = heater.get("supply_mode")
         if supply_mode == "direct_supply":
-            lines.append(
+            lines.append((
                 f"✓ Rule 6.2: [{name}] on direct supply — {heater_type} type, as required "
-                f"under SS636 §6.5.1/§6.5.2."
-            )
+                f"under SS636 §6.5.1/§6.5.2.",
+                heater["id"],
+            ))
         else:
-            lines.append(
+            lines.append((
                 f"– Rule 6.2: [{name}] not on direct supply — direct-connection heater-type "
-                f"restriction (SS636 §6.5.1/§6.5.2) not applicable."
-            )
+                f"restriction (SS636 §6.5.1/§6.5.2) not applicable.",
+                heater["id"],
+            ))
     return lines
 
 
@@ -160,18 +168,20 @@ def _check_heater_protection(
     pipes: list[dict],
     elem_by_id: dict[str, dict],
     adj: dict[str, set[str]],
-) -> list[str]:
+) -> list[tuple[str, str]]:
     """
     PASS requires (check_valve AND pressure_relief_valve) OR a double check
     valve assembly (two check_valve elements in series) — matching the WSI
     Landed checklist wording exactly. A single check valve alone (no PRV,
     not doubled) satisfies neither option and FAILs.
+
+    Returns (detail line, heater element_id) pairs.
     """
     heaters = [e for e in elements if e.get("symbol_id") == "water_heater"]
     if not heaters:
-        return ["– Rule 6.3: No water heater detected — heater protection assembly check skipped."]
+        return [("– Rule 6.3: No water heater detected — heater protection assembly check skipped.", "")]
 
-    lines: list[str] = []
+    lines: list[tuple[str, str]] = []
     for heater in heaters:
         name = heater.get("symbol_name", "Water Heater")
         hid = heater["id"]
@@ -181,15 +191,17 @@ def _check_heater_protection(
         cv_count = _bfs_count_symbol(adj, hid, "check_valve", elem_by_id)
 
         if cv_id and prv_id:
-            lines.append(
+            lines.append((
                 f"✓ Rule 6.3: [{name}] Check valve and pressure relief valve assembly detected — "
-                f"backflow protection confirmed."
-            )
+                f"backflow protection confirmed.",
+                hid,
+            ))
         elif cv_count >= 2:
-            lines.append(
+            lines.append((
                 f"✓ Rule 6.3: [{name}] Double check valve assembly detected ({cv_count} check valves) — "
-                f"backflow protection confirmed."
-            )
+                f"backflow protection confirmed.",
+                hid,
+            ))
         else:
             found_desc = []
             if cv_id:
@@ -199,11 +211,12 @@ def _check_heater_protection(
                 pos = "immediately adjacent" if prv_hops == 1 else f"{prv_hops} hops away"
                 found_desc.append(f"a pressure relief valve ({pos}) with no check valve")
             found_str = f" Found: {', '.join(found_desc)}." if found_desc else ""
-            lines.append(
+            lines.append((
                 f"✗ Rule 6.3: [{name}] No qualifying protection assembly found within {DEFAULT_MAX_HOPS} hops. "
                 f"Per the WSI checklist, the water heater must be installed with EITHER a check valve + "
-                f"pressure relief valve assembly OR a double check valve assembly.{found_str}"
-            )
+                f"pressure relief valve assembly OR a double check valve assembly.{found_str}",
+                hid,
+            ))
     return lines
 
 
@@ -230,7 +243,8 @@ def _check_appliance_check_valves(
     elements: list[dict],
     elem_by_id: dict[str, dict],
     adj: dict[str, set[str]],
-) -> list[str]:
+) -> list[tuple[str, str]]:
+    """Returns (detail line, appliance element_id) pairs."""
     # backflow_requirement == "check_valve" is exported by the frontend for all §6.4 appliances
     # and for water_heater (Reg 28). Exclude water_heater — it has its own Rule 6.3 check.
     appliances = [
@@ -239,19 +253,20 @@ def _check_appliance_check_valves(
         and e.get("symbol_id") != "water_heater"
     ]
     if not appliances:
-        return ["– Rule 6.4: No appliance fittings (dishwasher / water dispenser / washing machine / landscape tap / ice maker / coffee maker / refrigerator / balancing tank) detected — check skipped."]
+        return [("– Rule 6.4: No appliance fittings (dishwasher / water dispenser / washing machine / landscape tap / ice maker / coffee maker / refrigerator / balancing tank) detected — check skipped.", "")]
 
-    lines: list[str] = []
+    lines: list[tuple[str, str]] = []
     for el in appliances:
         name = _appliance_display_name(el)
         cv_id, _ = _bfs_find(adj, el["id"], {"check_valve"}, elem_by_id, max_hops=3)
         if cv_id:
-            lines.append(f"✓ Rule 6.4: [{name}] Check valve detected upstream — backflow prevention present.")
+            lines.append((f"✓ Rule 6.4: [{name}] Check valve detected upstream — backflow prevention present.", el["id"]))
         else:
-            lines.append(
+            lines.append((
                 f"✗ Rule 6.4: [{name}] No check valve found within 3 hops. "
-                f"A double check valve must be installed before {name} fittings to prevent contamination."
-            )
+                f"A double check valve must be installed before {name} fittings to prevent contamination.",
+                el["id"],
+            ))
     return lines
 
 
@@ -263,12 +278,13 @@ def _check_bidet_vacuum_breaker(
     elements: list[dict],
     elem_by_id: dict[str, dict],
     adj: dict[str, set[str]],
-) -> list[str]:
+) -> list[tuple[str, str]]:
+    """Returns (detail line, bidet element_id) pairs."""
     bidets = [e for e in elements if e.get("symbol_id") == "bidet_spray"]
     if not bidets:
-        return ["– Rule 6.5: No bidet spray detected — vacuum breaker check skipped."]
+        return [("– Rule 6.5: No bidet spray detected — vacuum breaker check skipped.", "")]
 
-    lines: list[str] = []
+    lines: list[tuple[str, str]] = []
     for el in bidets:
         name = el.get("symbol_name", "Bidet Spray")
         el_id = el["id"]
@@ -280,34 +296,39 @@ def _check_bidet_vacuum_breaker(
         vb_id, vb_hops = result.inner_id, result.inner_hops
 
         if result.reason == "missing_both":
-            lines.append(
+            lines.append((
                 f"✗ Rule 6.5: [{name}] No vacuum breaker or check valve detected. "
-                f"A vacuum breaker and check valve assembly must be installed on all bidet spray connections."
-            )
+                f"A vacuum breaker and check valve assembly must be installed on all bidet spray connections.",
+                el_id,
+            ))
         elif result.reason == "missing_inner":
-            lines.append(
+            lines.append((
                 f"✗ Rule 6.5: [{name}] No vacuum breaker found. "
-                f"Both a vacuum breaker AND check valve are required for bidet spray installations."
-            )
+                f"Both a vacuum breaker AND check valve are required for bidet spray installations.",
+                el_id,
+            ))
         elif result.reason == "missing_outer":
-            lines.append(
+            lines.append((
                 f"✗ Rule 6.5: [{name}] Vacuum breaker detected but no check valve found. "
-                f"Both a vacuum breaker AND check valve are required for bidet spray installations."
-            )
+                f"Both a vacuum breaker AND check valve are required for bidet spray installations.",
+                el_id,
+            ))
         elif result.reason == "wrong_order":
             # check_valve is not strictly farther from the bidet spray than vacuum_breaker —
             # assembly order is wrong: correct order is inlet → check_valve → vacuum_breaker → bidet_spray.
-            lines.append(
+            lines.append((
                 f"✗ Rule 6.5: [{name}] Assembly order incorrect — check valve must be upstream of "
                 f"vacuum breaker (inlet → check valve → vacuum breaker → bidet spray). "
-                f"Currently check valve is {cv_hops} hop(s) away and vacuum breaker is {vb_hops} hop(s) away."
-            )
+                f"Currently check valve is {cv_hops} hop(s) away and vacuum breaker is {vb_hops} hop(s) away.",
+                el_id,
+            ))
         else:
-            lines.append(
+            lines.append((
                 f"✓ Rule 6.5: [{name}] Vacuum breaker and check valve assembly detected in correct order "
                 f"(vacuum breaker {vb_hops} hop(s), check valve {cv_hops} hop(s) from bidet spray) — "
-                f"contamination prevention requirements satisfied."
-            )
+                f"contamination prevention requirements satisfied.",
+                el_id,
+            ))
     return lines
 
 
@@ -420,47 +441,54 @@ def check_hot_water_contamination(metadata: dict[str, Any], adj: dict[str, set[s
 
     detail: list[str] = []
     sub_statuses: list[str] = []
+    issues: list[dict] = []
 
     # ── Rule 6.1 ──────────────────────────────────────────────────────────────
-    r61 = _check_supply_mode_consistency(elements)
+    r61, r61_ids = _check_supply_mode_consistency(elements)
     detail.append(r61)
     if r61.startswith("✓"):
         sub_statuses.append("PASS")
     elif r61.startswith("✗"):
         sub_statuses.append("FAIL")
+        issues.append({"status": "FAIL", "text": r61[2:].strip(), "element_ids": r61_ids})
 
     # ── Rule 6.2 ──────────────────────────────────────────────────────────────
-    r62_lines = _check_heater_direct_supply_type(elements)
-    detail.extend(r62_lines)
-    for line in r62_lines:
+    r62_pairs = _check_heater_direct_supply_type(elements)
+    detail.extend(line for line, _ in r62_pairs)
+    for line, heater_id in r62_pairs:
         if line.startswith("✓"):
             sub_statuses.append("PASS")
         elif line.startswith("✗"):
             sub_statuses.append("FAIL")
+            issues.append({"status": "FAIL", "text": line[2:].strip(), "element_ids": [heater_id] if heater_id else []})
 
     # ── Rule 6.3 ──────────────────────────────────────────────────────────────
-    r63_lines = _check_heater_protection(elements, pipes, elem_by_id, adj)
-    detail.extend(r63_lines)
-    for line in r63_lines:
+    r63_pairs = _check_heater_protection(elements, pipes, elem_by_id, adj)
+    detail.extend(line for line, _ in r63_pairs)
+    for line, heater_id in r63_pairs:
         if line.startswith("✓"):
             sub_statuses.append("PASS")
         elif line.startswith("⚠"):
             sub_statuses.append("WARN")
+            issues.append({"status": "WARN", "text": line[2:].strip(), "element_ids": [heater_id] if heater_id else []})
         elif line.startswith("✗"):
             sub_statuses.append("FAIL")
+            issues.append({"status": "FAIL", "text": line[2:].strip(), "element_ids": [heater_id] if heater_id else []})
 
     # ── Rule 6.4 ──────────────────────────────────────────────────────────────
-    r64_lines = _check_appliance_check_valves(elements, elem_by_id, adj)
-    detail.extend(r64_lines)
-    for line in r64_lines:
+    r64_pairs = _check_appliance_check_valves(elements, elem_by_id, adj)
+    detail.extend(line for line, _ in r64_pairs)
+    for line, appl_id in r64_pairs:
         if line.startswith("✓"):
             sub_statuses.append("PASS")
         elif line.startswith("⚠"):
             sub_statuses.append("WARN")
+            issues.append({"status": "WARN", "text": line[2:].strip(), "element_ids": [appl_id] if appl_id else []})
         elif line.startswith("✗"):
             sub_statuses.append("FAIL")
+            issues.append({"status": "FAIL", "text": line[2:].strip(), "element_ids": [appl_id] if appl_id else []})
 
-    r64_all_resolved = bool(r64_lines) and all(line.startswith("✓") for line in r64_lines)
+    r64_all_resolved = bool(r64_pairs) and all(line.startswith("✓") for line, _ in r64_pairs)
     if appliances and not r64_all_resolved:
         appl_ack = metadata.get("appliance_check_valve_acknowledged", False)
         if appl_ack:
@@ -469,24 +497,28 @@ def check_hot_water_contamination(metadata: dict[str, Any], adj: dict[str, set[s
             )
             sub_statuses.append("PASS")
         else:
-            detail.append(
-                "⚠ Rule 6.4: LP/PE acknowledgment for appliance check valves not provided — "
+            text = (
+                "Rule 6.4: LP/PE acknowledgment for appliance check valves not provided — "
                 "please confirm in the pre-evaluation checklist."
             )
+            detail.append(f"⚠ {text}")
             sub_statuses.append("WARN")
+            issues.append({"status": "WARN", "text": text, "element_ids": [a["id"] for a in appliances]})
 
     # ── Rule 6.5 ──────────────────────────────────────────────────────────────
-    r65_lines = _check_bidet_vacuum_breaker(elements, elem_by_id, adj)
-    detail.extend(r65_lines)
-    for line in r65_lines:
+    r65_pairs = _check_bidet_vacuum_breaker(elements, elem_by_id, adj)
+    detail.extend(line for line, _ in r65_pairs)
+    for line, bidet_id in r65_pairs:
         if line.startswith("✓"):
             sub_statuses.append("PASS")
         elif line.startswith("⚠"):
             sub_statuses.append("WARN")
+            issues.append({"status": "WARN", "text": line[2:].strip(), "element_ids": [bidet_id] if bidet_id else []})
         elif line.startswith("✗"):
             sub_statuses.append("FAIL")
+            issues.append({"status": "FAIL", "text": line[2:].strip(), "element_ids": [bidet_id] if bidet_id else []})
 
-    r65_all_resolved = bool(r65_lines) and all(line.startswith("✓") for line in r65_lines)
+    r65_all_resolved = bool(r65_pairs) and all(line.startswith("✓") for line, _ in r65_pairs)
     if bidets and not r65_all_resolved:
         bidet_ack = metadata.get("bidet_vacuum_breaker_acknowledged", False)
         if bidet_ack:
@@ -496,11 +528,13 @@ def check_hot_water_contamination(metadata: dict[str, Any], adj: dict[str, set[s
             )
             sub_statuses.append("PASS")
         else:
-            detail.append(
-                "⚠ Rule 6.5: LP/PE acknowledgment for bidet vacuum breaker assembly not provided — "
+            text = (
+                "Rule 6.5: LP/PE acknowledgment for bidet vacuum breaker assembly not provided — "
                 "please confirm in the pre-evaluation checklist."
             )
+            detail.append(f"⚠ {text}")
             sub_statuses.append("WARN")
+            issues.append({"status": "WARN", "text": text, "element_ids": [b["id"] for b in bidets]})
 
     # ── Rule 6.6 (acknowledgment) ─────────────────────────────────────────────
     if has_tank_or_pump:
@@ -512,11 +546,14 @@ def check_hot_water_contamination(metadata: dict[str, Any], adj: dict[str, set[s
             )
             sub_statuses.append("PASS")
         else:
-            detail.append(
-                "⚠ Rule 6.6: Tank/pump position not confirmed — please acknowledge in the "
+            text = (
+                "Rule 6.6: Tank/pump position not confirmed — please acknowledge in the "
                 "pre-evaluation checklist that tanks and pumps are not installed below sanitary pipes."
             )
+            detail.append(f"⚠ {text}")
             sub_statuses.append("WARN")
+            tank_pump_ids = [e["id"] for e in elements if e.get("symbol_id") in ("water_tank", "pump")]
+            issues.append({"status": "WARN", "text": text, "element_ids": tank_pump_ids})
 
     # ── Overall status ────────────────────────────────────────────────────────
     if "FAIL" in sub_statuses:
@@ -538,4 +575,5 @@ def check_hot_water_contamination(metadata: dict[str, Any], adj: dict[str, set[s
         status=status,
         summary=summary,
         detail=_deduplicate_rule_lines(detail),
+        issues=issues,
     )

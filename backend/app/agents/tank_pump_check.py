@@ -37,26 +37,30 @@ def _find_path_excluding(
     return None
 
 
-def _check_bypass_line(elements: list[dict], pipes: list[dict], adj: dict[str, set[str]] | None = None) -> list[str]:
+def _check_bypass_line(
+    elements: list[dict], pipes: list[dict], adj: dict[str, set[str]] | None = None
+) -> list[tuple[str, str | None]]:
     """
     Detect whether a bypass line with a gate valve exists around each pump.
 
-    Returns one result line per pump (✓ if found, ⚠ otherwise). A missing
-    bypass is a WARN-level advisory, not a hard FAIL: unlike a check valve,
-    whether a bypass line is actually required is installation-dependent
+    Returns one (result line, pump_id) pair per pump (✓ if found, ⚠
+    otherwise) — pump_id is None for the "no pump found at all" case. A
+    missing bypass is a WARN-level advisory, not a hard FAIL: unlike a check
+    valve, whether a bypass line is actually required is installation-dependent
     (e.g. a small single-pump setup may not need one) — that's an LP/PE
     judgment call, so this just flags it for attention rather than blocking.
     """
     pumps = [e for e in elements if e.get("symbol_id") == "pump"]
     if not pumps:
-        return [
+        return [(
             "⚠ Bypass line: No pump detected — if a booster pump is part of this installation, "
-            "a bypass line with a normally-closed gate valve is required. Add the pump to the schematic."
-        ]
+            "a bypass line with a normally-closed gate valve is required. Add the pump to the schematic.",
+            None,
+        )]
 
     elem_by_id = {e["id"]: e for e in elements}
     adj = adj if adj is not None else build_adjacency(elements, pipes)
-    results: list[str] = []
+    results: list[tuple[str, str | None]] = []
 
     # A legitimate bypass line routes around a pump without needing another pump to
     # get from one side to the other — so every pump is excluded from every search,
@@ -71,10 +75,11 @@ def _check_bypass_line(elements: list[dict], pipes: list[dict], adj: dict[str, s
         neighbors = list(adj.get(pump_id, []))
 
         if len(neighbors) < 2:
-            results.append(
+            results.append((
                 f"– [{pump_name}] Pump has fewer than 2 pipe connections — "
-                f"bypass topology cannot be verified. Ensure the pump inlet and outlet are both piped."
-            )
+                f"bypass topology cannot be verified. Ensure the pump inlet and outlet are both piped.",
+                pump_id,
+            ))
             continue
 
         found_bypass = False
@@ -97,21 +102,24 @@ def _check_bypass_line(elements: list[dict], pipes: list[dict], adj: dict[str, s
                 break
 
         if found_bypass and has_gate_valve:
-            results.append(
+            results.append((
                 f"✓ [{pump_name}] Bypass line with gate valve detected — "
-                f"ensure the bypass valve is in the normally-closed position during normal operation."
-            )
+                f"ensure the bypass valve is in the normally-closed position during normal operation.",
+                pump_id,
+            ))
         elif found_bypass:
-            results.append(
+            results.append((
                 f"⚠ [{pump_name}] Bypass path detected but no gate valve found on the bypass line — "
-                f"a normally-closed gate valve must be installed on all pump bypass lines."
-            )
+                f"a normally-closed gate valve must be installed on all pump bypass lines.",
+                pump_id,
+            ))
         else:
-            results.append(
+            results.append((
                 f"⚠ [{pump_name}] No bypass line detected — "
                 f"a bypass line with a normally-closed gate valve is required around the pump, unless LP/PE "
-                f"confirms this installation does not require one."
-            )
+                f"confirms this installation does not require one.",
+                pump_id,
+            ))
 
     return results
 
@@ -190,6 +198,7 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
     detail: list[str] = []
     sub_statuses: list[str] = []
     skipped_critical: list[str] = []
+    issues: list[dict] = []
     pipe_by_id = {p["id"]: p for p in pipes}
     pressure_vessel_auto = _auto_detect_pressure_vessel(elements, pipes, adj)
 
@@ -217,11 +226,13 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
                 )
                 sub_statuses.append("PASS")
             else:
-                detail.append(
-                    f"✗ [{name}] Overflow pipe ({overflow_d*1000:.0f} mm) must be at least "
+                text = (
+                    f"[{name}] Overflow pipe ({overflow_d*1000:.0f} mm) must be at least "
                     f"one size larger than inlet pipe ({inlet_d*1000:.0f} mm)."
                 )
+                detail.append(f"✗ {text}")
                 sub_statuses.append("FAIL")
+                issues.append({"status": "FAIL", "text": text, "element_ids": [tank["id"]]})
         else:
             detail.append(f"– [{name}] Overflow/inlet pipe diameters not set — overflow size check skipped.")
 
@@ -234,11 +245,13 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
                 )
                 sub_statuses.append("PASS")
             else:
-                detail.append(
-                    f"✗ [{name}] Warning pipe is only {gap_mm:.0f} mm below overflow level "
+                text = (
+                    f"[{name}] Warning pipe is only {gap_mm:.0f} mm below overflow level "
                     f"(minimum 50 mm required)."
                 )
+                detail.append(f"✗ {text}")
                 sub_statuses.append("FAIL")
+                issues.append({"status": "FAIL", "text": text, "element_ids": [tank["id"]]})
         else:
             detail.append(
                 f"– [{name}] Warning pipe / overflow pipe levels not set — 50 mm gap check skipped."
@@ -257,11 +270,13 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
                 )
                 sub_statuses.append("PASS")
             else:
-                detail.append(
-                    f"✗ [{name}] Normal water level is only {gap_mm:.0f} mm below warning level "
+                text = (
+                    f"[{name}] Normal water level is only {gap_mm:.0f} mm below warning level "
                     f"(minimum 25 mm required)."
                 )
+                detail.append(f"✗ {text}")
                 sub_statuses.append("FAIL")
+                issues.append({"status": "FAIL", "text": text, "element_ids": [tank["id"]]})
         else:
             detail.append(
                 f"– [{name}] Inlet AMSL, overflow diameter, or warning level not set — 25 mm gap check skipped."
@@ -278,10 +293,10 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
                 )
                 sub_statuses.append("PASS")
             else:
-                detail.append(
-                    f"✗ [{name}] Outlet-to-base distance ({otb_mm:.0f} mm) must be between 75 mm and 100 mm."
-                )
+                text = f"[{name}] Outlet-to-base distance ({otb_mm:.0f} mm) must be between 75 mm and 100 mm."
+                detail.append(f"✗ {text}")
                 sub_statuses.append("FAIL")
+                issues.append({"status": "FAIL", "text": text, "element_ids": [tank["id"]]})
         else:
             detail.append(
                 f"– [{name}] Outlet-to-base distance not set — check skipped."
@@ -303,12 +318,14 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
             else:
                 effective_m3 = effective_capacity_l / 1000
                 if effective_m3 > required_m3 * 1.2:
-                    detail.append(
-                        f"⚠ [{name}] Effective capacity ({effective_m3:.2f} m³) exceeds 120% of "
+                    text = (
+                        f"[{name}] Effective capacity ({effective_m3:.2f} m³) exceeds 120% of "
                         f"required 1-day storage ({required_m3} m³, 120% = {required_m3 * 1.2:.2f} m³) — "
                         f"tank may be oversized. Review with LP/PE."
                     )
+                    detail.append(f"⚠ {text}")
                     sub_statuses.append("WARN")
+                    issues.append({"status": "WARN", "text": text, "element_ids": [tank["id"]]})
                 elif effective_m3 >= required_m3:
                     detail.append(
                         f"✓ [{name}] Effective capacity ({effective_m3:.2f} m³) meets required "
@@ -317,12 +334,14 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
                     sub_statuses.append("PASS")
                 else:
                     shortfall = required_m3 - effective_m3
-                    detail.append(
-                        f"✗ [{name}] Effective capacity ({effective_m3:.2f} m³) is less than required "
+                    text = (
+                        f"[{name}] Effective capacity ({effective_m3:.2f} m³) is less than required "
                         f"1-day storage ({required_m3} m³) — shortfall of {shortfall:.2f} m³. "
                         f"Increase tank dimensions or adjust pipe levels."
                     )
+                    detail.append(f"✗ {text}")
                     sub_statuses.append("FAIL")
+                    issues.append({"status": "FAIL", "text": text, "element_ids": [tank["id"]]})
         else:
             detail.append(
                 f"– [{name}] Required 1-day storage not entered — capacity adequacy check skipped. "
@@ -338,11 +357,13 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
             )
             sub_statuses.append("PASS")
         else:
-            detail.append(
-                f"⚠ [{name}] No pressure vessel detected. Review if a hydro-pneumatic vessel "
+            text = (
+                f"[{name}] No pressure vessel detected. Review if a hydro-pneumatic vessel "
                 f"is required with the pump manifold to prevent excessive cycling."
             )
+            detail.append(f"⚠ {text}")
             sub_statuses.append("WARN")
+            issues.append({"status": "WARN", "text": text, "element_ids": [tank["id"]]})
 
         # Rule 6: PUB-approved material (SS 636)
         if material is None:
@@ -351,15 +372,15 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
             detail.append(f"✓ [{name}] Tank material ({material}) is PUB-approved per SS 636.")
             sub_statuses.append("PASS")
         elif material == "Other":
-            detail.append(
-                f"⚠ [{name}] Tank material is 'Other' — ensure it complies with SS 636 requirements."
-            )
+            text = f"[{name}] Tank material is 'Other' — ensure it complies with SS 636 requirements."
+            detail.append(f"⚠ {text}")
             sub_statuses.append("WARN")
+            issues.append({"status": "WARN", "text": text, "element_ids": [tank["id"]]})
         else:
-            detail.append(
-                f"✗ [{name}] Tank material '{material}' may not be PUB-approved. Refer to SS 636."
-            )
+            text = f"[{name}] Tank material '{material}' may not be PUB-approved. Refer to SS 636."
+            detail.append(f"✗ {text}")
             sub_statuses.append("FAIL")
+            issues.append({"status": "FAIL", "text": text, "element_ids": [tank["id"]]})
 
         # Rule 7: sunken tank note
         if is_sunken:
@@ -372,12 +393,14 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
     detail.append("## System Checks")
     pumps = [e for e in elements if e.get("symbol_id") == "pump"]
     if not pumps:
-        detail.append(
-            "⚠ No pump detected in schematic — if a booster pump is part of this installation, "
+        text = (
+            "No pump detected in schematic — if a booster pump is part of this installation, "
             "add it to the schematic and re-evaluate. "
             "Pump discharge pipes must NOT use plastic materials (PVC/uPVC)."
         )
+        detail.append(f"⚠ {text}")
         sub_statuses.append("WARN")
+        issues.append({"status": "WARN", "text": text, "element_ids": []})
     else:
         discharge_ack = metadata.get("pump_discharge_material_acknowledged", False)
         if discharge_ack:
@@ -387,52 +410,63 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
             )
             sub_statuses.append("PASS")
         else:
-            detail.append(
-                "⚠ Rule 8: Pump discharge pipe material not confirmed. "
+            text = (
+                "Rule 8: Pump discharge pipe material not confirmed. "
                 "Pump discharge pipes must NOT use plastic materials (PVC/uPVC) — "
                 "please acknowledge in the pre-evaluation checklist."
             )
+            detail.append(f"⚠ {text}")
             sub_statuses.append("WARN")
+            issues.append({"status": "WARN", "text": text, "element_ids": [p["id"] for p in pumps]})
 
     # Rule 9: bypass line with normally-closed gate valve — topology check (one result per pump)
     bypass_lines = _check_bypass_line(elements, pipes, adj)
-    detail.extend(bypass_lines)
-    for line in bypass_lines:
+    for line, pump_id in bypass_lines:
+        detail.append(line)
+        text = line[1:].strip()
         if line.startswith("✓"):
             sub_statuses.append("PASS")
         elif line.startswith("✗"):
             sub_statuses.append("FAIL")
+            issues.append({"status": "FAIL", "text": text, "element_ids": [pump_id] if pump_id else []})
         elif line.startswith(("⚠", "–")):
             sub_statuses.append("WARN")
+            issues.append({"status": "WARN", "text": text, "element_ids": [pump_id] if pump_id else []})
 
     # Rule 10: pump rated head ≤ 35 m — read declared head from each pump element
     if not pumps:
-        detail.append(
-            "⚠ No pump detected in schematic — if a booster pump is part of this installation, "
+        text = (
+            "No pump detected in schematic — if a booster pump is part of this installation, "
             "add it to the schematic and declare the rated head."
         )
+        detail.append(f"⚠ {text}")
         sub_statuses.append("WARN")
+        issues.append({"status": "WARN", "text": text, "element_ids": []})
     else:
         for pump in pumps:
             rated_head = pump.get("pump_rated_head_m")
             pump_label = pump.get("symbol_name", "Pump")
             if rated_head is None or rated_head <= 0:
-                detail.append(
-                    f"⚠ {pump_label}: Pump rated head not declared — click the pump symbol and enter "
+                text = (
+                    f"{pump_label}: Pump rated head not declared — click the pump symbol and enter "
                     "the rated head (m) from the pump schedule."
                 )
+                detail.append(f"⚠ {text}")
                 sub_statuses.append("WARN")
+                issues.append({"status": "WARN", "text": text, "element_ids": [pump["id"]]})
             elif rated_head <= 35:
                 detail.append(
                     f"✓ {pump_label}: Declared rated head {rated_head} m ≤ 35 m (PUB requirement met)."
                 )
                 sub_statuses.append("PASS")
             else:
-                detail.append(
-                    f"✗ {pump_label}: Declared rated head {rated_head} m exceeds the 35 m PUB limit — "
+                text = (
+                    f"{pump_label}: Declared rated head {rated_head} m exceeds the 35 m PUB limit — "
                     "select a pump with a lower rated head or install a PRV on the discharge line."
                 )
+                detail.append(f"✗ {text}")
                 sub_statuses.append("FAIL")
+                issues.append({"status": "FAIL", "text": text, "element_ids": [pump["id"]]})
 
     # Overall status
     if "FAIL" in sub_statuses:
@@ -463,4 +497,5 @@ def check_tank_pump_installation(metadata: dict[str, Any], adj: dict[str, set[st
         status=status,
         summary=summary,
         detail=detail,
+        issues=issues,
     )

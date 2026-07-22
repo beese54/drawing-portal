@@ -30,17 +30,20 @@ def check_long_bath_installation(metadata: dict[str, Any]) -> CheckResult:
 
     detail: list[str] = []
     sub_statuses: list[str] = []
+    issues: list[dict] = []
 
     for i, bath in enumerate(long_baths, start=1):
         label = f"Long Bath {i}" if len(long_baths) > 1 else "Long Bath"
         capacity = bath.get("long_bath_capacity_l")
 
         if capacity is None:
-            detail.append(
+            text = (
                 f"{label}: Capacity not entered — please input the bath capacity in litres "
                 "to determine if additional provisions are required."
             )
+            detail.append(text)
             sub_statuses.append("WARN")
+            issues.append({"status": "WARN", "text": text, "element_ids": [bath["id"]]})
         elif capacity <= CAPACITY_LIMIT_L:
             detail.append(f"{label}: {capacity} L — within the {CAPACITY_LIMIT_L} L limit. No additional provisions required.")
             sub_statuses.append("PASS")
@@ -59,6 +62,14 @@ def check_long_bath_installation(metadata: dict[str, Any]) -> CheckResult:
                 "floor trap — not directly to the drain."
             )
             sub_statuses.append("WARN")
+            issues.append({
+                "status": "WARN",
+                "text": (
+                    f"{label}: {capacity} L exceeds {CAPACITY_LIMIT_L} L — requires no direct drain plug, "
+                    "full recirculation facilities, and backwash via floor trap per SS 636."
+                ),
+                "element_ids": [bath["id"]],
+            })
 
     if all(s == "PASS" for s in sub_statuses):
         status = "PASS"
@@ -82,4 +93,5 @@ def check_long_bath_installation(metadata: dict[str, Any]) -> CheckResult:
         status=status,
         summary=summary,
         detail=detail,
+        issues=issues,
     )

@@ -29,6 +29,10 @@ class CheckResult:
     table: list[dict] | None = None       # WELS rows for check3; None otherwise
     elements_of_interest: list[dict] = field(default_factory=list)
     # Each entry: {element_id, label, color}  — canvas_x/y resolved by caller
+    issues: list[dict] = field(default_factory=list)
+    # One entry per individually FAIL/WARN sub-condition, for reports that need
+    # a row per issue rather than per check.
+    # Each entry: {status: "FAIL"|"WARN", text: str, element_ids: list[str]}
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +172,7 @@ def check_backflow_prevention(metadata: dict[str, Any], adj: dict[str, set[str]]
     has_advisory = False
     details: list[str] = []
     elements_of_interest: list[dict] = []
+    issues: list[dict] = []
 
     for el in risk_elements:
         el_id = el["id"]
@@ -185,38 +190,46 @@ def check_backflow_prevention(metadata: dict[str, Any], adj: dict[str, set[str]]
 
             if result.reason == "missing_both":
                 all_pass = False
-                details.append(
-                    f"✗ {el_name}: No vacuum breaker or check valve found — "
+                text = (
+                    f"{el_name}: No vacuum breaker or check valve found — "
                     "SS636 §6.5 requires a vacuum breaker + check valve assembly on all bidet spray connections."
                 )
+                details.append(f"✗ {text}")
                 elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing assembly!", "color": "red"})
+                issues.append({"status": "FAIL", "text": text, "element_ids": [el_id]})
             elif result.reason == "missing_inner":
                 all_pass = False
-                details.append(
-                    f"✗ {el_name}: No vacuum breaker found — "
+                text = (
+                    f"{el_name}: No vacuum breaker found — "
                     "SS636 §6.5 requires a vacuum breaker upstream of the bidet spray connection."
                 )
+                details.append(f"✗ {text}")
                 elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing vacuum breaker!", "color": "red"})
+                issues.append({"status": "FAIL", "text": text, "element_ids": [el_id]})
             elif result.reason == "missing_outer":
                 all_pass = False
-                details.append(
-                    f"✗ {el_name}: Vacuum breaker found but no check valve — "
+                text = (
+                    f"{el_name}: Vacuum breaker found but no check valve — "
                     "SS636 §6.5 requires both a vacuum breaker AND check valve (inlet → CV → VB → bidet spray)."
                 )
+                details.append(f"✗ {text}")
                 elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing check valve!", "color": "red"})
+                issues.append({"status": "FAIL", "text": text, "element_ids": [el_id]})
             elif result.reason == "wrong_order":
                 # check_valve is not strictly farther from the bidet spray than vacuum_breaker —
                 # wrong order (or tied hop-count, which can't be proven compliant).
                 all_pass = False
-                details.append(
-                    f"✗ {el_name}: Assembly order incorrect (check valve {cv_hops} hop(s), vacuum breaker {vb_hops} hop(s)). "
+                text = (
+                    f"{el_name}: Assembly order incorrect (check valve {cv_hops} hop(s), vacuum breaker {vb_hops} hop(s)). "
                     "Correct order: inlet → check valve → vacuum breaker → bidet spray."
                 )
+                details.append(f"✗ {text}")
                 elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — wrong assembly order!", "color": "red"})
                 if vb_id:
                     elements_of_interest.append({"element_id": vb_id, "label": "Vacuum Breaker — move upstream of check valve", "color": "orange"})
                 if cv_id:
                     elements_of_interest.append({"element_id": cv_id, "label": "Check Valve — move upstream of vacuum breaker", "color": "orange"})
+                issues.append({"status": "FAIL", "text": text, "element_ids": [i for i in (el_id, vb_id, cv_id) if i]})
             else:
                 details.append(
                     f"✓ {el_name}: Vacuum breaker + check valve assembly in correct order "
@@ -247,10 +260,17 @@ def check_backflow_prevention(metadata: dict[str, Any], adj: dict[str, set[str]]
                 if hops > 1 and sym_id == "water_heater":
                     has_advisory = True
                     details.append("  ⚠ Recommend moving check valve to directly before the water heater inlet.")
+                    issues.append({
+                        "status": "WARN",
+                        "text": f"{el_name}: check valve found but not immediately adjacent — recommend moving it directly before the water heater inlet.",
+                        "element_ids": [i for i in (el_id, found_id) if i],
+                    })
             else:
                 all_pass = False
-                details.append(f"✗ {el_name}: No check valve found upstream. {missing_msg}")
+                text = f"{el_name}: No check valve found upstream. {missing_msg}"
+                details.append(f"✗ {text}")
                 elements_of_interest.append({"element_id": el_id, "label": f"{el_name} — missing check valve!", "color": "red"})
+                issues.append({"status": "FAIL", "text": text, "element_ids": [el_id]})
 
     if not all_pass and any("✗" in d for d in details):
         status = "FAIL"
@@ -269,6 +289,7 @@ def check_backflow_prevention(metadata: dict[str, Any], adj: dict[str, set[str]]
         summary=summary,
         detail=details,
         elements_of_interest=elements_of_interest,
+        issues=issues,
     )
 
 
@@ -357,12 +378,20 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
     ]
 
     elements_of_interest: list[dict] = []
+    issues: list[dict] = []
+    tanks = [e for e in elements if e.get("symbol_id") == "water_tank"]
 
     if required_mode == "direct":
         if has_indirect:
             status = "WARN"
             summary = f"Direct supply sufficient at {highest_m:.1f} m AMSL, but indirect supply elements detected — verify intent."
             details.append("⚠ Indirect supply elements found, but direct supply is sufficient at this elevation.")
+            indirect_ids = [e["id"] for e in elements if e.get("supply_mode") == "indirect_supply"]
+            issues.append({
+                "status": "WARN",
+                "text": "Indirect supply elements found, but direct supply is sufficient at this elevation — verify intent.",
+                "element_ids": indirect_ids,
+            })
         else:
             status = "PASS"
             summary = f"Direct supply from PUB mains is appropriate for highest fitting at {highest_m:.1f} m AMSL."
@@ -372,17 +401,26 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
             status = "FAIL"
             summary = f"Highest fitting at {highest_m:.1f} m AMSL requires indirect supply via water storage tank — no tank found."
             details.append("✗ Water storage tank required but not present in schematic.")
+            issues.append({
+                "status": "FAIL",
+                "text": f"Highest fitting at {highest_m:.1f} m AMSL requires indirect supply via water storage tank — no tank found.",
+                "element_ids": [],
+            })
         elif not has_indirect:
             status = "WARN"
             summary = f"Water tank present, but supply mode classification shows no indirect supply path — check connections."
             details.append("⚠ Water tank present, but no elements classified as indirect supply. Verify pipe connections.")
+            issues.append({
+                "status": "WARN",
+                "text": "Water tank present, but no elements classified as indirect supply — verify pipe connections.",
+                "element_ids": [t["id"] for t in tanks],
+            })
         else:
             status = "PASS"
             summary = f"Indirect supply via water storage tank is correctly configured for {highest_m:.1f} m AMSL."
 
         # Additional check: tank inlet must be at or below 37 m AMSL (PUB requirement).
         # A waiver is required if the inlet exceeds 37 m — this must be handled administratively.
-        tanks = [e for e in elements if e.get("symbol_id") == "water_tank"]
         for tank in tanks:
             tp = tank.get("tank_properties") or {}
             inlet_amsl = tp.get("inlet_pipe_m_amsl")
@@ -402,6 +440,11 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
                     f"[{tank_name}] Tank inlet at {inlet_amsl:.1f} m AMSL exceeds the 37 m AMSL maximum — "
                     "a PUB waiver is required."
                 )
+                issues.append({
+                    "status": "FAIL",
+                    "text": f"[{tank_name}] Tank inlet at {inlet_amsl:.1f} m AMSL exceeds the 37 m AMSL limit — a PUB waiver is required.",
+                    "element_ids": [tank["id"]],
+                })
             else:
                 details.append(
                     f"✓ [{tank_name}] Tank inlet at {inlet_amsl:.1f} m AMSL is at or below 37 m AMSL — compliant."
@@ -417,6 +460,11 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
             status = "FAIL"
             summary = f"Highest fitting at {highest_m:.1f} m AMSL requires Mode C supply — missing: {', '.join(missing)}."
             details.append(f"✗ Mode C requires a low-level transfer tank AND a pump. Missing: {', '.join(missing)}.")
+            issues.append({
+                "status": "FAIL",
+                "text": f"Mode C supply required at {highest_m:.1f} m AMSL but missing: {', '.join(missing)}.",
+                "element_ids": [],
+            })
         else:
             status = "PASS"
             summary = f"Mode C supply (tank + pump) is present for {highest_m:.1f} m AMSL."
@@ -433,15 +481,17 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
             name = e.get("symbol_name", e.get("symbol_id", "Fitting"))
             elev = e["elevation_m"]
             reason = "connected directly to the mains" if e.get("supply_mode") == "direct_supply" else "not traceable to the tank's indirect side"
-            details.append(
-                f"✗ {name} at {elev:.1f} m AMSL is above the {DIRECT_SUPPLY_LIMIT_M:.0f} m AMSL direct-supply "
+            issue_text = (
+                f"{name} at {elev:.1f} m AMSL is above the {DIRECT_SUPPLY_LIMIT_M:.0f} m AMSL direct-supply "
                 f"limit but is {reason} — it must be supplied from the water storage tank."
             )
+            details.append(f"✗ {issue_text}")
             elements_of_interest.append({
                 "element_id": e["id"],
                 "label": f"{name} — on direct mains supply, not tank!",
                 "color": "red",
             })
+            issues.append({"status": "FAIL", "text": issue_text, "element_ids": [e["id"]]})
         summary = (
             f"{len(offending_fittings)} fitting(s) above {DIRECT_SUPPLY_LIMIT_M:.0f} m AMSL are supplied directly "
             "from the mains instead of via the water storage tank."
@@ -454,6 +504,7 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
         summary=summary,
         detail=details,
         elements_of_interest=elements_of_interest,
+        issues=issues,
     )
 
 
@@ -486,6 +537,7 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
         )
 
     rows: list[dict] = []
+    issues: list[dict] = []
     any_fail = False
     any_missing_data = False
     any_undeclared = False   # tick rating never set at all — treated as non-compliant, not just a warning
@@ -528,6 +580,11 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
                 "compliant": None,
                 "note": f"Click [{symbol_name}] on the canvas to select its fitting type, then re-export.",
             })
+            issues.append({
+                "status": "WARN",
+                "text": f"{symbol_name}: fitting type not set — click the fixture on the canvas to select its fitting type.",
+                "element_ids": [el_id],
+            })
             continue
 
         # Missing tick rating — no MWELS label declared at all. Handbook 7.2.1 requires every
@@ -545,6 +602,11 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
                 "unit": "—",
                 "compliant": None,
                 "note": f"Click [{symbol_name}] on the canvas to set its MWELS tick rating — undeclared fittings fail this check.",
+            })
+            issues.append({
+                "status": "FAIL",
+                "text": f"{symbol_name}: no MWELS tick rating declared — undeclared fittings cannot be confirmed compliant (PUB, from 1 Apr 2019).",
+                "element_ids": [el_id],
             })
             continue
 
@@ -569,6 +631,11 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
 
         if not compliant:
             any_fail = True
+            issues.append({
+                "status": "FAIL",
+                "text": f"{mwels_entry['name']}: {ticks} tick(s) — minimum 2 required (PUB, from 1 Apr 2019).",
+                "element_ids": [el_id],
+            })
 
         if fitting_type in FLOW_RATE_FITTING_IDS:
             total_flow_lpm += design_flow
@@ -629,4 +696,5 @@ def check_water_efficiency(metadata: dict[str, Any]) -> CheckResult:
         summary=summary,
         detail=details,
         table=rows,
+        issues=issues,
     )

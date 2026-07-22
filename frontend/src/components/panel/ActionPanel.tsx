@@ -11,7 +11,7 @@ import { useUiStore } from '../../store/uiStore';
 import { getUnconnectedPorts } from '../../utils/portConnectionStatus';
 import { evaluationApi } from '../../api/client';
 import type { EvaluationResponse } from '../../types/evaluation';
-import type { AcknowledgmentFlags } from '../../types';
+import type { AcknowledgmentFlags, DrawingMetadata } from '../../types';
 import { PAPER_SIZES_MM, SHEET_PX_PER_MM, AXIS_WIDTH } from '../../types';
 
 
@@ -61,6 +61,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [evalLoading, setEvalLoading] = useState(false);
   const [evalResult, setEvalResult] = useState<EvaluationResponse | null>(null);
+  const [evalMetadata, setEvalMetadata] = useState<DrawingMetadata | null>(null);
   const [evalError, setEvalError] = useState<string | null>(null);
   const { exportMetadata, getMetadata } = useMetadataExport(canvasWidth, canvasHeight);
   const { openFilePicker: openJsonImport } = useJsonImport();
@@ -104,6 +105,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
       formData.append('skip_llm', 'true');
       const result = await evaluationApi.evaluate(formData);
       setEvalResult(result);
+      setEvalMetadata(metadata);
     } catch (err) {
       setEvalError(err instanceof Error ? err.message : 'Evaluation failed');
     } finally {
@@ -382,8 +384,8 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
       {showFeedbackModal && (
         <FeedbackModal onSubmit={handleFeedbackSubmit} onCancel={() => setShowFeedbackModal(false)} />
       )}
-      {evalResult && (
-        <EvaluationModal result={evalResult} onClose={() => setEvalResult(null)} />
+      {evalResult && evalMetadata && (
+        <EvaluationModal result={evalResult} metadata={evalMetadata} onClose={() => setEvalResult(null)} />
       )}
       {showTemplates && (
         <TemplateModal onClose={() => setShowTemplates(false)} />
