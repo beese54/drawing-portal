@@ -106,8 +106,9 @@ export function FeedbackModal({ onSubmit, onCancel }: Props) {
               Quick Feedback (Temporary)
             </div>
             <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.4 }}>
-              We're gathering early feedback while testing this tool. Please answer a
-              few quick questions before continuing to the export.
+              We're gathering early feedback while testing this tool. Answer a few quick
+              questions below, or use "Skip &amp; Download" if you're in the middle of
+              several drawings and don't have time right now.
             </div>
           </div>
           <button
@@ -192,6 +193,18 @@ export function FeedbackModal({ onSubmit, onCancel }: Props) {
             }}
           >
             Cancel
+          </button>
+          <button
+            onClick={onSubmit}
+            disabled={submitting}
+            title="Continue to the export without submitting feedback this time"
+            style={{
+              padding: '8px 18px', border: '1px solid #d1d5db',
+              borderRadius: 6, background: '#fff', color: '#374151',
+              cursor: submitting ? 'not-allowed' : 'pointer', fontSize: 13,
+            }}
+          >
+            Skip &amp; Download
           </button>
           <button
             onClick={handleSubmit}
