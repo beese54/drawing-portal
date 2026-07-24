@@ -133,7 +133,7 @@ export function PipeElement({
         onTap={() => setSelected(id)}
         onMouseEnter={handleBodyMouseEnter}
         onMouseLeave={handleBodyMouseLeave}
-        hitStrokeWidth={12}
+        hitStrokeWidth={4}
       />
       {/* Upstream endpoint */}
       <Circle
