@@ -13,15 +13,24 @@ spec:
       labels:
         app: backend
     spec:
+      # imagePullSecrets:
+      #   - name: ghcr-pull-secret   # only needed if the ghcr.io package is private
       containers:
         - name: backend
-          image: schematic-portal-backend:latest
-          imagePullPolicy: IfNotPresent
+          image: ghcr.io/beese54/drawing-portal-backend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           envFrom:
             - configMapRef:
                 name: backend-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
           volumeMounts:
             - name: symbols-storage
               mountPath: /app/symbols

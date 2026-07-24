@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+chroma_db/
+knowledge/
+symbols/custom/*
+!symbols/custom/.gitkeep
+tests/
+.git
+.gitignore
+*.md

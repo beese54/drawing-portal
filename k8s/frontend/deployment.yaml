@@ -13,15 +13,24 @@ spec:
       labels:
         app: frontend
     spec:
+      # imagePullSecrets:
+      #   - name: ghcr-pull-secret   # only needed if the ghcr.io package is private
       containers:
         - name: frontend
-          image: schematic-portal-frontend:latest
-          imagePullPolicy: IfNotPresent
+          image: ghcr.io/beese54/drawing-portal-frontend:latest
+          imagePullPolicy: Always
           ports:
-            - containerPort: 80
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
           livenessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 3000
             initialDelaySeconds: 5
             periodSeconds: 15
