@@ -75,7 +75,7 @@ export function PipeColorPanel({ pipeIds }: PipeColorPanelProps) {
             cursor: canReset ? 'pointer' : 'default',
           }}
         >
-          Automatic
+          Reset This Pipe
         </button>
       </div>
 
