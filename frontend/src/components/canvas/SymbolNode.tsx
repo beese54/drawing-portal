@@ -28,6 +28,90 @@ export function shouldMirrorSymbolImage(symbolId: string): boolean {
 const CANVAS_SNAP_THRESHOLD = 4; // px — snap when dragging symbol near another symbol's port
 const ALIGN_GUIDE_THRESHOLD = 3; // px — show/snap an alignment guide when a port nears another port's x or y, even far apart on the other axis
 
+// Half-width (local px) of the invisible click margin drawn around the actual
+// ink for thin-glyph symbols (elbow_bend, tee_junction) — see
+// THIN_GLYPH_HIT_BUILDERS below. Deliberately narrow: these symbols' visible
+// stroke is thin (~0.3-0.4px at default symbol size) and sits inside a mostly
+// -empty bounding box, so a generic full-box hit rect (see HIT_PADDING_PX in
+// SymbolNode) swallows clicks meant for a pipe terminating in one of the
+// box's empty corners — exactly where a connected pipe's endpoint has to be,
+// by design (reported 2026-07-24: couldn't click a cold pipe running into an
+// elbow bend). This margin only needs to comfortably cover the drawn line,
+// not the whole box.
+const THIN_GLYPH_HIT_HALF_WIDTH = 1;
+
+/** Appends a filled quad ("thick line segment") to ctx's current path, as an
+ *  approximation of a stroked line for hit-testing purposes only — not meant
+ *  to be visually rendered. */
+function addHitCapsule(ctx: Konva.Context, x1: number, y1: number, x2: number, y2: number, halfWidth: number) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = (-dy / len) * halfWidth;
+  const ny = (dx / len) * halfWidth;
+  ctx.moveTo(x1 + nx, y1 + ny);
+  ctx.lineTo(x2 + nx, y2 + ny);
+  ctx.lineTo(x2 - nx, y2 - ny);
+  ctx.lineTo(x1 - nx, y1 - ny);
+  ctx.closePath();
+}
+
+/** Elbow bend's actual ink (backend/symbols/default/elbow_bend.svg): a
+ *  horizontal stub, a quarter-circle arc (centre (24,40) r=20, sweeping from
+ *  -90deg to 0deg), and a vertical stub — inside a viewBox of (2,18)-(46,62)
+ *  (44x44). The arc is approximated as short straight segments; fine for hit
+ *  -testing, not for rendering. */
+function buildElbowBendHitPath(ctx: Konva.Context, width: number, height: number) {
+  const VB_X = 2, VB_Y = 18, VB_SIZE = 44;
+  const map = (sx: number, sy: number) => ({
+    x: ((sx - VB_X) / VB_SIZE) * width,
+    y: ((sy - VB_Y) / VB_SIZE) * height,
+  });
+  const hw = THIN_GLYPH_HIT_HALF_WIDTH;
+
+  const stubStart = map(4, 20);
+  const arcStart = map(24, 20);
+  addHitCapsule(ctx, stubStart.x, stubStart.y, arcStart.x, arcStart.y, hw);
+
+  const cx = 24, cy = 40, r = 20;
+  const ARC_STEPS = 6;
+  let prev = arcStart;
+  for (let i = 1; i <= ARC_STEPS; i++) {
+    const angle = -Math.PI / 2 + (i / ARC_STEPS) * (Math.PI / 2);
+    const p = map(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+    addHitCapsule(ctx, prev.x, prev.y, p.x, p.y, hw);
+    prev = p;
+  }
+
+  const stubEnd = map(44, 60);
+  addHitCapsule(ctx, prev.x, prev.y, stubEnd.x, stubEnd.y, hw);
+}
+
+/** Tee junction's actual ink (backend/symbols/default/tee_junction.svg): a
+ *  horizontal line straight through the box plus a vertical stub from centre
+ *  to the bottom edge — inside a 64x64 viewBox. */
+function buildTeeJunctionHitPath(ctx: Konva.Context, width: number, height: number) {
+  const VB_SIZE = 64;
+  const map = (sx: number, sy: number) => ({ x: (sx / VB_SIZE) * width, y: (sy / VB_SIZE) * height });
+  const hw = THIN_GLYPH_HIT_HALF_WIDTH;
+
+  const left = map(0, 32);
+  const right = map(64, 32);
+  addHitCapsule(ctx, left.x, left.y, right.x, right.y, hw);
+
+  const center = map(32, 32);
+  const bottom = map(32, 64);
+  addHitCapsule(ctx, center.x, center.y, bottom.x, bottom.y, hw);
+}
+
+/** Symbols whose visible ink occupies only a thin sliver of their bounding
+ *  box — these get a hand-authored hit path tracing the actual glyph instead
+ *  of the generic full-box rect (see HIT_PADDING_PX/hitFunc in SymbolNode). */
+const THIN_GLYPH_HIT_BUILDERS: Record<string, (ctx: Konva.Context, width: number, height: number) => void> = {
+  elbow_bend: buildElbowBendHitPath,
+  tee_junction: buildTeeJunctionHitPath,
+};
+
 interface SymbolNodeProps {
   id: string;
   symbolId: string;
@@ -113,12 +197,17 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
         draggable={draggable}
         hitFunc={(ctx, shape) => {
           // Local space origin (0,0) is the image top-left (because offsetX/offsetY shift it).
-          // Center the hit rect at (halfW, halfH) to align with the visible symbol.
-          const hw = halfW + HIT_PADDING_PX;
-          const hh = halfH + HIT_PADDING_PX;
           ctx.beginPath();
-          ctx.rect(halfW - hw, halfH - hh, hw * 2, hh * 2);
-          ctx.closePath();
+          const thinGlyphBuilder = THIN_GLYPH_HIT_BUILDERS[symbolId];
+          if (thinGlyphBuilder) {
+            thinGlyphBuilder(ctx, width, height);
+          } else {
+            // Center the hit rect at (halfW, halfH) to align with the visible symbol.
+            const hw = halfW + HIT_PADDING_PX;
+            const hh = halfH + HIT_PADDING_PX;
+            ctx.rect(halfW - hw, halfH - hh, hw * 2, hh * 2);
+            ctx.closePath();
+          }
           ctx.fillStrokeShape(shape);
         }}
         onClick={(e) => { if (e.evt.button === 0) setSelected(id); }}
