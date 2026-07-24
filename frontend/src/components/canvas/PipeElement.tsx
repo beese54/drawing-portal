@@ -1,8 +1,8 @@
-import { Arrow, Circle } from 'react-konva';
+import { Arrow, Circle, Line } from 'react-konva';
 import Konva from 'konva';
 import { useCanvasStore } from '../../store/canvasStore';
 import { PipeType } from '../../types';
-import { buildJumpPath, PipeJump, PIPE_JUMP_RADIUS_PX } from '../../utils/pipeJumps';
+import { buildJumpSegments, PipeJump, PIPE_JUMP_RADIUS_PX } from '../../utils/pipeJumps';
 
 interface PipeColors {
   normal: string;
@@ -62,8 +62,7 @@ export function PipeElement({
 
   const { color, strokeWidth } = getPipeDrawStyle(pipeType, isSelected, customColor);
   const dash: [number, number] | undefined = pipeType === 'hot' ? [4, 2] : undefined;
-  const jumpPath = buildJumpPath(startX, startY, endX, endY, jumps ?? [], PIPE_JUMP_RADIUS_PX);
-  const points = jumpPath.flatMap((p) => [p.x, p.y]);
+  const segments = buildJumpSegments(startX, startY, endX, endY, jumps ?? [], PIPE_JUMP_RADIUS_PX);
 
   // Skip zero-length pipes
   const dx = endX - startX;
@@ -121,6 +120,9 @@ export function PipeElement({
     if (stage) stage.container().style.cursor = 'default';
   };
 
+  const handleBodyClick = (e: Konva.KonvaEventObject<MouseEvent>) => { if (e.evt.button === 0) setSelected(id); };
+  const handleBodyTap = () => setSelected(id);
+
   return (
     <>
       {/* Hover indicator — same treatment as a hovered symbol's port dots
@@ -132,22 +134,39 @@ export function PipeElement({
           <Circle x={endX} y={endY} radius={1} fill={color} stroke="#fff" strokeWidth={0.5} listening={false} />
         </>
       )}
-      <Arrow
-        points={points}
-        pointerLength={PIPE_ARROW_POINTER_LENGTH}
-        pointerWidth={PIPE_ARROW_POINTER_WIDTH}
-        fill={color}
-        stroke={color}
-        strokeWidth={strokeWidth}
-        dash={dash}
-        lineCap="round"
-        lineJoin="round"
-        onClick={(e) => { if (e.evt.button === 0) setSelected(id); }}
-        onTap={() => setSelected(id)}
-        onMouseEnter={handleBodyMouseEnter}
-        onMouseLeave={handleBodyMouseLeave}
-        hitStrokeWidth={4}
-      />
+      {/* Rendered as one segment per straight run / arc bulge (rather than a single
+          Arrow) so a jump arc can always render solid regardless of the pipe's own
+          dash pattern — see buildJumpSegments' isArcBulge doc for why. The zero-jump
+          case (the common one) still produces exactly one segment, i.e. one plain Arrow,
+          identical to the pre-jump-arc render. */}
+      {segments.map((seg, i) => {
+        const flatPoints = seg.points.flatMap((p) => [p.x, p.y]);
+        const segDash = seg.isArcBulge ? undefined : dash;
+        const shared = {
+          points: flatPoints,
+          stroke: color,
+          strokeWidth,
+          dash: segDash,
+          lineCap: 'round' as const,
+          lineJoin: 'round' as const,
+          hitStrokeWidth: 4,
+          onClick: handleBodyClick,
+          onTap: handleBodyTap,
+          onMouseEnter: handleBodyMouseEnter,
+          onMouseLeave: handleBodyMouseLeave,
+        };
+        return i === segments.length - 1 ? (
+          <Arrow
+            key={i}
+            {...shared}
+            fill={color}
+            pointerLength={PIPE_ARROW_POINTER_LENGTH}
+            pointerWidth={PIPE_ARROW_POINTER_WIDTH}
+          />
+        ) : (
+          <Line key={i} {...shared} />
+        );
+      })}
       {/* Upstream endpoint */}
       <Circle
         x={startX}

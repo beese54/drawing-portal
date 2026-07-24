@@ -99,41 +99,56 @@ export function computePipeJumps(pipes: PipeElement[]): Map<string, PipeJump[]> 
   return result;
 }
 
+export interface PipeRunSegment {
+  points: { x: number; y: number }[]; // >= 2 points
+  /** true = an arc bulge — always render without a dash, regardless of the pipe's own
+   *  line style, since a dash pattern running continuously across an arc lands at a
+   *  different phase on every crossing (depending purely on how far along the pipe it
+   *  falls), making identically-sized arcs look inconsistent from one crossing to the
+   *  next. false = a straight run — follows the pipe's own dash setting, if any. */
+  isArcBulge: boolean;
+}
+
 /**
- * Straight-run + arc-bulge polyline from (startX,startY) to (endX,endY), detouring
- * around each jump point. Returns exactly [{start},{end}] when jumps is empty —
- * bit-for-bit the same 2-point line PipeElement.tsx has always rendered.
+ * Straight-run + arc-bulge segments from (startX,startY) to (endX,endY), detouring
+ * around each jump point. Returns exactly one straight segment [{start},{end}] when
+ * jumps is empty — bit-for-bit the same 2-point line PipeElement.tsx has always
+ * rendered for the common (no-crossing) case.
  */
-export function buildJumpPath(
+export function buildJumpSegments(
   startX: number, startY: number, endX: number, endY: number,
   jumps: PipeJump[], bulgeRadius: number = PIPE_JUMP_RADIUS_PX,
-): { x: number; y: number }[] {
-  if (jumps.length === 0) return [{ x: startX, y: startY }, { x: endX, y: endY }];
+): PipeRunSegment[] {
+  if (jumps.length === 0) return [{ points: [{ x: startX, y: startY }, { x: endX, y: endY }], isArcBulge: false }];
 
   const dx = endX - startX, dy = endY - startY;
   const len = Math.hypot(dx, dy) || 1;
   const ux = dx / len, uy = dy / len; // unit vector along the pipe
   const nx = -uy, ny = ux;            // unit normal (perpendicular), fixed side for a consistent-looking bulge
 
-  const path: { x: number; y: number }[] = [{ x: startX, y: startY }];
+  const segments: PipeRunSegment[] = [];
+  let runStart = { x: startX, y: startY };
   for (const jump of jumps) {
     const centerDist = Math.hypot(jump.x - startX, jump.y - startY);
-    const approachX = startX + ux * (centerDist - bulgeRadius);
-    const approachY = startY + uy * (centerDist - bulgeRadius);
-    const departX = startX + ux * (centerDist + bulgeRadius);
-    const departY = startY + uy * (centerDist + bulgeRadius);
+    const approach = { x: startX + ux * (centerDist - bulgeRadius), y: startY + uy * (centerDist - bulgeRadius) };
+    const depart = { x: startX + ux * (centerDist + bulgeRadius), y: startY + uy * (centerDist + bulgeRadius) };
 
-    path.push({ x: approachX, y: approachY });
+    segments.push({ points: [runStart, approach], isArcBulge: false });
+
     // Semicircle centered on the jump point, bulging toward +normal, parametrized
     // directly from the approach point to the depart point around that center.
+    const arcPoints: { x: number; y: number }[] = [approach];
     for (let i = 1; i < ARC_STEPS; i++) {
       const angle = Math.PI * (i / ARC_STEPS);
       const localX = -bulgeRadius * Math.cos(angle); // -r -> +r along the travel axis
       const localY = bulgeRadius * Math.sin(angle);  // 0 -> r -> 0 along the normal
-      path.push({ x: jump.x + ux * localX + nx * localY, y: jump.y + uy * localX + ny * localY });
+      arcPoints.push({ x: jump.x + ux * localX + nx * localY, y: jump.y + uy * localX + ny * localY });
     }
-    path.push({ x: departX, y: departY });
+    arcPoints.push(depart);
+    segments.push({ points: arcPoints, isArcBulge: true });
+
+    runStart = depart;
   }
-  path.push({ x: endX, y: endY });
-  return path;
+  segments.push({ points: [runStart, { x: endX, y: endY }], isArcBulge: false });
+  return segments;
 }
