@@ -1,29 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
+  name: app
   namespace: schematic-portal
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: backend
+      app: app
   template:
     metadata:
       labels:
-        app: backend
+        app: app
     spec:
       # imagePullSecrets:
       #   - name: ghcr-pull-secret   # only needed if the ghcr.io package is private
       containers:
-        - name: backend
-          image: ghcr.io/beese54/drawing-portal-backend:latest
+        - name: app
+          image: ghcr.io/beese54/drawing-portal:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
           envFrom:
             - configMapRef:
-                name: backend-config
+                name: app-config
           resources:
             requests:
               cpu: 100m

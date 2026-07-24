@@ -3,12 +3,14 @@ from pathlib import Path
 
 
 _DEFAULT_SYMBOLS_PATH = str(Path(__file__).parent.parent / "symbols")
+_DEFAULT_STATIC_PATH = str(Path(__file__).parent.parent / "static")
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     symbols_path: str = _DEFAULT_SYMBOLS_PATH
+    static_path: str = _DEFAULT_STATIC_PATH
     allowed_origins: str = "http://localhost:3000,http://localhost:5173,https://spd-fe-2.app.tc1.airbase.sg"
     app_version: str = "1.0.0"
     slack_feedback_webhook_url: str = ""
@@ -16,6 +18,10 @@ class Settings(BaseSettings):
     @property
     def symbols_dir(self) -> Path:
         return Path(self.symbols_path)
+
+    @property
+    def static_dir(self) -> Path:
+        return Path(self.static_path)
 
     @property
     def default_symbols_dir(self) -> Path:

@@ -220,8 +220,7 @@ schematic-drawing-portal/
 ├── k8s/                              # Kubernetes manifests
 │   ├── namespace.yaml
 │   ├── storage/                      # PersistentVolumeClaim for symbols
-│   ├── backend/                      # Deployment, Service, ConfigMap
-│   └── frontend/                     # Deployment, Service, ConfigMap
+│   └── app/                          # Deployment, Service, ConfigMap (combined image)
 │
 └── docs/
     ├── screenshots/                  # UI screenshots
@@ -272,16 +271,18 @@ See [docs/examples/](docs/examples/) for real exported schematics.
 
 ## Kubernetes Deployment
 
-Manifests are in `k8s/`. Apply in order:
+Frontend and backend ship as a single combined image
+(`ghcr.io/beese54/drawing-portal`) — FastAPI serves the built frontend as
+static files alongside the `/api/*` routes. Manifests are in `k8s/`. Apply
+in order:
 
 ```bash
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/storage/
-kubectl apply -f k8s/backend/
-kubectl apply -f k8s/frontend/
+kubectl apply -f k8s/app/
 ```
 
-> **Note:** The backend uses a `ReadWriteOnce` PVC for symbol storage. For multi-replica scaling, replace the PVC with a shared object store (S3/MinIO) and update `SYMBOLS_PATH` accordingly.
+> **Note:** The app uses a `ReadWriteOnce` PVC for symbol storage. For multi-replica scaling, replace the PVC with a shared object store (S3/MinIO) and update `SYMBOLS_PATH` accordingly.
 
 ---
 

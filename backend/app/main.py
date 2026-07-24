@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.routers import health, symbols, evaluate, feedback, export
@@ -33,3 +36,10 @@ app.include_router(symbols.router, prefix="/api/symbols")
 app.include_router(evaluate.router, prefix="/api")
 app.include_router(feedback.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
+
+# Only present in the combined image (root Dockerfile copies the built
+# frontend into ./static/) — the split backend/Dockerfile never creates this
+# directory, so it stays an API-only service there. Mounted last so it can
+# never shadow the /api/* routes or FastAPI's own /docs, /openapi.json, etc.
+if settings.static_dir.is_dir():
+    app.mount("/", StaticFiles(directory=str(settings.static_dir), html=True), name="static")
