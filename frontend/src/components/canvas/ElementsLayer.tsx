@@ -28,8 +28,15 @@ const FLUID_BOUNDARY_SYMBOLS = new Set([
 
 const TINT_MATCH = 3; // px — kept tight so only exact port-to-endpoint connections trigger the tint
 
+/** Fluid identity for tinting purposes — the type (for the default TINT_RGB color) plus
+ *  an optional pipe-instance customColor override, when the traced pipe has one set. */
+export interface FluidTint {
+  pipeType: PipeType;
+  customColor?: string;
+}
+
 /** BFS backwards through the pipe/element network from a canvas position.
- *  Returns 'cold'|'hot' if a typed pipe is reachable, null otherwise.
+ *  Returns the fluid tint if a typed pipe is reachable, null otherwise.
  *  Handles both pipe-connected and directly port-to-port snapped elements. */
 function traceFluidFromPos(
   startX: number,
@@ -37,17 +44,17 @@ function traceFluidFromPos(
   originId: string,
   elements: CanvasElement[],
   pipes: PipeElementType[],
-): PipeType | null {
+): FluidTint | null {
   const visited = new Set<string>();
   const queue: { x: number; y: number }[] = [{ x: startX, y: startY }];
 
-  const visitElementAt = (ex: number, ey: number): PipeType | 'enqueued' | null => {
+  const visitElementAt = (ex: number, ey: number): FluidTint | 'enqueued' | null => {
     for (const upEl of elements) {
       if (upEl.id === originId) continue;
       for (const upP of getElementPorts(upEl)) {
         const upPos = getPortPosition(upEl, upP);
         if (Math.hypot(upPos.x - ex, upPos.y - ey) < TINT_MATCH) {
-          if (upEl.carriesFluid) return upEl.carriesFluid;
+          if (upEl.carriesFluid) return { pipeType: upEl.carriesFluid };
           // Stop at fluid-transforming elements — traversing through a water heater
           // from its hot output to its cold input would produce the wrong colour.
           if (FLUID_BOUNDARY_SYMBOLS.has(upEl.symbolId)) return null;
@@ -77,7 +84,7 @@ function traceFluidFromPos(
       const atEnd   = Math.hypot(pipe.endX   - x, pipe.endY   - y) < TINT_MATCH;
       if (!atStart && !atEnd) continue;
 
-      if (pipe.pipeType === 'cold' || pipe.pipeType === 'hot') return pipe.pipeType;
+      if (pipe.pipeType === 'cold' || pipe.pipeType === 'hot') return { pipeType: pipe.pipeType, customColor: pipe.customColor };
 
       // Generic pipe — step to the other end and continue BFS from there
       const otherX = atEnd ? pipe.startX : pipe.endX;
@@ -91,17 +98,17 @@ function traceFluidFromPos(
   return null;
 }
 
-/** Returns the fluid type (cold/hot) for a tee/elbow via BFS traversal from each port
- *  (upstream first), falling back to a stored carriesFluid override only when the BFS
- *  finds nothing reachable (e.g. a template placed before it's wired into the rest of
+/** Returns the fluid tint (type + optional custom color) for a tee/elbow via BFS traversal
+ *  from each port (upstream first), falling back to a stored carriesFluid override only when
+ *  the BFS finds nothing reachable (e.g. a template placed before it's wired into the rest of
  *  the drawing) — a successful live trace always wins, so this never masks a real change. */
 export function getElbowTeeTint(
   el: CanvasElement,
   elements: CanvasElement[],
   pipes: PipeElementType[],
-): PipeType | null {
+): FluidTint | null {
   const ports = getElementPorts(el);
-  if (ports.length === 0) return el.carriesFluid ?? null;
+  if (ports.length === 0) return el.carriesFluid ? { pipeType: el.carriesFluid } : null;
 
   // Determine which port index is upstream
   let upstreamIdx = 0;
@@ -122,7 +129,7 @@ export function getElbowTeeTint(
     const result = traceFluidFromPos(portPos.x, portPos.y, el.id, elements, pipes);
     if (result) return result;
   }
-  return el.carriesFluid ?? null;
+  return el.carriesFluid ? { pipeType: el.carriesFluid } : null;
 }
 
 interface DragPreview {
@@ -258,13 +265,16 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
           endY={pipe.endY}
           isSelected={selectedId === pipe.id || selectedPipeIdSet.has(pipe.id)}
           isHovered={hoveredId === pipe.id}
+          customColor={pipe.customColor}
           onHoverEnter={() => setHoveredId(pipe.id)}
           onHoverLeave={() => setHoveredId(null)}
         />
       ))}
 
       {/* Normal (non-multi-selected) elements — individually draggable */}
-      {normalElements.map((el) => (
+      {normalElements.map((el) => {
+        const tint = TINT_SYMBOL_IDS.has(el.symbolId) ? getElbowTeeTint(el, elements, pipes) : null;
+        return (
         <React.Fragment key={el.id}>
           <SymbolNode
             id={el.id}
@@ -277,13 +287,15 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
             rotation={el.rotation}
             scaleX={el.scaleX ?? 1}
             isSelected={selectedId === el.id}
-            tintPipeType={TINT_SYMBOL_IDS.has(el.symbolId) ? getElbowTeeTint(el, elements, pipes) : null}
+            tintPipeType={tint?.pipeType ?? null}
+            tintCustomColor={tint?.customColor}
             onHoverEnter={() => setHoveredId(el.id)}
             onHoverLeave={() => setHoveredId(null)}
             onElementClick={onElementClick}
           />
         </React.Fragment>
-      ))}
+        );
+      })}
 
       {/* Multi-select group — all selected elements drag together */}
       {isMultiSelect && groupBBox && (
@@ -328,7 +340,9 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
             );
           })}
           {/* Selected SymbolNodes — non-draggable (the group handles dragging) */}
-          {groupElements.map((el) => (
+          {groupElements.map((el) => {
+            const tint = TINT_SYMBOL_IDS.has(el.symbolId) ? getElbowTeeTint(el, elements, pipes) : null;
+            return (
             <React.Fragment key={el.id}>
               <SymbolNode
                 id={el.id}
@@ -342,13 +356,15 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
                 scaleX={el.scaleX ?? 1}
                 isSelected={false}
                 draggable={false}
-                tintPipeType={TINT_SYMBOL_IDS.has(el.symbolId) ? getElbowTeeTint(el, elements, pipes) : null}
+                tintPipeType={tint?.pipeType ?? null}
+                tintCustomColor={tint?.customColor}
                 onHoverEnter={undefined}
                 onHoverLeave={undefined}
                 onElementClick={onElementClick}
               />
             </React.Fragment>
-          ))}
+            );
+          })}
           {/* Selected annotations — non-draggable (the group handles dragging) */}
           {selectedAnnotations.map((ann) => (
             <AnnotationNode key={ann.id} ann={ann} isSelected draggable={false} selectDisabled onDblClick={onAnnotationDblClick} />

@@ -18,10 +18,13 @@ const PIPE_COLORS: Record<PipeType, PipeColors> = {
 export const PIPE_ARROW_POINTER_LENGTH = 2;
 export const PIPE_ARROW_POINTER_WIDTH = 2;
 
-/** Pipe stroke color/width for a given type + selection state — single source of truth for both the Konva canvas and the PDF exporter. */
-export function getPipeDrawStyle(pipeType: PipeType, isSelected: boolean): { color: string; strokeWidth: number } {
+/** Pipe stroke color/width for a given type + selection state — single source of truth for both the Konva canvas and the PDF exporter.
+ *  `customColor`, when set, always wins over the type default — even while selected. Selection is then communicated by
+ *  strokeWidth alone (matches Word: your chosen color persists regardless of cursor/selection state). */
+export function getPipeDrawStyle(pipeType: PipeType, isSelected: boolean, customColor?: string): { color: string; strokeWidth: number } {
   const { normal, selected } = PIPE_COLORS[pipeType ?? 'generic'];
-  return { color: isSelected ? selected : normal, strokeWidth: isSelected ? 1 : 0.5 };
+  const color = customColor ?? (isSelected ? selected : normal);
+  return { color, strokeWidth: isSelected ? 1 : 0.5 };
 }
 
 interface PipeElementProps {
@@ -33,6 +36,7 @@ interface PipeElementProps {
   endY: number;
   isSelected: boolean;
   isHovered?: boolean;
+  customColor?: string;
   onHoverEnter?: () => void;
   onHoverLeave?: () => void;
 }
@@ -46,13 +50,15 @@ export function PipeElement({
   endY,
   isSelected,
   isHovered = false,
+  customColor,
   onHoverEnter,
   onHoverLeave,
 }: PipeElementProps) {
   const setSelected = useCanvasStore((s) => s.setSelected);
   const updatePipeEndpoints = useCanvasStore((s) => s.updatePipeEndpoints);
 
-  const { color, strokeWidth } = getPipeDrawStyle(pipeType, isSelected);
+  const { color, strokeWidth } = getPipeDrawStyle(pipeType, isSelected, customColor);
+  const dash: [number, number] | undefined = pipeType === 'hot' ? [4, 2] : undefined;
 
   // Skip zero-length pipes
   const dx = endX - startX;
@@ -128,6 +134,7 @@ export function PipeElement({
         fill={color}
         stroke={color}
         strokeWidth={strokeWidth}
+        dash={dash}
         lineCap="round"
         onClick={(e) => { if (e.evt.button === 0) setSelected(id); }}
         onTap={() => setSelected(id)}

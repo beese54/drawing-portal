@@ -87,7 +87,7 @@ function applyDcvAssemblies(
     if (targetPipeId) {
       const orig = pipes.find((p) => p.id === targetPipeId);
       if (orig) {
-        const pipeA: PipeElement = { id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY };
+        const pipeA: PipeElement = { id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY, customColor: orig.customColor };
         pipes = [...pipes.filter((p) => p.id !== targetPipeId), pipeA];
       }
     }
@@ -122,6 +122,8 @@ interface CanvasStore {
   updateElementPosition: (id: string, x: number, y: number) => void;
   moveElement: (id: string, newX: number, newY: number) => void;
   moveMultiple: (elementIds: string[], dx: number, dy: number, pipeIds?: string[], annotationIds?: string[]) => void;
+  /** Sets (or, with `null`, resets to "Automatic") the color override for every pipe id given. */
+  setPipesCustomColor: (pipeIds: string[], customColor: string | null) => void;
   updateElementRotation: (id: string, rotation: number) => void;
   updateElementScaleX: (id: string, scaleX: number) => void;
   updateFittingType: (id: string, fittingType: string) => void;
@@ -285,6 +287,18 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
       });
     },
 
+    setPipesCustomColor: (pipeIds, customColor) => {
+      pushHistory();
+      set((state) => {
+        const idSet = new Set(pipeIds);
+        return {
+          pipes: state.pipes.map((p) =>
+            idSet.has(p.id) ? { ...p, customColor: customColor === null ? undefined : customColor } : p
+          ),
+        };
+      });
+    },
+
     updateElementRotation: (id, rotation) => {
       pushHistory();
       set((state) => {
@@ -351,6 +365,7 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
           id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY,
           startElementId: orig.startElementId, startPortIndex: orig.startPortIndex,
           endElementId: element.id, endPortIndex: portIndex,
+          customColor: orig.customColor,
         };
         const newPipes = terminatePipe
           ? [...state.pipes.filter((p) => p.id !== pipeId), pipeA]
@@ -358,6 +373,7 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
               id: crypto.randomUUID(), pipeType: orig.pipeType, startX: snapX, startY: snapY, endX: orig.endX, endY: orig.endY,
               startElementId: element.id, startPortIndex: portIndex,
               endElementId: orig.endElementId, endPortIndex: orig.endPortIndex,
+              customColor: orig.customColor,
             } as PipeElement];
         return { elements: [...state.elements, element], pipes: newPipes };
       });
@@ -378,6 +394,7 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
           id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: inletPos.x, endY: inletPos.y,
           startElementId: orig.startElementId, startPortIndex: orig.startPortIndex,
           endElementId: element.id, endPortIndex: inletPortIndex,
+          customColor: orig.customColor,
         });
         const pipeBdx = orig.endX - outletPos.x;
         const pipeBdy = orig.endY - outletPos.y;
@@ -387,6 +404,7 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
           id: crypto.randomUUID(), pipeType: orig.pipeType, startX: outletPos.x, startY: outletPos.y, endX: orig.endX, endY: orig.endY,
           startElementId: element.id, startPortIndex: outletPortIndex,
           endElementId: orig.endElementId, endPortIndex: orig.endPortIndex,
+          customColor: orig.customColor,
         });
         return { elements: [...state.elements, element], pipes: newPipes };
       });

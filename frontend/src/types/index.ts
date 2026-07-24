@@ -503,6 +503,9 @@ export interface PipeElement {
   startPortIndex?: number;
   endElementId?: string;
   endPortIndex?: number;
+  /** User-set color override (#rrggbb), replacing the pipeType default wherever
+   *  this pipe is drawn (canvas, PDF export, elbow/tee tint). Undefined = "Automatic". */
+  customColor?: string;
 }
 
 export interface SymbolMeta {
@@ -671,6 +674,8 @@ export interface ExportedPipe {
   flow_to_port_index: number | null;
   length_px: number;
   rotation_deg: number;
+  /** User-set color override (#rrggbb), or absent if using the pipe_type default ("Automatic"). */
+  custom_color?: string;
 }
 
 /**

@@ -408,6 +408,7 @@ export function buildMetadata(
       flow_to_port_index,
       length_px:    Math.round(len * 100) / 100,
       rotation_deg: Math.round(angleDeg(p.startX, p.startY, p.endX, p.endY) * 100) / 100,
+      ...(p.customColor !== undefined ? { custom_color: p.customColor } : {}),
     };
   });
 

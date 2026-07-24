@@ -125,12 +125,23 @@ interface SymbolNodeProps {
   isSelected: boolean;
   draggable?: boolean;
   tintPipeType?: PipeType | null;
+  /** Overrides TINT_RGB[tintPipeType] when set — lets a recolored pipe's customColor
+   *  carry into an adjoining elbow/tee's tint instead of always showing the type default. */
+  tintCustomColor?: string;
   onHoverEnter?: () => void;
   onHoverLeave?: () => void;
   onElementClick?: (id: string, symbolId: string) => void;
 }
 
-export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYMBOL_PX, height = SCHEMATIC_SYMBOL_PX, rotation, scaleX = 1, isSelected: _isSelected, draggable = true, tintPipeType, onHoverEnter, onHoverLeave, onElementClick }: SymbolNodeProps) {
+/** Parses a `#rrggbb` hex color into an [r,g,b] triple, or null if malformed. */
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYMBOL_PX, height = SCHEMATIC_SYMBOL_PX, rotation, scaleX = 1, isSelected: _isSelected, draggable = true, tintPipeType, tintCustomColor, onHoverEnter, onHoverLeave, onElementClick }: SymbolNodeProps) {
   const [image] = useImage(imageUrl, 'anonymous');
   const nodeRef = useRef<Konva.Image>(null);
 
@@ -140,7 +151,7 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
   const tintedImage = useMemo<HTMLCanvasElement | HTMLImageElement | undefined>(() => {
     if (!image) return undefined;
     if (!tintPipeType) return image;
-    const rgb = TINT_RGB[tintPipeType];
+    const rgb = (tintCustomColor && hexToRgb(tintCustomColor)) || TINT_RGB[tintPipeType];
     const tw = Math.max(256, Math.round(width * 12));
     const th = Math.max(256, Math.round(height * 12));
     const offscreen = document.createElement('canvas');
@@ -161,7 +172,7 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
     } catch {
       return image;
     }
-  }, [image, tintPipeType, width, height]);
+  }, [image, tintPipeType, tintCustomColor, width, height]);
 
   const moveElement = useCanvasStore((s) => s.moveElement);
   const updateCarriesFluid = useCanvasStore((s) => s.updateCarriesFluid);

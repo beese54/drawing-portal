@@ -58,6 +58,7 @@ function parseSchematic(data: DrawingMetadata): { elements: CanvasElement[]; pip
     startY: p.start.canvas_y,
     endX: p.end.canvas_x,
     endY: p.end.canvas_y,
+    ...(p.custom_color !== undefined && { customColor: p.custom_color }),
   }));
 
   const annotations: AnnotationElement[] = (data.annotations ?? []).map((ann) => ({

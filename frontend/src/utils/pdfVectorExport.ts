@@ -448,14 +448,17 @@ function drawPipes(pdf: jsPDF, pipes: PipeElementType[]): void {
     const dy = pipe.endY - pipe.startY;
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue; // matches PipeElement.tsx zero-length skip
 
-    const { color, strokeWidth } = getPipeDrawStyle(pipe.pipeType, false);
+    const { color, strokeWidth } = getPipeDrawStyle(pipe.pipeType, false, pipe.customColor);
     const sx = mm(pipe.startX), sy = mm(pipe.startY), ex = mm(pipe.endX), ey = mm(pipe.endY);
 
     pdf.setDrawColor(color);
     pdf.setFillColor(color);
     pdf.setLineWidth(mm(strokeWidth));
     pdf.setLineCap('round');
+    const dashed = pipe.pipeType === 'hot';
+    if (dashed) pdf.setLineDashPattern([mm(4), mm(2)], 0);
     pdf.line(sx, sy, ex, ey);
+    if (dashed) pdf.setLineDashPattern([], 0); // reset before the next pipe/shape, mirrors drawGrid's grid-line dash reset above
 
     drawArrowhead(pdf, sx, sy, ex, ey, mm(PIPE_ARROW_POINTER_LENGTH), mm(PIPE_ARROW_POINTER_WIDTH));
   }
@@ -476,7 +479,7 @@ async function drawSymbols(
     const svgEl = template.cloneNode(true) as SVGElement;
     if (TINT_SYMBOL_IDS.has(el.symbolId)) {
       const tint = getElbowTeeTint(el, elements, pipes);
-      if (tint) recolorSvgStroke(svgEl, getPipeDrawStyle(tint, false).color);
+      if (tint) recolorSvgStroke(svgEl, getPipeDrawStyle(tint.pipeType, false, tint.customColor).color);
     }
 
     const mirror = (el.scaleX ?? 1) === -1 && shouldMirrorSymbolImage(el.symbolId);
