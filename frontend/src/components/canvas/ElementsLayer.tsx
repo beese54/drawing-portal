@@ -12,6 +12,7 @@ import { buildElementAdjacency, isElementProtected } from '../../utils/backflowP
 import { getSymbolSizePx, isBackflowRiskElement, getBackflowRule, FIXTURE_MWELS_CATEGORY, NON_MWELS_FITTING_TYPE_IDS } from '../../types';
 import type { CanvasElement, PipeElement as PipeElementType, PipeType } from '../../types';
 import { computePortConnectionStatus } from '../../utils/portConnectionStatus';
+import { computePipeJumps } from '../../utils/pipeJumps';
 import { useUiStore } from '../../store/uiStore';
 
 // Symbols that should be tinted to match their upstream pipe colour
@@ -202,6 +203,7 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
 
   const elemById = useMemo(() => new Map(elements.map((el) => [el.id, el])), [elements]);
   const elementAdj = useMemo(() => buildElementAdjacency(elements, pipes), [elements, pipes]);
+  const pipeJumps = useMemo(() => computePipeJumps(pipes), [pipes]);
 
   const totalSelected = selectedIds.length + selectedPipeIds.length + selectedAnnotationIds.length;
   const isMultiSelect = totalSelected > 1;
@@ -266,6 +268,7 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
           isSelected={selectedId === pipe.id || selectedPipeIdSet.has(pipe.id)}
           isHovered={hoveredId === pipe.id}
           customColor={pipe.customColor}
+          jumps={pipeJumps.get(pipe.id)}
           onHoverEnter={() => setHoveredId(pipe.id)}
           onHoverLeave={() => setHoveredId(null)}
         />

@@ -2,6 +2,7 @@ import { Arrow, Circle } from 'react-konva';
 import Konva from 'konva';
 import { useCanvasStore } from '../../store/canvasStore';
 import { PipeType } from '../../types';
+import { buildJumpPath, PipeJump, PIPE_JUMP_RADIUS_PX } from '../../utils/pipeJumps';
 
 interface PipeColors {
   normal: string;
@@ -37,6 +38,7 @@ interface PipeElementProps {
   isSelected: boolean;
   isHovered?: boolean;
   customColor?: string;
+  jumps?: PipeJump[];
   onHoverEnter?: () => void;
   onHoverLeave?: () => void;
 }
@@ -51,6 +53,7 @@ export function PipeElement({
   isSelected,
   isHovered = false,
   customColor,
+  jumps,
   onHoverEnter,
   onHoverLeave,
 }: PipeElementProps) {
@@ -59,6 +62,8 @@ export function PipeElement({
 
   const { color, strokeWidth } = getPipeDrawStyle(pipeType, isSelected, customColor);
   const dash: [number, number] | undefined = pipeType === 'hot' ? [4, 2] : undefined;
+  const jumpPath = buildJumpPath(startX, startY, endX, endY, jumps ?? [], PIPE_JUMP_RADIUS_PX);
+  const points = jumpPath.flatMap((p) => [p.x, p.y]);
 
   // Skip zero-length pipes
   const dx = endX - startX;
@@ -128,7 +133,7 @@ export function PipeElement({
         </>
       )}
       <Arrow
-        points={[startX, startY, endX, endY]}
+        points={points}
         pointerLength={PIPE_ARROW_POINTER_LENGTH}
         pointerWidth={PIPE_ARROW_POINTER_WIDTH}
         fill={color}
@@ -136,6 +141,7 @@ export function PipeElement({
         strokeWidth={strokeWidth}
         dash={dash}
         lineCap="round"
+        lineJoin="round"
         onClick={(e) => { if (e.evt.button === 0) setSelected(id); }}
         onTap={() => setSelected(id)}
         onMouseEnter={handleBodyMouseEnter}

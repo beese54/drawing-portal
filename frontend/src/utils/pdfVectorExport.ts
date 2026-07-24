@@ -8,6 +8,7 @@ import { getGridMrlValues, mrlToPixel } from './mrlMapping';
 import { getPipeDrawStyle, PIPE_ARROW_POINTER_LENGTH, PIPE_ARROW_POINTER_WIDTH } from '../components/canvas/PipeElement';
 import { shouldMirrorSymbolImage } from '../components/canvas/SymbolNode';
 import { getElbowTeeTint, TINT_SYMBOL_IDS } from '../components/canvas/ElementsLayer';
+import { computePipeJumps, buildJumpPath, PIPE_JUMP_RADIUS_PX } from './pipeJumps';
 import { symbolsApi } from '../api/client';
 import {
   computeTitleBlockLayout, BORDER, LBL_CLR, VAL_CLR, LBL_SZ, VAL_SZ, PAD,
@@ -442,7 +443,23 @@ function drawArrowhead(pdf: jsPDF, sx: number, sy: number, ex: number, ey: numbe
   pdf.triangle(ex, ey, baseX + perpX, baseY + perpY, baseX - perpX, baseY - perpY, 'F');
 }
 
+/** Draws a (possibly multi-vertex, e.g. jump-arc-bulging) pipe body as ONE continuous
+ *  stroked path via jsPDF's .lines() — critical for a dashed pipe: repeated .line() calls
+ *  would each start a fresh path, restarting the dash phase at 0 on every short
+ *  arc-approximation segment and producing visibly broken dashing through a bulge. .lines()
+ *  does a single moveTo + a run of relative lineTo legs + one stroke at the end (verified
+ *  against node_modules/jspdf/dist/jspdf.node.js), so the dash pattern flows continuously. */
+function drawPipeBody(pdf: jsPDF, path: { x: number; y: number }[]): void {
+  const [p0, ...rest] = path;
+  const deltas = rest.map((p, i) => {
+    const prev = i === 0 ? p0 : rest[i - 1];
+    return [mm(p.x) - mm(prev.x), mm(p.y) - mm(prev.y)];
+  });
+  pdf.lines(deltas, mm(p0.x), mm(p0.y), [1, 1], 'S');
+}
+
 function drawPipes(pdf: jsPDF, pipes: PipeElementType[]): void {
+  const pipeJumps = computePipeJumps(pipes); // one-shot per export, not memoized like the canvas side
   for (const pipe of pipes) {
     const dx = pipe.endX - pipe.startX;
     const dy = pipe.endY - pipe.startY;
@@ -450,16 +467,21 @@ function drawPipes(pdf: jsPDF, pipes: PipeElementType[]): void {
 
     const { color, strokeWidth } = getPipeDrawStyle(pipe.pipeType, false, pipe.customColor);
     const sx = mm(pipe.startX), sy = mm(pipe.startY), ex = mm(pipe.endX), ey = mm(pipe.endY);
+    const path = buildJumpPath(pipe.startX, pipe.startY, pipe.endX, pipe.endY, pipeJumps.get(pipe.id) ?? [], PIPE_JUMP_RADIUS_PX);
 
     pdf.setDrawColor(color);
     pdf.setFillColor(color);
     pdf.setLineWidth(mm(strokeWidth));
     pdf.setLineCap('round');
+    pdf.setLineJoin('round');
     const dashed = pipe.pipeType === 'hot';
     if (dashed) pdf.setLineDashPattern([mm(4), mm(2)], 0);
-    pdf.line(sx, sy, ex, ey);
+    drawPipeBody(pdf, path);
     if (dashed) pdf.setLineDashPattern([], 0); // reset before the next pipe/shape, mirrors drawGrid's grid-line dash reset above
 
+    // Arrowhead uses the pipe's true endpoints, not the last path vertex — buildJumpPath
+    // always returns to the exact original line before the real end, so this angle is
+    // already correct even when the pipe has jumps.
     drawArrowhead(pdf, sx, sy, ex, ey, mm(PIPE_ARROW_POINTER_LENGTH), mm(PIPE_ARROW_POINTER_WIDTH));
   }
 }
