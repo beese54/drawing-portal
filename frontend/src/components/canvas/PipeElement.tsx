@@ -19,6 +19,12 @@ const PIPE_COLORS: Record<PipeType, PipeColors> = {
 export const PIPE_ARROW_POINTER_LENGTH = 2;
 export const PIPE_ARROW_POINTER_WIDTH = 2;
 
+/** [onLength, offLength] dash pattern for hot pipes — shared with the PDF exporter (there,
+ *  each value is converted via mm()) so the two can't silently drift apart the way this
+ *  codebase's duplicated constants have before (see e.g. NEVER_MIRROR_IMAGE_SYMBOL_IDS'
+ *  history in types/index.ts). */
+export const PIPE_HOT_DASH: [number, number] = [4, 2];
+
 /** Pipe stroke color/width for a given type + selection state — single source of truth for both the Konva canvas and the PDF exporter.
  *  `customColor`, when set, always wins over the type default — even while selected. Selection is then communicated by
  *  strokeWidth alone (matches Word: your chosen color persists regardless of cursor/selection state). */
@@ -61,7 +67,7 @@ export function PipeElement({
   const updatePipeEndpoints = useCanvasStore((s) => s.updatePipeEndpoints);
 
   const { color, strokeWidth } = getPipeDrawStyle(pipeType, isSelected, customColor);
-  const dash: [number, number] | undefined = pipeType === 'hot' ? [4, 2] : undefined;
+  const dash: [number, number] | undefined = pipeType === 'hot' ? PIPE_HOT_DASH : undefined;
   const segments = buildJumpSegments(startX, startY, endX, endY, jumps ?? [], PIPE_JUMP_RADIUS_PX);
 
   // Skip zero-length pipes
@@ -149,7 +155,7 @@ export function PipeElement({
           dash: segDash,
           lineCap: 'round' as const,
           lineJoin: 'round' as const,
-          hitStrokeWidth: 4,
+          hitStrokeWidth: 8,
           onClick: handleBodyClick,
           onTap: handleBodyTap,
           onMouseEnter: handleBodyMouseEnter,

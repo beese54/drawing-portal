@@ -26,10 +26,17 @@ export function PipeColorPanel({ pipeIds }: PipeColorPanelProps) {
   const selected = pipes.filter((p) => pipeIds.includes(p.id));
   if (selected.length === 0) return null;
 
-  const colorSet = new Set(selected.map((p) => p.customColor ?? '__auto__'));
+  // Bucket by pipeType too, not just customColor: two un-recolored pipes of different
+  // types (e.g. one cold, one hot) render in visibly different colors on canvas even
+  // though both have customColor === undefined — they must count as "mixed", not collapse
+  // into the same '__auto__' bucket.
+  const colorSet = new Set(selected.map((p) => p.customColor ?? `__auto_${p.pipeType}__`));
   const mixed = colorSet.size > 1;
   const current = !mixed ? selected[0].customColor : undefined;
-  const swatchValue = mixed ? MIXED_SWATCH_COLOR : (current ?? getPipeDrawStyle(selected[0].pipeType, false).color);
+  // isSelected: true — this panel only ever renders while its pipe(s) are selected (see
+  // ControlPane.tsx), so the fallback must match the "selected" shade actually drawn on
+  // canvas, not the unselected default.
+  const swatchValue = mixed ? MIXED_SWATCH_COLOR : (current ?? getPipeDrawStyle(selected[0].pipeType, true).color);
   const canReset = selected.some((p) => p.customColor !== undefined);
 
   // Picking a color both recolors the current selection AND becomes the new

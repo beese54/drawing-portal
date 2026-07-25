@@ -31,7 +31,7 @@ function isInterior(t: number, segLength: number): boolean {
 }
 
 /** True if pipe `a` stays straight (wins) over pipe `b` at a crossing between them. */
-function winsOver(a: PipeElement, b: PipeElement, aIndex: number, bIndex: number): boolean {
+function winsOver(a: PipeElement, b: PipeElement): boolean {
   const aSolid = a.pipeType !== 'hot';
   const bSolid = b.pipeType !== 'hot';
   if (aSolid !== bSolid) return aSolid;
@@ -42,7 +42,19 @@ function winsOver(a: PipeElement, b: PipeElement, aIndex: number, bIndex: number
   const bVertical = Math.abs(b.endY - b.startY) / bLen;
   if (Math.abs(aVertical - bVertical) > 1e-9) return aVertical > bVertical;
 
-  return aIndex < bIndex;
+  // Final tiebreak: stable geometry, not array position. A pipe's index in the store's
+  // pipes array is NOT stable across edits — canvasStore.ts's insertElementOnPipe,
+  // insertElementOnPipeInline, and applyDcvAssemblies all replace a split pipe with new
+  // fragments appended at the array's END, so splitting pipe A elsewhere in the drawing
+  // could silently move it past pipe B in array order and flip an existing A-vs-B tie
+  // that neither pipe was actually involved in editing. Comparing coordinates (falling
+  // back to id only in the near-impossible case of two pipes sharing all 4 coordinates)
+  // is fully independent of array/creation order.
+  if (a.startX !== b.startX) return a.startX < b.startX;
+  if (a.startY !== b.startY) return a.startY < b.startY;
+  if (a.endX !== b.endX) return a.endX < b.endX;
+  if (a.endY !== b.endY) return a.endY < b.endY;
+  return a.id < b.id;
 }
 
 /**
@@ -55,8 +67,9 @@ function winsOver(a: PipeElement, b: PipeElement, aIndex: number, bIndex: number
  * (generalizes the "verticals stay straight, runs duck under" convention to
  * diagonal generic pipes — see useCanvasInteraction.ts's applyConstraint, which
  * only axis-locks cold/hot pipes and Shift-held generic pipes, not plain
- * freehand generic ones); any remaining tie goes to the earlier-drawn pipe
- * (lower index — addPipe/updatePipeEndpoints never reorder the array).
+ * freehand generic ones); any remaining tie goes to whichever pipe's coordinates
+ * sort first (see winsOver's tiebreak comment for why this must be geometry-based,
+ * not array position).
  */
 export function computePipeJumps(pipes: PipeElement[]): Map<string, PipeJump[]> {
   const raw = new Map<string, { t: number; x: number; y: number }[]>();
@@ -71,7 +84,7 @@ export function computePipeJumps(pipes: PipeElement[]): Map<string, PipeJump[]> 
       const bLen = Math.hypot(b.endX - b.startX, b.endY - b.startY);
       if (!isInterior(hit.t, aLen) || !isInterior(hit.u, bLen)) continue;
 
-      const loser = winsOver(a, b, i, j) ? b : a;
+      const loser = winsOver(a, b) ? b : a;
       const loserT = loser === a ? hit.t : hit.u;
       const loserLen = loser === a ? aLen : bLen;
 

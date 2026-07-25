@@ -4,6 +4,15 @@ import { useUiStore } from '../store/uiStore';
 import { DEFAULT_SHEET_CONFIG } from '../types';
 import type { CanvasElement, PipeElement, AnnotationElement, TankProperties, DrawingMetadata, ExportedTankProperties } from '../types';
 
+// Matches SymbolNode.tsx's hexToRgb validation. Guarding this at the import boundary
+// matters more than it looks: jsPDF's setDrawColor/encodeColorString THROWS on a color
+// string that isn't #rrggbb, a recognized CSS name, or numeric — an unvalidated
+// custom_color from a hand-edited or corrupted schematic JSON wouldn't just render wrong
+// on canvas (browsers silently ignore bad CSS colors), it would crash the entire PDF
+// export the moment drawPipes() reaches that pipe, for a reason with no obvious link back
+// to "the import." Malformed values are dropped here instead (falls back to "Automatic").
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
 function importTankProperties(tp: ExportedTankProperties): TankProperties {
   const num = (v: number | null): number | undefined => (v !== null ? v : undefined);
   return {
@@ -58,7 +67,7 @@ function parseSchematic(data: DrawingMetadata): { elements: CanvasElement[]; pip
     startY: p.start.canvas_y,
     endX: p.end.canvas_x,
     endY: p.end.canvas_y,
-    ...(p.custom_color !== undefined && { customColor: p.custom_color }),
+    ...(p.custom_color !== undefined && HEX_COLOR_RE.test(p.custom_color) && { customColor: p.custom_color }),
   }));
 
   const annotations: AnnotationElement[] = (data.annotations ?? []).map((ann) => ({

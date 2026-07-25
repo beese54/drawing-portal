@@ -104,12 +104,138 @@ function buildTeeJunctionHitPath(ctx: Konva.Context, width: number, height: numb
   addHitCapsule(ctx, center.x, center.y, bottom.x, bottom.y, hw);
 }
 
+/** Maps SVG content-space coordinates to local hit-path coordinates, replicating the
+ *  browser's default SVG viewBox scaling (preserveAspectRatio="xMidYMid meet": uniform
+ *  scale-to-fit + centering) — needed for symbols whose viewBox aspect ratio doesn't
+ *  match their square declared width/height (elbow_bend/tee_junction get away with a
+ *  naive linear map because their viewBoxes happen to already be square; the symbols
+ *  below are wider than tall, so without this their ink would land in the wrong place). */
+function svgViewBoxMapper(
+  vbMinX: number, vbMinY: number, vbW: number, vbH: number,
+  declaredSize: number, width: number, height: number,
+) {
+  const scale = Math.min(declaredSize / vbW, declaredSize / vbH);
+  const translateX = (declaredSize - vbW * scale) / 2 - vbMinX * scale;
+  const translateY = (declaredSize - vbH * scale) / 2 - vbMinY * scale;
+  const finalScale = width / declaredSize; // == height / declaredSize — these symbols always render square
+  return (sx: number, sy: number) => ({
+    x: (sx * scale + translateX) * finalScale,
+    y: (sy * scale + translateY) * finalScale,
+  });
+}
+
+/** Rotates (x,y) by `deg` degrees around (cx,cy) — SVG's rotate() is clockwise for
+ *  positive angles in its y-down coordinate system, matching the standard rotation
+ *  matrix applied directly (no sign flip needed). Only y_type_strainer's basket-line
+ *  needs this (its one segment has an explicit SVG `transform="rotate(...)"`). */
+function rotatePoint(x: number, y: number, cx: number, cy: number, deg: number): { x: number; y: number } {
+  const rad = (deg * Math.PI) / 180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  const dx = x - cx, dy = y - cy;
+  return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
+}
+
+/** Flexible connection's actual ink (backend/symbols/default/flexible_connection.svg):
+ *  a zigzag of 8 straight segments inside a 64x17.4 viewBox. */
+function buildFlexibleConnectionHitPath(ctx: Konva.Context, width: number, height: number) {
+  const map = svgViewBoxMapper(0, 23.7, 64, 17.4, 64, width, height);
+  const hw = THIN_GLYPH_HIT_HALF_WIDTH;
+  const segs: [number, number, number, number][] = [
+    [0, 32, 20, 32],
+    [20.30357, 25.69643, 20.21429, 39.08929],
+    [20.21429, 39, 25.92857, 26.14286],
+    [25.75, 26.05357, 31.01786, 39],
+    [31.01786, 38.73214, 36.73214, 25.875],
+    [36.55357, 25.69643, 41.82143, 38.64286],
+    [42, 26, 41.91071, 38.64286],
+    [42, 32, 64, 32],
+  ];
+  for (const [x1, y1, x2, y2] of segs) {
+    const p1 = map(x1, y1), p2 = map(x2, y2);
+    addHitCapsule(ctx, p1.x, p1.y, p2.x, p2.y, hw);
+  }
+}
+
+/** Y-type strainer's actual ink (backend/symbols/default/y_type_strainer.svg):
+ *  inlet/outlet stubs, a basket outline, and one rotated diagonal line — inside a
+ *  64x38 viewBox. */
+function buildYTypeStrainerHitPath(ctx: Konva.Context, width: number, height: number) {
+  const map = svgViewBoxMapper(0, 13, 64, 38, 64, width, height);
+  const hw = THIN_GLYPH_HIT_HALF_WIDTH;
+  const segs: [number, number, number, number][] = [
+    [16.27901, 24.13016, 16.37203, 39.47898],
+    [16.27901, 31.94411, 46.7906, 31.85108],
+    [47.06967, 24.31621, 47.16269, 39.66503],
+    [23.0697, 44.13014, 26.04644, 48.68827],
+    [0, 32, 16, 32],   // inlet stub
+    [47, 32, 64, 32],  // outlet stub
+  ];
+  for (const [x1, y1, x2, y2] of segs) {
+    const p1 = map(x1, y1), p2 = map(x2, y2);
+    addHitCapsule(ctx, p1.x, p1.y, p2.x, p2.y, hw);
+  }
+  // The rotated basket-diagonal line: apply the SVG's own transform="rotate(-32.8191
+  // 35.4883 39.2464)" in content space before mapping to local coords.
+  const r1 = rotatePoint(21.95342, 39.29293, 35.4883, 39.2464, -32.8191);
+  const r2 = rotatePoint(49.02315, 39.19991, 35.4883, 39.2464, -32.8191);
+  const p1 = map(r1.x, r1.y), p2 = map(r2.x, r2.y);
+  addHitCapsule(ctx, p1.x, p1.y, p2.x, p2.y, hw);
+}
+
+/** Puddle flange's actual ink (backend/symbols/default/puddle_flange.svg): pipe stubs,
+ *  an OUTLINED flange-body rect (fill="none" in the SVG — its 4 edges, not a filled
+ *  area), side walls, and two wing lines — inside a 64x28.6 viewBox. */
+function buildPuddleFlangeHitPath(ctx: Konva.Context, width: number, height: number) {
+  const map = svgViewBoxMapper(0, 18.3, 64, 28.6, 64, width, height);
+  const hw = THIN_GLYPH_HIT_HALF_WIDTH;
+  const segs: [number, number, number, number][] = [
+    [0, 32, 15.8, 32],           // left stub
+    [15.8, 20.54, 15.8, 44.94],  // left side wall
+    [49.5, 20.44, 49.5, 44.84],  // right side wall
+    [33.1, 20.34, 33.1, 28.14],  // upper wing
+    [33.2, 36.54, 33.2, 44.14],  // lower wing
+    [49.5, 32, 64, 32],          // right stub
+    // Flange body's 4 outline edges (fill="none" in the SVG, so it's a stroked
+    // rectangle, not a filled area).
+    [15.8, 28.14, 49.5, 28.14],
+    [49.5, 28.14, 49.5, 36.54],
+    [49.5, 36.54, 15.8, 36.54],
+    [15.8, 36.54, 15.8, 28.14],
+  ];
+  for (const [x1, y1, x2, y2] of segs) {
+    const p1 = map(x1, y1), p2 = map(x2, y2);
+    addHitCapsule(ctx, p1.x, p1.y, p2.x, p2.y, hw);
+  }
+}
+
+/** Pipe blank-off's actual ink (backend/symbols/default/pipe_blank_off.svg): an inlet
+ *  stub plus a double-line blank plate — inside a 50.6x26.0 viewBox (the one builder here
+ *  where the viewBox isn't already the same aspect as the declared 64x64 box, so the
+ *  general mapper's non-1 scale/translate actually matters, not just its translate). */
+function buildPipeBlankOffHitPath(ctx: Konva.Context, width: number, height: number) {
+  const map = svgViewBoxMapper(0, 18, 50.6, 26, 64, width, height);
+  const hw = THIN_GLYPH_HIT_HALF_WIDTH;
+  const segs: [number, number, number, number][] = [
+    [0, 31, 43, 31],
+    [43, 20, 43.9, 42],
+    [48, 20, 48.65, 42],
+  ];
+  for (const [x1, y1, x2, y2] of segs) {
+    const p1 = map(x1, y1), p2 = map(x2, y2);
+    addHitCapsule(ctx, p1.x, p1.y, p2.x, p2.y, hw);
+  }
+}
+
 /** Symbols whose visible ink occupies only a thin sliver of their bounding
  *  box — these get a hand-authored hit path tracing the actual glyph instead
  *  of the generic full-box rect (see HIT_PADDING_PX/hitFunc in SymbolNode). */
 const THIN_GLYPH_HIT_BUILDERS: Record<string, (ctx: Konva.Context, width: number, height: number) => void> = {
   elbow_bend: buildElbowBendHitPath,
   tee_junction: buildTeeJunctionHitPath,
+  flexible_connection: buildFlexibleConnectionHitPath,
+  y_type_strainer: buildYTypeStrainerHitPath,
+  puddle_flange: buildPuddleFlangeHitPath,
+  pipe_blank_off: buildPipeBlankOffHitPath,
 };
 
 interface SymbolNodeProps {
@@ -187,7 +313,7 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
   // too much padding here silently steals clicks from any pipe running close to
   // the symbol (reported 2026-07-16: a tee junction's hit area was swallowing an
   // adjacent pipe click at typical schematic density). Pipes already have their
-  // own generous hitStrokeWidth (4px, see PipeElement.tsx) to stay clickable
+  // own generous hitStrokeWidth (8px, see PipeElement.tsx) to stay clickable
   // despite their thin visual stroke, so this only needs to close the gap for
   // tiny (6px) symbols, not match a pipe's click width.
   const HIT_PADDING_PX = 2;

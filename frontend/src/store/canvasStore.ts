@@ -9,6 +9,16 @@ import { getElementPorts, getPortPosition, findElementPortIndexAt } from '../uti
 // unrelated pipe endpoint that just happens to be close by.
 const PORT_MATCH = 0.5;
 
+/** Builds a new pipe carrying through `orig`'s "identity" fields (pipeType, customColor)
+ *  with a fresh id — the shared shape for every pipe-splitting operation (inserting a
+ *  fitting or backflow assembly mid-pipe). Centralizing this means a future per-pipe
+ *  field only needs adding here once, instead of by hand at every split call site (the
+ *  exact bug class that already required customColor to be added to 5 separate literals
+ *  when it was introduced). */
+function derivePipe(orig: PipeElement, overrides: Omit<PipeElement, 'id' | 'pipeType' | 'customColor'>): PipeElement {
+  return { id: crypto.randomUUID(), pipeType: orig.pipeType, customColor: orig.customColor, ...overrides };
+}
+
 /**
  * Single sync point for "an element moved/rotated/flipped/resized — bring its
  * connected pipe endpoints along". Any pipe endpoint bound to `newElement`'s id
@@ -87,7 +97,7 @@ function applyDcvAssemblies(
     if (targetPipeId) {
       const orig = pipes.find((p) => p.id === targetPipeId);
       if (orig) {
-        const pipeA: PipeElement = { id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY, customColor: orig.customColor };
+        const pipeA = derivePipe(orig, { startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY });
         pipes = [...pipes.filter((p) => p.id !== targetPipeId), pipeA];
       }
     }
@@ -361,20 +371,18 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         const orig = state.pipes.find((p) => p.id === pipeId);
         if (!orig) return { elements: [...state.elements, element] };
         const portIndex = findElementPortIndexAt(element, snapX, snapY);
-        const pipeA: PipeElement = {
-          id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY,
+        const pipeA = derivePipe(orig, {
+          startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY,
           startElementId: orig.startElementId, startPortIndex: orig.startPortIndex,
           endElementId: element.id, endPortIndex: portIndex,
-          customColor: orig.customColor,
-        };
+        });
         const newPipes = terminatePipe
           ? [...state.pipes.filter((p) => p.id !== pipeId), pipeA]
-          : [...state.pipes.filter((p) => p.id !== pipeId), pipeA, {
-              id: crypto.randomUUID(), pipeType: orig.pipeType, startX: snapX, startY: snapY, endX: orig.endX, endY: orig.endY,
+          : [...state.pipes.filter((p) => p.id !== pipeId), pipeA, derivePipe(orig, {
+              startX: snapX, startY: snapY, endX: orig.endX, endY: orig.endY,
               startElementId: element.id, startPortIndex: portIndex,
               endElementId: orig.endElementId, endPortIndex: orig.endPortIndex,
-              customColor: orig.customColor,
-            } as PipeElement];
+            })];
         return { elements: [...state.elements, element], pipes: newPipes };
       });
     },
@@ -390,22 +398,20 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         const inletPortIndex = findElementPortIndexAt(element, inletPos.x, inletPos.y);
         const outletPortIndex = findElementPortIndexAt(element, outletPos.x, outletPos.y);
         const pipeALen = Math.hypot(inletPos.x - orig.startX, inletPos.y - orig.startY);
-        if (pipeALen > 1) newPipes.push({
-          id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: inletPos.x, endY: inletPos.y,
+        if (pipeALen > 1) newPipes.push(derivePipe(orig, {
+          startX: orig.startX, startY: orig.startY, endX: inletPos.x, endY: inletPos.y,
           startElementId: orig.startElementId, startPortIndex: orig.startPortIndex,
           endElementId: element.id, endPortIndex: inletPortIndex,
-          customColor: orig.customColor,
-        });
+        }));
         const pipeBdx = orig.endX - outletPos.x;
         const pipeBdy = orig.endY - outletPos.y;
         const pipeBLen = Math.hypot(pipeBdx, pipeBdy);
         const sameDir = pipeBdx * origDx + pipeBdy * origDy >= 0;
-        if (pipeBLen > 1 && sameDir) newPipes.push({
-          id: crypto.randomUUID(), pipeType: orig.pipeType, startX: outletPos.x, startY: outletPos.y, endX: orig.endX, endY: orig.endY,
+        if (pipeBLen > 1 && sameDir) newPipes.push(derivePipe(orig, {
+          startX: outletPos.x, startY: outletPos.y, endX: orig.endX, endY: orig.endY,
           startElementId: element.id, startPortIndex: outletPortIndex,
           endElementId: orig.endElementId, endPortIndex: orig.endPortIndex,
-          customColor: orig.customColor,
-        });
+        }));
         return { elements: [...state.elements, element], pipes: newPipes };
       });
     },

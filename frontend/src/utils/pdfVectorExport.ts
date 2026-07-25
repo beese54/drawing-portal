@@ -5,7 +5,7 @@ import { useUiStore } from '../store/uiStore';
 import type { CanvasElement, PipeElement as PipeElementType, PipeType, FloorLevel, AnnotationElement } from '../types';
 import { PAPER_SIZES_MM, SHEET_PX_PER_MM, AXIS_WIDTH } from '../types';
 import { getGridMrlValues, mrlToPixel } from './mrlMapping';
-import { getPipeDrawStyle, PIPE_ARROW_POINTER_LENGTH, PIPE_ARROW_POINTER_WIDTH } from '../components/canvas/PipeElement';
+import { getPipeDrawStyle, PIPE_ARROW_POINTER_LENGTH, PIPE_ARROW_POINTER_WIDTH, PIPE_HOT_DASH } from '../components/canvas/PipeElement';
 import { shouldMirrorSymbolImage } from '../components/canvas/SymbolNode';
 import { getElbowTeeTint, TINT_SYMBOL_IDS } from '../components/canvas/ElementsLayer';
 import { computePipeJumps, buildJumpSegments, PIPE_JUMP_RADIUS_PX } from './pipeJumps';
@@ -450,7 +450,7 @@ function drawArrowhead(pdf: jsPDF, sx: number, sy: number, ex: number, ey: numbe
  *  whole pipe) precisely so an arc bulge's dash state can differ from the straight runs
  *  around it — see buildJumpSegments' isArcBulge doc. */
 function drawPipeBody(pdf: jsPDF, points: { x: number; y: number }[], dashed: boolean): void {
-  if (dashed) pdf.setLineDashPattern([mm(4), mm(2)], 0);
+  if (dashed) pdf.setLineDashPattern([mm(PIPE_HOT_DASH[0]), mm(PIPE_HOT_DASH[1])], 0);
   const [p0, ...rest] = points;
   const deltas = rest.map((p, i) => {
     const prev = i === 0 ? p0 : rest[i - 1];
