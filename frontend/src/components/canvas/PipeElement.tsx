@@ -155,7 +155,7 @@ export function PipeElement({
           dash: segDash,
           lineCap: 'round' as const,
           lineJoin: 'round' as const,
-          hitStrokeWidth: 4,
+          hitStrokeWidth: 3,
           onClick: handleBodyClick,
           onTap: handleBodyTap,
           onMouseEnter: handleBodyMouseEnter,
