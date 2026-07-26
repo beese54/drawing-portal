@@ -313,7 +313,7 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
   // too much padding here silently steals clicks from any pipe running close to
   // the symbol (reported 2026-07-16: a tee junction's hit area was swallowing an
   // adjacent pipe click at typical schematic density). Pipes already have their
-  // own generous hitStrokeWidth (8px, see PipeElement.tsx) to stay clickable
+  // own generous hitStrokeWidth (4px, see PipeElement.tsx) to stay clickable
   // despite their thin visual stroke, so this only needs to close the gap for
   // tiny (6px) symbols, not match a pipe's click width.
   const HIT_PADDING_PX = 2;

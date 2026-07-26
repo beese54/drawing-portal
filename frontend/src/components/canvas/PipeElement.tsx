@@ -155,22 +155,30 @@ export function PipeElement({
           dash: segDash,
           lineCap: 'round' as const,
           lineJoin: 'round' as const,
-          hitStrokeWidth: 8,
+          hitStrokeWidth: 4,
           onClick: handleBodyClick,
           onTap: handleBodyTap,
           onMouseEnter: handleBodyMouseEnter,
           onMouseLeave: handleBodyMouseLeave,
         };
+        // Keyed by the segment's own physical location (not array index) — jump-arc
+        // count/order can shift between renders when an unrelated pipe starts or stops
+        // crossing this one, and an index key would let React silently reuse a Konva
+        // node instance across two segments that just happen to land at the same
+        // position, rather than the same segment. Harmless today since every prop is
+        // recomputed fresh each render, but would misattribute any future per-node
+        // state (e.g. a Tween) to the wrong segment.
+        const segKey = `${seg.isArcBulge ? 'arc' : 'run'}:${seg.points[0].x.toFixed(3)},${seg.points[0].y.toFixed(3)}`;
         return i === segments.length - 1 ? (
           <Arrow
-            key={i}
+            key={segKey}
             {...shared}
             fill={color}
             pointerLength={PIPE_ARROW_POINTER_LENGTH}
             pointerWidth={PIPE_ARROW_POINTER_WIDTH}
           />
         ) : (
-          <Line key={i} {...shared} />
+          <Line key={segKey} {...shared} />
         );
       })}
       {/* Upstream endpoint */}
