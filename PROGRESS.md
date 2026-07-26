@@ -40,7 +40,8 @@ Added (50+):
 - **SEC221** corrected — elevation thresholds fixed from 125 m / 137 m to **25 m / 37 m AMSL**
 - **SEC721** enhanced — dedicated fixture symbols tracked separately; washing machine & dishwasher graded on their own 1-4 tick MWELS scale (L/kg, L/place-setting), water dispenser & landscape tap remain the only true non-MWELS exclusions; a fitting with no declared tick rating now fails the check instead of just warning
 - **TANK_PUMP** added — tank/pump installation requirements (PUB / SS 245 / SS 636)
-- New backend agents: `hot_water_contamination_check`, `long_bath_check`, `section3_pipe_check`, `tank_pump_check`
+- **HIGHEST_FITTING** added (2026-07-27) — requires exactly one "Highest Direct Supply Fitting" marker (with a user-declared AMSL elevation) whenever a fitting on direct supply is present, so the plan checker can read the elevation straight off the drawing. Shares its "possibly on direct supply" classification with SEC221's `check_supply_mode` via one extracted predicate (`is_possibly_direct_supply`) so an ambiguous/mixed-supply fitting can't be treated as direct by one check and silently skipped by the other.
+- New backend agents: `hot_water_contamination_check`, `long_bath_check`, `section3_pipe_check`, `tank_pump_check`, `highest_fitting_check`
 
 ---
 
@@ -68,6 +69,30 @@ Added (50+):
 - **Sheet setup modal** — paper size, drawing scale, title block
 - **Templates** — pre-built schematic starting points, including annotation support. Available: 2-storey residential, 2x pump manifold (with and without bypass)
 - **Pipe colouring** by type (cold = blue, hot = red) — tee/elbow tint now correctly traces through pumps (which don't change fluid type) and stops only at genuine fluid-transforming/originating symbols (water heater, tanks)
+- **Pipe colour customisation, dashed hot pipes & crossing jump arcs** (2026-07-26) — Word-style click-to-recolor per pipe (multi-select supported), persistent per-type default colours + a shared recent-colors palette (max 3, in localStorage), explicit "Reset This Pipe"/reset-to-type-default controls. Hot pipes render dashed, cold/generic always solid. Where two pipes cross without connecting, the losing pipe (dashed loses to solid; same-style ties go to whichever is closer to vertical) detours with a small always-solid arc "jump" — mimics the AutoCAD convention of showing non-connecting crossings. All of it survives PDF export (matching dash/jump rendering) and JSON export/import round-trip.
+- **Pipe diameter labels & Highest Direct Supply Fitting marker** (2026-07-27) — freeform "ØXXmm"-style size label per pipe (multi-select + mixed-selection aware, like the color panel), shown beside the pipe's flow arrow on canvas/PDF, round-trips through JSON export/import; splitting a labeled pipe keeps the label on the segment nearest the original start rather than duplicating it onto both halves. Plus a new standalone "Highest Direct Supply Fitting" marker symbol + elevation-entry dialog feeding the HIGHEST_FITTING compliance check (see above).
+- **Editable annotation font sizes** (2026-07-27) — annotation insert menu offers a combobox of preset sizes plus freeform typing instead of a fixed S/M/L, remembering the last-used size as the next default. Context menus (annotation insert, mirror) and the annotation text editor now share a `useClampToViewport` hook so they stay on-screen near a viewport edge instead of overflowing it.
+
+---
+
+## Session Fixes — 2026-07-27
+
+Ran a `/code-review` pass on the pipe-diameter-label + Highest Direct Supply Fitting feature set before commit and fixed all 5 findings:
+
+- **Highest-Fitting elevation label detaching during drag** — the label was rendered as a sibling Text node keyed to the store's element position, which only updates on drag-end; it visibly lagged a full drag behind the marker while dragging. Fixed by having `SymbolNode.tsx` report live drag position via two new optional callbacks (`onDragPositionChange`/`onDragFinished`), consumed only for this one symbol in `ElementsLayer.tsx`.
+- **Duplicate diameter label after splitting a labeled pipe** — inserting a fitting/valve mid-run onto a labeled pipe was copying the "ØXXmm" label onto both resulting segments, showing two identical labels clustered around the new symbol. `derivePipe()` no longer auto-copies `diameterLabel`; callers now pass it explicitly only on the segment that should keep it.
+- **HIGHEST_FITTING check could silently skip a mixed-supply fitting** — it required `supply_mode == "direct_supply"` exactly, but a dual-supply fitting with disagreeing ports is deliberately left `null` (ambiguous) by `buildSupplyModes`, and the existing SEC221 check already treats that ambiguity as "possibly direct". Extracted one shared predicate (`is_possibly_direct_supply`) so the two checks can't independently drift apart on this again; added a regression test.
+- **Pipe body/arrow Konva node count** — confirmed as an intentional tradeoff (the flow arrow was decoupled from the pipe body so it can sit at the true midpoint regardless of jump-arc segments) rather than a bug; added `perfectDrawEnabled={false}` as a cheap, safe perf mitigation.
+- **PipeDiameterPanel duplicating PipeColorPanel's mixed-selection logic** — the same "bucket by value, detect mixed" pattern (which had already caused a real bug in the color panel, see 2026-07-26 below) was hand-rolled a second time; extracted into a shared `mixedPipeValue.ts` helper.
+
+---
+
+## Session Fixes — 2026-07-26
+
+- **Elbow bend / tee junction click precision** — their hit area was the full symbol bounding box, so an empty corner of the box would swallow a click meant for a pipe endpoint terminating there; replaced with a precise hand-traced hit path following the actual glyph ink. Same treatment later extended to 4 more thin-line-art symbols: flexible connection, Y-type strainer, puddle flange, pipe blank off.
+- **Pipe click hit area retuned twice** — first restored from a regression (had drifted to a much wider area during an earlier refactor) to its original tuned value, then tightened further (`hitStrokeWidth` 4→3, symbol `HIT_PADDING_PX` 2→1) after direct testing showed the wider value made overlapping symbols hard to click. Found and worked around a Konva-internal edge case along the way: a dashed (hot) pipe split into multiple pieces by a jump arc becomes entirely unclickable at `hitStrokeWidth<=2` — a plain dashed pipe or a jumping solid pipe are both unaffected, so it's specific to the dashed+multi-segment combination. 3 is the lowest value confirmed reliable.
+- **Jump-arc dash-phase inconsistency** — arcs used to render as part of one continuous dashed path with the rest of the pipe, so identically-sized crossings could look different (a full clean hook vs. one that looked "cut short") purely depending on how far along the pipe's dash cycle a given crossing happened to fall. Fixed by rendering each pipe as separate straight-run/arc-bulge pieces, with the arc bulge always solid regardless of the pipe's own dash pattern.
+- Ran a full `/code-review` pass on the pipe-styling feature set and fixed all 9 findings, including two real bugs it didn't have to look far to catch: a mixed cold+hot pipe selection was collapsing into one misleading colour swatch, and the crossing-priority tie-break used array index as its final fallback (not stable across pipe-splitting edits elsewhere in the drawing).
 
 ---
 
