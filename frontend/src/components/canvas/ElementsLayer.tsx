@@ -9,7 +9,7 @@ import { symbolsApi } from '../../api/client';
 import { SYMBOL_PORTS, getElementPorts, getPortPosition, rotateOffset, getEffectivePortRole, getEffectivePortLabel, getScaledPortOffset } from '../../utils/symbolPorts';
 import { buildBackflowAssemblies } from '../../utils/dcvAssembly';
 import { buildElementAdjacency, isElementProtected } from '../../utils/backflowProtection';
-import { getSymbolSizePx, isBackflowRiskElement, getBackflowRule, FIXTURE_MWELS_CATEGORY, NON_MWELS_FITTING_TYPE_IDS } from '../../types';
+import { getSymbolSizePx, isBackflowRiskElement, getBackflowRule, FIXTURE_MWELS_CATEGORY, NON_MWELS_FITTING_TYPE_IDS, HIGHEST_FITTING_LABEL_FONT_SIZE, HIGHEST_FITTING_LABEL_COLOR } from '../../types';
 import type { CanvasElement, PipeElement as PipeElementType, PipeType } from '../../types';
 import { computePortConnectionStatus } from '../../utils/portConnectionStatus';
 import { computePipeJumps } from '../../utils/pipeJumps';
@@ -17,6 +17,29 @@ import { useUiStore } from '../../store/uiStore';
 
 // Symbols that should be tinted to match their upstream pipe colour
 export const TINT_SYMBOL_IDS = new Set(['tee_junction', 'elbow_bend']);
+
+/** Highest Direct Supply Fitting's dynamic value label — a shared render helper (not a
+ *  full component) since it's needed at two call sites (normal + multi-selected element
+ *  render paths below) and this codebase has been burned before by the same small bit of
+ *  per-symbol-id rendering logic drifting out of sync between two copies (see
+ *  NEVER_MIRROR_IMAGE_SYMBOL_IDS' history in types/index.ts). Returns null for every
+ *  other symbol, so call sites can render it unconditionally. */
+function renderHighestFittingLabel(el: CanvasElement, dragPos?: { x: number; y: number }) {
+  if (el.symbolId !== 'highest_direct_supply_fitting') return null;
+  const x = dragPos?.x ?? el.x;
+  const y = dragPos?.y ?? el.y;
+  return (
+    <Text
+      x={x + (el.width ?? 6) / 2 + 2}
+      y={y - 1.5}
+      text={`Highest Direct Supply Fitting: ${el.highestFittingElevationM ?? '—'} m`}
+      fontSize={HIGHEST_FITTING_LABEL_FONT_SIZE}
+      fontStyle="bold"
+      fill={HIGHEST_FITTING_LABEL_COLOR}
+      listening={false}
+    />
+  );
+}
 
 // Elements that transform or originate fluid — BFS stops here instead of passing through.
 // Without this, the BFS can cross a water heater from its hot output back to its cold input.
@@ -195,6 +218,11 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
   const symPx = getSymbolSizePx(drawingScale);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [warningTooltip, setWarningTooltip] = useState<{ x: number; y: number; lines: string[] } | null>(null);
+  // Live position of a highest_direct_supply_fitting marker while it's being dragged —
+  // its elevation label (renderHighestFittingLabel) is a sibling Text node, not a child
+  // of the dragged symbol, so without this it would only catch up once onDragEnd commits
+  // the new position to the store, visibly lagging a full drag behind the symbol.
+  const [highestFittingDragPos, setHighestFittingDragPos] = useState<{ id: string; x: number; y: number } | null>(null);
   const groupRef = useRef<Konva.Group>(null);
 
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -268,6 +296,7 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
           isSelected={selectedId === pipe.id || selectedPipeIdSet.has(pipe.id)}
           isHovered={hoveredId === pipe.id}
           customColor={pipe.customColor}
+          diameterLabel={pipe.diameterLabel}
           jumps={pipeJumps.get(pipe.id)}
           onHoverEnter={() => setHoveredId(pipe.id)}
           onHoverLeave={() => setHoveredId(null)}
@@ -295,7 +324,12 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
             onHoverEnter={() => setHoveredId(el.id)}
             onHoverLeave={() => setHoveredId(null)}
             onElementClick={onElementClick}
+            {...(el.symbolId === 'highest_direct_supply_fitting' ? {
+              onDragPositionChange: (x: number, y: number) => setHighestFittingDragPos({ id: el.id, x, y }),
+              onDragFinished: () => setHighestFittingDragPos(null),
+            } : {})}
           />
+          {renderHighestFittingLabel(el, highestFittingDragPos?.id === el.id ? highestFittingDragPos : undefined)}
         </React.Fragment>
         );
       })}
@@ -365,6 +399,7 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
                 onHoverLeave={undefined}
                 onElementClick={onElementClick}
               />
+              {renderHighestFittingLabel(el)}
             </React.Fragment>
             );
           })}

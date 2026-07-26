@@ -56,6 +56,7 @@ function parseSchematic(data: DrawingMetadata): { elements: CanvasElement[]; pip
       ...(el.dual_supply !== undefined && { dualSupply: el.dual_supply }),
       ...(el.swap_dual_supply !== undefined && { swapDualSupply: el.swap_dual_supply }),
       ...(el.pump_rated_head_m != null && { pumpRatedHeadM: el.pump_rated_head_m }),
+      ...(el.highest_fitting_elevation_m != null && { highestFittingElevationM: el.highest_fitting_elevation_m }),
     };
     return base;
   });
@@ -68,6 +69,7 @@ function parseSchematic(data: DrawingMetadata): { elements: CanvasElement[]; pip
     endX: p.end.canvas_x,
     endY: p.end.canvas_y,
     ...(p.custom_color !== undefined && HEX_COLOR_RE.test(p.custom_color) && { customColor: p.custom_color }),
+    ...(p.diameter_label !== undefined && { diameterLabel: p.diameter_label }),
   }));
 
   const annotations: AnnotationElement[] = (data.annotations ?? []).map((ann) => ({

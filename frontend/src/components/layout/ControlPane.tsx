@@ -3,6 +3,7 @@ import { SymbolPalette } from '../panel/SymbolPalette';
 import { ActionPanel } from '../panel/ActionPanel';
 import { WaterTankPropertiesPanel } from '../panel/WaterTankPropertiesPanel';
 import { PipeColorPanel } from '../panel/PipeColorPanel';
+import { PipeDiameterPanel } from '../panel/PipeDiameterPanel';
 import { useSymbols } from '../../hooks/useSymbols';
 import { useCanvasStore } from '../../store/canvasStore';
 
@@ -39,6 +40,7 @@ export function ControlPane({ canvasWidth, canvasHeight }: ControlPaneProps) {
     }}>
       {isTankSelected && <WaterTankPropertiesPanel />}
       {effectivePipeIds.length > 0 && <PipeColorPanel pipeIds={effectivePipeIds} />}
+      {effectivePipeIds.length > 0 && <PipeDiameterPanel pipeIds={effectivePipeIds} />}
       <MrlConfigPanel />
       <SymbolPalette {...symbolsState} />
       <ActionPanel canvasWidth={canvasWidth} canvasHeight={canvasHeight} />

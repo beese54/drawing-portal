@@ -2,6 +2,7 @@ import { useCanvasStore } from '../../store/canvasStore';
 import { useUiStore } from '../../store/uiStore';
 import { getPipeDrawStyle } from '../canvas/PipeElement';
 import { PipeType } from '../../types';
+import { selectPipesByIds, computeMixedValue } from './mixedPipeValue';
 
 interface PipeColorPanelProps {
   pipeIds: string[];
@@ -23,16 +24,18 @@ export function PipeColorPanel({ pipeIds }: PipeColorPanelProps) {
   const resetPipeColorDefault = useUiStore((s) => s.resetPipeColorDefault);
   const addRecentPipeColor = useUiStore((s) => s.addRecentPipeColor);
 
-  const selected = pipes.filter((p) => pipeIds.includes(p.id));
+  const selected = selectPipesByIds(pipeIds, pipes);
   if (selected.length === 0) return null;
 
   // Bucket by pipeType too, not just customColor: two un-recolored pipes of different
   // types (e.g. one cold, one hot) render in visibly different colors on canvas even
   // though both have customColor === undefined — they must count as "mixed", not collapse
   // into the same '__auto__' bucket.
-  const colorSet = new Set(selected.map((p) => p.customColor ?? `__auto_${p.pipeType}__`));
-  const mixed = colorSet.size > 1;
-  const current = !mixed ? selected[0].customColor : undefined;
+  const { mixed, current } = computeMixedValue(
+    selected,
+    (p) => p.customColor ?? `__auto_${p.pipeType}__`,
+    (p) => p.customColor,
+  );
   // isSelected: true — this panel only ever renders while its pipe(s) are selected (see
   // ControlPane.tsx), so the fallback must match the "selected" shade actually drawn on
   // canvas, not the unselected default.

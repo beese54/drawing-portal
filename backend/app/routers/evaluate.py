@@ -28,6 +28,7 @@ from app.agents.tank_pump_check import check_tank_pump_installation
 from app.agents.long_bath_check import check_long_bath_installation
 from app.agents.hot_water_contamination_check import check_hot_water_contamination
 from app.agents.section3_pipe_check import check_section3_pipes
+from app.agents.highest_fitting_check import check_highest_direct_supply_fitting
 from app.services.image_annotator import annotate_schematic
 
 router = APIRouter()
@@ -70,6 +71,7 @@ class EvaluateResponse(BaseModel):
     check5_long_bath: dict
     check6_hot_water: dict
     check7_section3_pipes: dict
+    check8_highest_fitting: dict
     annotated_image_b64: str | None = None
 
 
@@ -112,6 +114,7 @@ async def evaluate_schematic(
     check5 = check_long_bath_installation(metadata)
     check6 = check_hot_water_contamination(metadata, adjacency)
     check7 = check_section3_pipes(metadata)
+    check8 = check_highest_direct_supply_fitting(metadata)
 
     # ── Image annotation ─────────────────────────────────────────────────────
     annotated_image_b64: str | None = None
@@ -153,5 +156,6 @@ async def evaluate_schematic(
         check5_long_bath=asdict(check5),
         check6_hot_water=asdict(check6),
         check7_section3_pipes=asdict(check7),
+        check8_highest_fitting=asdict(check8),
         annotated_image_b64=annotated_image_b64,
     )

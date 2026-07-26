@@ -45,6 +45,7 @@ export function EvaluationReport({ result }: Props) {
     { check: result.check5_long_bath },
     { check: result.check6_hot_water },
     { check: result.check7_section3_pipes },
+    { check: result.check8_highest_fitting },
   ].sort((a, b) => (CHECK_STATUS_PRIORITY[a.check.status] ?? 4) - (CHECK_STATUS_PRIORITY[b.check.status] ?? 4));
 
   const failCount = allChecks.filter((e) => e.check.status === 'FAIL').length;

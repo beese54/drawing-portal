@@ -257,6 +257,13 @@ interface SymbolNodeProps {
   onHoverEnter?: () => void;
   onHoverLeave?: () => void;
   onElementClick?: (id: string, symbolId: string) => void;
+  /** Fired with the node's live (possibly snapped) position on every drag-move frame —
+   *  lets a caller mirror a symbol's position elsewhere (e.g. a dynamic label) without
+   *  waiting for onDragEnd's store commit. Optional: most symbols have no such follower. */
+  onDragPositionChange?: (x: number, y: number) => void;
+  /** Fired once, after onDragEnd's store update has been applied — lets a caller drop
+   *  any live-position override it was tracking via onDragPositionChange. */
+  onDragFinished?: () => void;
 }
 
 /** Parses a `#rrggbb` hex color into an [r,g,b] triple, or null if malformed. */
@@ -267,7 +274,7 @@ function hexToRgb(hex: string): [number, number, number] | null {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYMBOL_PX, height = SCHEMATIC_SYMBOL_PX, rotation, scaleX = 1, isSelected: _isSelected, draggable = true, tintPipeType, tintCustomColor, onHoverEnter, onHoverLeave, onElementClick }: SymbolNodeProps) {
+export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYMBOL_PX, height = SCHEMATIC_SYMBOL_PX, rotation, scaleX = 1, isSelected: _isSelected, draggable = true, tintPipeType, tintCustomColor, onHoverEnter, onHoverLeave, onElementClick, onDragPositionChange, onDragFinished }: SymbolNodeProps) {
   const [image] = useImage(imageUrl, 'anonymous');
   const nodeRef = useRef<Konva.Image>(null);
 
@@ -318,6 +325,193 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
   // tiny (6px) symbols, not match a pipe's click width.
   const HIT_PADDING_PX = 1;
 
+  // Handles the symbol's own axis-lock / port-snap / alignment-guide / pipe-snap
+  // logic during a drag. Defined as a plain function (not inline in JSX) so
+  // onDragMove below can run it and then, regardless of which internal branch
+  // returned early, still read the node's final position to report upward via
+  // onDragPositionChange — a live follower (e.g. the Highest-Fitting elevation
+  // label in ElementsLayer.tsx) would otherwise only see the position onDragEnd
+  // commits to the store, and lag a full drag behind the symbol.
+  function handleDragMove(e: Konva.KonvaEventObject<DragEvent>) {
+    const node = e.target as Konva.Node;
+    const dragX = node.x();
+    const dragY = node.y();
+    const { elements, pipes } = useCanvasStore.getState();
+    const thisEl = elements.find((el) => el.id === id);
+    const myPorts = thisEl ? getElementPorts(thisEl) : (SYMBOL_PORTS[symbolId] ?? []);
+    if (myPorts.length === 0) return;
+
+    // 0. Hard-lock any port that already has a pipe connected to it onto
+    // that pipe's existing H/V axis — otherwise freely dragging the
+    // symbol stretches an already-straight pipe into a diagonal one
+    // (the draw-time fix only stops *creating* a diagonal pipe, not
+    // dragging one out of an existing straight connection). Mirrors how
+    // dragging a pipe's own endpoint (PipeElement.tsx) is already
+    // locked to one axis. Relocating a connected symbol off-axis means
+    // deleting its pipe first, same as any other physical re-plumb.
+    let lockedAnyAxis = false;
+    for (let i = 0; i < myPorts.length; i++) {
+      const connectedPipe = pipes.find(
+        (p) =>
+          (p.startElementId === id && p.startPortIndex === i) ||
+          (p.endElementId === id && p.endPortIndex === i)
+      );
+      if (!connectedPipe) continue;
+      const isStart = connectedPipe.startElementId === id && connectedPipe.startPortIndex === i;
+      const fixedX = isStart ? connectedPipe.endX : connectedPipe.startX;
+      const fixedY = isStart ? connectedPipe.endY : connectedPipe.startY;
+      const pipeIsHorizontal =
+        Math.abs(connectedPipe.startX - connectedPipe.endX) >= Math.abs(connectedPipe.startY - connectedPipe.endY);
+      const { ox, oy } = getScaledPortOffset(symbolId, myPorts[i], width, height, scaleX);
+      const rot = rotateOffset(ox, oy, rotation);
+      if (pipeIsHorizontal) {
+        node.y(fixedY - rot.y);
+      } else {
+        node.x(fixedX - rot.x);
+      }
+      lockedAnyAxis = true;
+    }
+    if (lockedAnyAxis) {
+      useUiStore.getState().clearAlignmentGuide();
+      return;
+    }
+
+    // For tee/elbow: snap via the user-chosen inlet port(s) only.
+    // For all others: snap via any port.
+    let portsToSnap = myPorts;
+    if (symbolId === 'tee_junction' || symbolId === 'elbow_bend') {
+      if (thisEl?.upstreamPortIndices !== undefined) {
+        portsToSnap = thisEl.upstreamPortIndices.map((i) => myPorts[i]).filter(Boolean);
+      } else if (thisEl?.upstreamPortIndex !== undefined) {
+        const p = myPorts[thisEl.upstreamPortIndex];
+        if (p) portsToSnap = [p];
+      }
+    }
+
+    // 1. Snap inlet port to another symbol's port
+    for (const myPort of portsToSnap) {
+      const { ox, oy } = getScaledPortOffset(symbolId, myPort, width, height, scaleX);
+      const rot = rotateOffset(ox, oy, rotation);
+      const myPortX = dragX + rot.x;
+      const myPortY = dragY + rot.y;
+      for (const otherEl of elements) {
+        if (otherEl.id === id) continue;
+        const otherPorts = getElementPorts(otherEl);
+        for (const otherPort of otherPorts) {
+          const otherPos = getPortPosition(otherEl, otherPort);
+          const d = Math.sqrt((myPortX - otherPos.x) ** 2 + (myPortY - otherPos.y) ** 2);
+          if (d < CANVAS_SNAP_THRESHOLD) {
+            node.x(dragX + (otherPos.x - myPortX));
+            node.y(dragY + (otherPos.y - myPortY));
+            useUiStore.getState().clearAlignmentGuide();
+            return;
+          }
+        }
+      }
+    }
+
+    // 1.5 Alignment guide: snap this symbol into axis-alignment with another
+    // symbol's port on a shared x or y, even when far apart on the other axis,
+    // so a straight pipe can later be drawn between them instead of a diagonal.
+    {
+      let bestGuide: { axis: 'x' | 'y'; matchValue: number; delta: number; dist: number } | null = null;
+      for (const myPort of myPorts) {
+        const { ox, oy } = getScaledPortOffset(symbolId, myPort, width, height, scaleX);
+        const rot = rotateOffset(ox, oy, rotation);
+        const myPortX = dragX + rot.x;
+        const myPortY = dragY + rot.y;
+        for (const otherEl of elements) {
+          if (otherEl.id === id) continue;
+          for (const otherPort of getElementPorts(otherEl)) {
+            const otherPos = getPortPosition(otherEl, otherPort);
+            const dx = otherPos.x - myPortX;
+            const dy = otherPos.y - myPortY;
+            if (Math.abs(dx) < ALIGN_GUIDE_THRESHOLD && (!bestGuide || Math.abs(dx) < bestGuide.dist)) {
+              bestGuide = { axis: 'x', matchValue: otherPos.x, delta: dx, dist: Math.abs(dx) };
+            }
+            if (Math.abs(dy) < ALIGN_GUIDE_THRESHOLD && (!bestGuide || Math.abs(dy) < bestGuide.dist)) {
+              bestGuide = { axis: 'y', matchValue: otherPos.y, delta: dy, dist: Math.abs(dy) };
+            }
+          }
+        }
+      }
+      if (bestGuide) {
+        if (bestGuide.axis === 'x') node.x(dragX + bestGuide.delta);
+        else node.y(dragY + bestGuide.delta);
+        useUiStore.getState().setAlignmentGuide({ axis: bestGuide.axis, value: bestGuide.matchValue });
+        return;
+      }
+      useUiStore.getState().clearAlignmentGuide();
+    }
+
+    // 2. Snap any port to nearest pipe body (all symbol types)
+    {
+      let bestDist = CANVAS_SNAP_THRESHOLD;
+      let bestDx = 0;
+      let bestDy = 0;
+      let snapped = false;
+      for (const myPort of portsToSnap) {
+        const { ox, oy } = getScaledPortOffset(symbolId, myPort, width, height, scaleX);
+        const rot = rotateOffset(ox, oy, rotation);
+        const myPortX = dragX + rot.x;
+        const myPortY = dragY + rot.y;
+        for (const pipe of pipes) {
+          const { x: sx, y: sy } = closestPointOnSegment(
+            myPortX, myPortY, pipe.startX, pipe.startY, pipe.endX, pipe.endY
+          );
+          const d = Math.sqrt((myPortX - sx) ** 2 + (myPortY - sy) ** 2);
+          if (d < bestDist) {
+            bestDist = d;
+            bestDx = sx - myPortX;
+            bestDy = sy - myPortY;
+            snapped = true;
+          }
+        }
+      }
+      if (snapped) {
+        node.x(dragX + bestDx);
+        node.y(dragY + bestDy);
+      }
+    }
+  }
+
+  function handleDragEnd(e: Konva.KonvaEventObject<DragEvent>) {
+    useUiStore.getState().clearAlignmentGuide();
+    const newX = e.target.x();
+    const newY = e.target.y();
+    const { elements: elsNow } = useCanvasStore.getState();
+    const thisEl = elsNow.find((el) => el.id === id);
+    const ports = thisEl ? getElementPorts(thisEl) : (SYMBOL_PORTS[symbolId] ?? []);
+    moveElement(id, newX, newY);
+    const { pipes, elements } = useCanvasStore.getState();
+    const upstreamPort = ports.find((p) => p.role === 'upstream');
+    if (!upstreamPort) return;
+    const { ox, oy } = getScaledPortOffset(symbolId, upstreamPort, width, height, scaleX);
+    const rot = rotateOffset(ox, oy, rotation);
+    const portX = newX + rot.x;
+    const portY = newY + rot.y;
+    // Single pipe scan: find nearest connected pipe (shared by fluid inference and DCV check)
+    let nearPipeId = '';
+    let nearDist = FLUID_MATCH;
+    for (const pipe of pipes) {
+      const { x: sx, y: sy } = closestPointOnSegment(portX, portY, pipe.startX, pipe.startY, pipe.endX, pipe.endY);
+      const d = Math.hypot(portX - sx, portY - sy);
+      if (d < nearDist) { nearDist = d; nearPipeId = pipe.id; }
+    }
+    const nearPipe = nearPipeId ? pipes.find((p) => p.id === nearPipeId) ?? null : null;
+    updateCarriesFluid(id, nearPipe ? inferFluidAtPoint([nearPipe], portX, portY, elements) : undefined);
+    if (isBackflowRiskElement(thisEl ?? { symbolId }) && nearPipe) {
+      const alreadyProtected = elements.some((el) => {
+        if (el.symbolId !== 'check_valve' && el.symbolId !== 'gate_valve') return false;
+        const cp = closestPointOnSegment(el.x, el.y, nearPipe.startX, nearPipe.startY, nearPipe.endX, nearPipe.endY);
+        return Math.hypot(el.x - cp.x, el.y - cp.y) < FLUID_MATCH;
+      });
+      if (!alreadyProtected) {
+        useUiStore.getState().showDcvToast(id, newX, newY, nearPipeId);
+      }
+    }
+  }
+
   return (
     <>
       <KonvaImage
@@ -352,182 +546,16 @@ export function SymbolNode({ id, symbolId, imageUrl, x, y, width = SCHEMATIC_SYM
         onTap={() => { setSelected(id); }}
         onDblTap={() => { setSelected(id); onElementClick?.(id, symbolId); }}
         onDragMove={(e) => {
+          handleDragMove(e);
+          // Runs after handleDragMove regardless of which internal branch/early-return
+          // fired — its return only exits that function, not this outer callback — so
+          // this always reflects the final (possibly snapped) position for the frame.
           const node = e.target as Konva.Node;
-          const dragX = node.x();
-          const dragY = node.y();
-          const { elements, pipes } = useCanvasStore.getState();
-          const thisEl = elements.find((el) => el.id === id);
-          const myPorts = thisEl ? getElementPorts(thisEl) : (SYMBOL_PORTS[symbolId] ?? []);
-          if (myPorts.length === 0) return;
-
-          // 0. Hard-lock any port that already has a pipe connected to it onto
-          // that pipe's existing H/V axis — otherwise freely dragging the
-          // symbol stretches an already-straight pipe into a diagonal one
-          // (the draw-time fix only stops *creating* a diagonal pipe, not
-          // dragging one out of an existing straight connection). Mirrors how
-          // dragging a pipe's own endpoint (PipeElement.tsx) is already
-          // locked to one axis. Relocating a connected symbol off-axis means
-          // deleting its pipe first, same as any other physical re-plumb.
-          let lockedAnyAxis = false;
-          for (let i = 0; i < myPorts.length; i++) {
-            const connectedPipe = pipes.find(
-              (p) =>
-                (p.startElementId === id && p.startPortIndex === i) ||
-                (p.endElementId === id && p.endPortIndex === i)
-            );
-            if (!connectedPipe) continue;
-            const isStart = connectedPipe.startElementId === id && connectedPipe.startPortIndex === i;
-            const fixedX = isStart ? connectedPipe.endX : connectedPipe.startX;
-            const fixedY = isStart ? connectedPipe.endY : connectedPipe.startY;
-            const pipeIsHorizontal =
-              Math.abs(connectedPipe.startX - connectedPipe.endX) >= Math.abs(connectedPipe.startY - connectedPipe.endY);
-            const { ox, oy } = getScaledPortOffset(symbolId, myPorts[i], width, height, scaleX);
-            const rot = rotateOffset(ox, oy, rotation);
-            if (pipeIsHorizontal) {
-              node.y(fixedY - rot.y);
-            } else {
-              node.x(fixedX - rot.x);
-            }
-            lockedAnyAxis = true;
-          }
-          if (lockedAnyAxis) {
-            useUiStore.getState().clearAlignmentGuide();
-            return;
-          }
-
-          // For tee/elbow: snap via the user-chosen inlet port(s) only.
-          // For all others: snap via any port.
-          let portsToSnap = myPorts;
-          if (symbolId === 'tee_junction' || symbolId === 'elbow_bend') {
-            if (thisEl?.upstreamPortIndices !== undefined) {
-              portsToSnap = thisEl.upstreamPortIndices.map((i) => myPorts[i]).filter(Boolean);
-            } else if (thisEl?.upstreamPortIndex !== undefined) {
-              const p = myPorts[thisEl.upstreamPortIndex];
-              if (p) portsToSnap = [p];
-            }
-          }
-
-          // 1. Snap inlet port to another symbol's port
-          for (const myPort of portsToSnap) {
-            const { ox, oy } = getScaledPortOffset(symbolId, myPort, width, height, scaleX);
-            const rot = rotateOffset(ox, oy, rotation);
-            const myPortX = dragX + rot.x;
-            const myPortY = dragY + rot.y;
-            for (const otherEl of elements) {
-              if (otherEl.id === id) continue;
-              const otherPorts = getElementPorts(otherEl);
-              for (const otherPort of otherPorts) {
-                const otherPos = getPortPosition(otherEl, otherPort);
-                const d = Math.sqrt((myPortX - otherPos.x) ** 2 + (myPortY - otherPos.y) ** 2);
-                if (d < CANVAS_SNAP_THRESHOLD) {
-                  node.x(dragX + (otherPos.x - myPortX));
-                  node.y(dragY + (otherPos.y - myPortY));
-                  useUiStore.getState().clearAlignmentGuide();
-                  return;
-                }
-              }
-            }
-          }
-
-          // 1.5 Alignment guide: snap this symbol into axis-alignment with another
-          // symbol's port on a shared x or y, even when far apart on the other axis,
-          // so a straight pipe can later be drawn between them instead of a diagonal.
-          {
-            let bestGuide: { axis: 'x' | 'y'; matchValue: number; delta: number; dist: number } | null = null;
-            for (const myPort of myPorts) {
-              const { ox, oy } = getScaledPortOffset(symbolId, myPort, width, height, scaleX);
-              const rot = rotateOffset(ox, oy, rotation);
-              const myPortX = dragX + rot.x;
-              const myPortY = dragY + rot.y;
-              for (const otherEl of elements) {
-                if (otherEl.id === id) continue;
-                for (const otherPort of getElementPorts(otherEl)) {
-                  const otherPos = getPortPosition(otherEl, otherPort);
-                  const dx = otherPos.x - myPortX;
-                  const dy = otherPos.y - myPortY;
-                  if (Math.abs(dx) < ALIGN_GUIDE_THRESHOLD && (!bestGuide || Math.abs(dx) < bestGuide.dist)) {
-                    bestGuide = { axis: 'x', matchValue: otherPos.x, delta: dx, dist: Math.abs(dx) };
-                  }
-                  if (Math.abs(dy) < ALIGN_GUIDE_THRESHOLD && (!bestGuide || Math.abs(dy) < bestGuide.dist)) {
-                    bestGuide = { axis: 'y', matchValue: otherPos.y, delta: dy, dist: Math.abs(dy) };
-                  }
-                }
-              }
-            }
-            if (bestGuide) {
-              if (bestGuide.axis === 'x') node.x(dragX + bestGuide.delta);
-              else node.y(dragY + bestGuide.delta);
-              useUiStore.getState().setAlignmentGuide({ axis: bestGuide.axis, value: bestGuide.matchValue });
-              return;
-            }
-            useUiStore.getState().clearAlignmentGuide();
-          }
-
-          // 2. Snap any port to nearest pipe body (all symbol types)
-          {
-            let bestDist = CANVAS_SNAP_THRESHOLD;
-            let bestDx = 0;
-            let bestDy = 0;
-            let snapped = false;
-            for (const myPort of portsToSnap) {
-              const { ox, oy } = getScaledPortOffset(symbolId, myPort, width, height, scaleX);
-              const rot = rotateOffset(ox, oy, rotation);
-              const myPortX = dragX + rot.x;
-              const myPortY = dragY + rot.y;
-              for (const pipe of pipes) {
-                const { x: sx, y: sy } = closestPointOnSegment(
-                  myPortX, myPortY, pipe.startX, pipe.startY, pipe.endX, pipe.endY
-                );
-                const d = Math.sqrt((myPortX - sx) ** 2 + (myPortY - sy) ** 2);
-                if (d < bestDist) {
-                  bestDist = d;
-                  bestDx = sx - myPortX;
-                  bestDy = sy - myPortY;
-                  snapped = true;
-                }
-              }
-            }
-            if (snapped) {
-              node.x(dragX + bestDx);
-              node.y(dragY + bestDy);
-            }
-          }
+          onDragPositionChange?.(node.x(), node.y());
         }}
         onDragEnd={(e) => {
-          useUiStore.getState().clearAlignmentGuide();
-          const newX = e.target.x();
-          const newY = e.target.y();
-          const { elements: elsNow } = useCanvasStore.getState();
-          const thisEl = elsNow.find((el) => el.id === id);
-          const ports = thisEl ? getElementPorts(thisEl) : (SYMBOL_PORTS[symbolId] ?? []);
-          moveElement(id, newX, newY);
-          const { pipes, elements } = useCanvasStore.getState();
-          const upstreamPort = ports.find((p) => p.role === 'upstream');
-          if (!upstreamPort) return;
-          const { ox, oy } = getScaledPortOffset(symbolId, upstreamPort, width, height, scaleX);
-          const rot = rotateOffset(ox, oy, rotation);
-          const portX = newX + rot.x;
-          const portY = newY + rot.y;
-          // Single pipe scan: find nearest connected pipe (shared by fluid inference and DCV check)
-          let nearPipeId = '';
-          let nearDist = FLUID_MATCH;
-          for (const pipe of pipes) {
-            const { x: sx, y: sy } = closestPointOnSegment(portX, portY, pipe.startX, pipe.startY, pipe.endX, pipe.endY);
-            const d = Math.hypot(portX - sx, portY - sy);
-            if (d < nearDist) { nearDist = d; nearPipeId = pipe.id; }
-          }
-          const nearPipe = nearPipeId ? pipes.find((p) => p.id === nearPipeId) ?? null : null;
-          updateCarriesFluid(id, nearPipe ? inferFluidAtPoint([nearPipe], portX, portY, elements) : undefined);
-          if (isBackflowRiskElement(thisEl ?? { symbolId }) && nearPipe) {
-            const alreadyProtected = elements.some((el) => {
-              if (el.symbolId !== 'check_valve' && el.symbolId !== 'gate_valve') return false;
-              const cp = closestPointOnSegment(el.x, el.y, nearPipe.startX, nearPipe.startY, nearPipe.endX, nearPipe.endY);
-              return Math.hypot(el.x - cp.x, el.y - cp.y) < FLUID_MATCH;
-            });
-            if (!alreadyProtected) {
-              useUiStore.getState().showDcvToast(id, newX, newY, nearPipeId);
-            }
-          }
+          handleDragEnd(e);
+          onDragFinished?.();
         }}
         onMouseEnter={(e) => {
           const stage = e.target.getStage();

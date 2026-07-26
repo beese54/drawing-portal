@@ -13,6 +13,7 @@ import { RotationPanel } from './RotationPanel';
 import { TeeJunctionPortDialog } from './TeeJunctionPortDialog';
 import { ElbowBendPortDialog } from './ElbowBendPortDialog';
 import { FlipOrientationDialog } from './FlipOrientationDialog';
+import { HighestFittingValueDialog } from './HighestFittingValueDialog';
 import { LongBathPanel } from './LongBathPanel';
 import { SymbolPropertiesModal } from './SymbolPropertiesModal';
 import { PdfBackgroundLayer } from './PdfBackgroundLayer';
@@ -20,6 +21,7 @@ import { WaterTankPropertiesModal } from './WaterTankPropertiesModal';
 import { useUiStore } from '../../store/uiStore';
 import { useCanvasStore } from '../../store/canvasStore';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
+import { useClampToViewport } from '../../hooks/useClampToViewport';
 import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, PAPER_SIZES_MM, SHEET_PX_PER_MM, SCHEMATIC_SYMBOL_PX, AXIS_WIDTH, TITLE_BLOCK_MM, getSymbolSizePx, FIXTURE_MWELS_CATEGORY, isBackflowRiskElement } from '../../types';
 import { symbolsApi } from '../../api/client';
 import { closestPointOnSegment, distance } from '../../utils/geometry';
@@ -283,6 +285,12 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     snapped: boolean;
   } | null>(null);
 
+  // Highest Direct Supply Fitting: element awaiting its elevation value right after
+  // placement (mirrors pendingFlip — nothing is added to canvasStore until confirmed).
+  const [pendingHighestFitting, setPendingHighestFitting] = useState<CanvasElement | null>(null);
+  // ...or the id of an already-placed one being re-edited (double-click).
+  const [highestFittingEditId, setHighestFittingEditId] = useState<string | null>(null);
+
   // Water tank: id of the tank whose properties modal is open
   const [tankModalId, setTankModalId] = useState<string | null>(null);
   const [symbolPropertiesModalId, setSymbolPropertiesModalId] = useState<string | null>(null);
@@ -301,6 +309,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   const removeAnnotation = useCanvasStore((s) => s.removeAnnotation);
   const updateAnnotation = useCanvasStore((s) => s.updateAnnotation);
   const mirrorSelection = useCanvasStore((s) => s.mirrorSelection);
+  const updateHighestFittingElevation = useCanvasStore((s) => s.updateHighestFittingElevation);
 
   // Right-click context menu — 'annotation' when nothing selected, 'mirror' when multi-selected
   const [contextMenu, setContextMenu] = useState<{
@@ -321,6 +330,10 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     height: number;
   } | null>(null);
   const cancelEditRef = useRef(false);
+  const editingAnnotationRawLeft = editingAnnotation ? editingAnnotation.screenX - 4.5 * stageScale : 0;
+  const editingAnnotationRawTop = editingAnnotation ? editingAnnotation.screenY - 4.5 * stageScale : 0;
+  const { ref: editingAnnotationRef, left: editingAnnotationLeft, top: editingAnnotationTop } =
+    useClampToViewport<HTMLTextAreaElement>(editingAnnotationRawLeft, editingAnnotationRawTop, { bounds: 'window' });
 
   // Register PDF export — walks the canvas/UI store data directly and emits native PDF
   // vector commands (lines, text, SVG-derived symbol paths) instead of rasterizing the stage.
@@ -608,6 +621,10 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     } else if (symbolId === 'long_bath') {
       setSymbolPropertiesModalId(null);
       setLongBathPanelId(_id);
+    } else if (symbolId === 'highest_direct_supply_fitting') {
+      setSymbolPropertiesModalId(null);
+      setLongBathPanelId(null);
+      setHighestFittingEditId(_id);
     } else if (isModalEligibleSymbol(symbolId)) {
       setLongBathPanelId(null);
       setSymbolPropertiesModalId(_id);
@@ -871,6 +888,14 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         return;
       }
 
+      // Standalone marker, not connected to pipes/ports — prompts for its elevation
+      // value before it's added to the store at all (cancel just discards it, same
+      // as pendingFlip above).
+      if (symbolId === 'highest_direct_supply_fitting') {
+        setPendingHighestFitting(el);
+        return;
+      }
+
       if (snapped) {
         const placedEl = { ...el, x: bestElX, y: bestElY };
         if (INLINE_SYMBOL_IDS.has(symbolId)) {
@@ -917,7 +942,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         if (nearTap) showBidetToast(nearTap.id, nearTap.x, nearTap.y);
       }
     },
-    [addElement, insertElementOnPipe, insertElementOnPipeInline, setPendingTee, setPendingElbow, setPendingFlip, showBidetToast, showDcvToast, maybeResumePipeChain]
+    [addElement, insertElementOnPipe, insertElementOnPipeInline, setPendingTee, setPendingElbow, setPendingFlip, setPendingHighestFitting, showBidetToast, showDcvToast, maybeResumePipeChain]
   );
 
 
@@ -1721,6 +1746,29 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           onCancel={() => setPendingFlip(null)}
         />
       )}
+      {pendingHighestFitting && (
+        <HighestFittingValueDialog
+          onConfirm={(elevationM) => {
+            addElement({ ...pendingHighestFitting, highestFittingElevationM: elevationM });
+            setPendingHighestFitting(null);
+          }}
+          onCancel={() => setPendingHighestFitting(null)}
+        />
+      )}
+      {highestFittingEditId && (() => {
+        const el = useCanvasStore.getState().elements.find((e) => e.id === highestFittingEditId);
+        if (!el) return null;
+        return (
+          <HighestFittingValueDialog
+            initialValueM={el.highestFittingElevationM}
+            onConfirm={(elevationM) => {
+              updateHighestFittingElevation(highestFittingEditId, elevationM);
+              setHighestFittingEditId(null);
+            }}
+            onCancel={() => setHighestFittingEditId(null)}
+          />
+        );
+      })()}
       {symbolPropertiesModalId && (() => {
         const el = useCanvasStore.getState().elements.find((e) => e.id === symbolPropertiesModalId);
         if (!el) return null;
@@ -1778,6 +1826,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       )}
       {editingAnnotation && (
         <textarea
+          ref={editingAnnotationRef}
           autoFocus
           defaultValue={editingAnnotation.text}
           onMouseDown={(e) => e.stopPropagation()}
@@ -1802,8 +1851,8 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           }}
           style={{
             position: 'fixed',
-            left: editingAnnotation.screenX - 4.5 * stageScale,
-            top: editingAnnotation.screenY - 4.5 * stageScale,
+            left: editingAnnotationLeft,
+            top: editingAnnotationTop,
             width: (editingAnnotation.maxWidth + 9) * stageScale,
             height: (editingAnnotation.height + 9) * stageScale,
             fontSize: editingAnnotation.fontSize * stageScale,

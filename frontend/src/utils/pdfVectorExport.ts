@@ -3,9 +3,12 @@ import { svg2pdf } from 'svg2pdf.js';
 import { useCanvasStore } from '../store/canvasStore';
 import { useUiStore } from '../store/uiStore';
 import type { CanvasElement, PipeElement as PipeElementType, PipeType, FloorLevel, AnnotationElement } from '../types';
-import { PAPER_SIZES_MM, SHEET_PX_PER_MM, AXIS_WIDTH } from '../types';
+import { PAPER_SIZES_MM, SHEET_PX_PER_MM, AXIS_WIDTH, HIGHEST_FITTING_LABEL_FONT_SIZE, HIGHEST_FITTING_LABEL_COLOR } from '../types';
 import { getGridMrlValues, mrlToPixel } from './mrlMapping';
-import { getPipeDrawStyle, PIPE_ARROW_POINTER_LENGTH, PIPE_ARROW_POINTER_WIDTH, PIPE_HOT_DASH } from '../components/canvas/PipeElement';
+import {
+  getPipeDrawStyle, getPipeMidpointArrow, getPipeDiameterLabelAnchor, PIPE_ARROW_POINTER_LENGTH, PIPE_ARROW_POINTER_WIDTH, PIPE_HOT_DASH,
+  PIPE_DIAMETER_LABEL_FONT_SIZE, PIPE_DIAMETER_LABEL_OFFSET,
+} from '../components/canvas/PipeElement';
 import { shouldMirrorSymbolImage } from '../components/canvas/SymbolNode';
 import { getElbowTeeTint, TINT_SYMBOL_IDS } from '../components/canvas/ElementsLayer';
 import { computePipeJumps, buildJumpSegments, PIPE_JUMP_RADIUS_PX } from './pipeJumps';
@@ -468,7 +471,6 @@ function drawPipes(pdf: jsPDF, pipes: PipeElementType[]): void {
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue; // matches PipeElement.tsx zero-length skip
 
     const { color, strokeWidth } = getPipeDrawStyle(pipe.pipeType, false, pipe.customColor);
-    const sx = mm(pipe.startX), sy = mm(pipe.startY), ex = mm(pipe.endX), ey = mm(pipe.endY);
     const segments = buildJumpSegments(pipe.startX, pipe.startY, pipe.endX, pipe.endY, pipeJumps.get(pipe.id) ?? [], PIPE_JUMP_RADIUS_PX);
 
     pdf.setDrawColor(color);
@@ -480,10 +482,22 @@ function drawPipes(pdf: jsPDF, pipes: PipeElementType[]): void {
       drawPipeBody(pdf, seg.points, pipe.pipeType === 'hot' && !seg.isArcBulge);
     }
 
-    // Arrowhead uses the pipe's true endpoints, not the last path vertex — buildJumpSegments
-    // always returns to the exact original line before the real end, so this angle is
-    // already correct even when the pipe has jumps.
-    drawArrowhead(pdf, sx, sy, ex, ey, mm(PIPE_ARROW_POINTER_LENGTH), mm(PIPE_ARROW_POINTER_WIDTH));
+    // Flow-direction arrowhead at the pipe's midpoint (matches PipeElement.tsx's canvas
+    // render — see getPipeMidpointArrow) rather than terminating the line at its endpoint.
+    const arrow = getPipeMidpointArrow(pipe.startX, pipe.startY, pipe.endX, pipe.endY, PIPE_ARROW_POINTER_LENGTH);
+    drawArrowhead(
+      pdf, mm(arrow.tailX), mm(arrow.tailY), mm(arrow.midX), mm(arrow.midY),
+      mm(PIPE_ARROW_POINTER_LENGTH), mm(PIPE_ARROW_POINTER_WIDTH),
+    );
+
+    if (pipe.diameterLabel) {
+      const anchor = getPipeDiameterLabelAnchor(pipe.startX, pipe.startY, pipe.endX, pipe.endY, PIPE_DIAMETER_LABEL_OFFSET);
+      pdf.setFontSize(pt(PIPE_DIAMETER_LABEL_FONT_SIZE));
+      pdf.setTextColor(color);
+      pdf.text(`Ø${pipe.diameterLabel}`, mm(anchor.x), mm(anchor.y), {
+        align: anchor.align, baseline: anchor.vAlign,
+      });
+    }
   }
 }
 
@@ -515,6 +529,18 @@ async function drawSymbols(
     } catch (err) {
       // One malformed symbol shouldn't take down the whole export — skip it and keep going.
       console.error(`PDF export: failed to place symbol "${el.symbolId}" (element ${el.id}):`, err);
+    }
+
+    // Dynamic value label — matches ElementsLayer.tsx's canvas render (same shared
+    // constants) so the marker's declared elevation is actually visible on the exported
+    // drawing, not just on-screen.
+    if (el.symbolId === 'highest_direct_supply_fitting') {
+      pdf.setFontSize(pt(HIGHEST_FITTING_LABEL_FONT_SIZE));
+      pdf.setTextColor(HIGHEST_FITTING_LABEL_COLOR);
+      pdf.setFont('helvetica', 'bold');
+      const text = `Highest Direct Supply Fitting: ${el.highestFittingElevationM ?? '—'} m`;
+      pdf.text(text, mm(el.x + el.width / 2 + 2), mm(el.y - 1.5), { baseline: 'bottom' });
+      pdf.setFont('helvetica', 'normal');
     }
   }
 }
