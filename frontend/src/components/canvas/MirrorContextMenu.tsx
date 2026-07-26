@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useClampToViewport } from '../../hooks/useClampToViewport';
 
 interface MirrorContextMenuProps {
   viewportX: number;
@@ -8,6 +9,8 @@ interface MirrorContextMenuProps {
 }
 
 export function MirrorContextMenu({ viewportX, viewportY, onMirror, onClose }: MirrorContextMenuProps) {
+  const { ref: menuRef, left, top } = useClampToViewport<HTMLDivElement>(viewportX, viewportY);
+
   useEffect(() => {
     const close = () => onClose();
     window.addEventListener('click', close);
@@ -21,8 +24,8 @@ export function MirrorContextMenu({ viewportX, viewportY, onMirror, onClose }: M
 
   const menuStyle: React.CSSProperties = {
     position: 'absolute',
-    left: viewportX,
-    top: viewportY,
+    left,
+    top,
     zIndex: 200,
     background: '#fff',
     border: '1px solid #ddd',
@@ -45,7 +48,7 @@ export function MirrorContextMenu({ viewportX, viewportY, onMirror, onClose }: M
   };
 
   return (
-    <div style={menuStyle} onClick={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+    <div ref={menuRef} style={menuStyle} onClick={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
       <div style={{ padding: '4px 10px 6px', borderBottom: '1px solid #eee', marginBottom: 2 }}>
         <span style={{ fontSize: 9, fontWeight: 700, color: '#888', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
           Mirror selection

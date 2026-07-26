@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ANNOTATION_TEMPLATES } from '../../types';
+import { useClampToViewport } from '../../hooks/useClampToViewport';
+import { useUiStore } from '../../store/uiStore';
 
-type AnnotationSize = 'S' | 'M' | 'L';
-
-const SIZE_CONFIG: Record<AnnotationSize, { fontSize: number; maxWidth: number; label: string }> = {
-  S: { fontSize: 2,  maxWidth: 40, label: 'S' },
-  M: { fontSize: 3,  maxWidth: 60, label: 'M' },
-  L: { fontSize: 4,  maxWidth: 80, label: 'L' },
-};
+// Preset font sizes (schematic world units — see SCHEMATIC_SYMBOL_PX in pipeJumps.ts for the
+// reference scale), offered as suggestions in an editable combobox — the user can also type
+// any other value directly. maxWidth scales with fontSize at the same 20:1 ratio the old
+// S/M/L presets used.
+const FONT_SIZE_OPTIONS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 12, 15, 20];
+const MIN_FONT_SIZE = 0.5;
+const maxWidthForFontSize = (fontSize: number) => fontSize * 20;
 
 interface AnnotationContextMenuProps {
   viewportX: number;
@@ -17,10 +19,22 @@ interface AnnotationContextMenuProps {
 }
 
 export function AnnotationContextMenu({ viewportX, viewportY, onSelect, onClose }: AnnotationContextMenuProps) {
-  const [size, setSize] = useState<AnnotationSize>('M');
+  const annotationFontSizeDefault = useUiStore((s) => s.annotationFontSizeDefault);
+  const setAnnotationFontSizeDefault = useUiStore((s) => s.setAnnotationFontSizeDefault);
+  const [fontSize, setFontSize] = useState(annotationFontSizeDefault);
+  const [fontSizeInput, setFontSizeInput] = useState(String(annotationFontSizeDefault));
   const [customMode, setCustomMode] = useState(false);
   const [customText, setCustomText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { ref: menuRef, left, top } = useClampToViewport<HTMLDivElement>(viewportX, viewportY);
+  const fontSizeListId = useId();
+  // Whether the currently TYPED text is itself a usable size — distinct from `fontSize`,
+  // which only ever holds the last valid value. An invalid in-progress edit (e.g. "-2" or
+  // "") must not silently place at some other size with no indication it was rejected.
+  const isFontSizeInputValid = (() => {
+    const v = parseFloat(fontSizeInput);
+    return !Number.isNaN(v) && v >= MIN_FONT_SIZE;
+  })();
 
   useEffect(() => {
     if (customMode) textareaRef.current?.focus();
@@ -40,15 +54,14 @@ export function AnnotationContextMenu({ viewportX, viewportY, onSelect, onClose 
   }, [onClose]);
 
   const place = (text: string) => {
-    const { fontSize, maxWidth } = SIZE_CONFIG[size];
-    onSelect(text, fontSize, maxWidth);
+    onSelect(text, fontSize, maxWidthForFontSize(fontSize));
     onClose();
   };
 
   const menuStyle: React.CSSProperties = {
     position: 'absolute',
-    left: viewportX,
-    top: viewportY,
+    left,
+    top,
     zIndex: 200,
     background: '#fff',
     border: '1px solid #ddd',
@@ -60,35 +73,51 @@ export function AnnotationContextMenu({ viewportX, viewportY, onSelect, onClose 
   };
 
   return (
-    <div style={menuStyle} onClick={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+    <div ref={menuRef} style={menuStyle} onClick={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
       {/* Header + size selector */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px 6px', borderBottom: '1px solid #eee', marginBottom: 2 }}>
         <span style={{ fontSize: 9, fontWeight: 700, color: '#888', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
           Insert annotation
         </span>
-        <div style={{ display: 'flex', gap: 2 }}>
-          {(['S', 'M', 'L'] as AnnotationSize[]).map((s) => (
-            <button
-              key={s}
-              onClick={(e) => { e.stopPropagation(); setSize(s); }}
-              style={{
-                width: 22,
-                height: 20,
-                border: '1px solid',
-                borderColor: size === s ? '#0066cc' : '#ddd',
-                borderRadius: 3,
-                background: size === s ? '#e8f0fe' : '#fafafa',
-                color: size === s ? '#0066cc' : '#555',
-                fontSize: 10,
-                fontWeight: 600,
-                cursor: 'pointer',
-                lineHeight: 1,
-              }}
-            >
-              {s}
-            </button>
+        <input
+          type="number"
+          list={fontSizeListId}
+          step="any"
+          min={MIN_FONT_SIZE}
+          value={fontSizeInput}
+          onChange={(e) => {
+            e.stopPropagation();
+            const raw = e.target.value;
+            setFontSizeInput(raw);
+            const v = parseFloat(raw);
+            if (!Number.isNaN(v) && v >= MIN_FONT_SIZE) {
+              setFontSize(v);
+              setAnnotationFontSizeDefault(v);
+            }
+          }}
+          onClick={(e) => e.stopPropagation()}
+          title={
+            isFontSizeInputValid
+              ? 'Font size — pick a preset or type your own'
+              : `Not a valid size — using the last valid value (${fontSize}) instead`
+          }
+          style={{
+            width: 46,
+            height: 20,
+            border: `1px solid ${isFontSizeInputValid ? '#ddd' : '#e63329'}`,
+            borderRadius: 3,
+            background: isFontSizeInputValid ? '#fafafa' : '#fdecea',
+            color: '#555',
+            fontSize: 10,
+            fontWeight: 600,
+            padding: '0 4px',
+          }}
+        />
+        <datalist id={fontSizeListId}>
+          {FONT_SIZE_OPTIONS.map((s) => (
+            <option key={s} value={s} />
           ))}
-        </div>
+        </datalist>
       </div>
 
       {/* Template rows */}
