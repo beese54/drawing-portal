@@ -304,6 +304,22 @@ _SUPPLY_MODE_TABLE = [
 ]
 
 
+def is_possibly_direct_supply(e: dict) -> bool:
+    """True unless an element's supply_mode is confirmed 'indirect_supply'.
+
+    metadataBuilder.ts's buildSupplyModes deliberately leaves supply_mode null
+    for a water_fitting whose own ports disagree (e.g. a dual-supply fitting fed
+    hot via a tank and cold via the mains) rather than guessing a single value —
+    so null/ambiguous is treated the same as direct here, not skipped, matching
+    the conservative "not confirmed indirect" reasoning check_supply_mode's own
+    offending_fittings filter already uses below. Shared by any check that cares
+    whether a fitting *might* be on direct supply (also used by
+    highest_fitting_check.py) so the two conditions can't independently drift
+    apart the way this codebase's duplicated constants have before (see e.g.
+    derivePipe's history in canvasStore.ts)."""
+    return e.get("supply_mode") != "indirect_supply"
+
+
 def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
     """
     Handbook 2.2.1: Mode of supply based on the absolute AMSL elevation of the
@@ -363,7 +379,7 @@ def check_supply_mode(metadata: dict[str, Any]) -> CheckResult:
         if e.get("node_type") == "water_fitting"
         and e.get("elevation_m") is not None
         and e["elevation_m"] > DIRECT_SUPPLY_LIMIT_M
-        and e.get("supply_mode") != "indirect_supply"
+        and is_possibly_direct_supply(e)
     ]
 
     details: list[str] = [

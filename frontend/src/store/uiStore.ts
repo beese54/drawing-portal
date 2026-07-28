@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { ActiveTool, FloorLevel, MrlConfig, MRL_LOWER_HARD_MIN, SheetConfig, TitleBlockData, DEFAULT_SHEET_CONFIG, getUpperMrl, PAPER_SIZES_MM, SHEET_PX_PER_MM } from '../types';
-import type { CanvasElement, PipeElement, AnnotationElement } from '../types';
+import { ActiveTool, FloorLevel, MrlConfig, MRL_LOWER_HARD_MIN, SheetConfig, TitleBlockData, DEFAULT_SHEET_CONFIG, getUpperMrl, PAPER_SIZES_MM, SHEET_PX_PER_MM, DEFAULT_ANNOTATION_FONT_SIZE } from '../types';
+import type { CanvasElement, PipeElement, AnnotationElement, PipeType } from '../types';
 import { useCanvasStore } from './canvasStore';
 
 export interface PendingTemplate {
@@ -61,6 +61,15 @@ interface UiStore {
   dcvToast: DcvToast | null;
   alignmentGuide: AlignmentGuide | null;
   floorLevelOpacity: number;
+  /** Persisted per-type default color for newly-drawn pipes — set whenever the
+   *  user picks a custom color in PipeColorPanel, so future pipes of that type
+   *  start with it too instead of always reverting to the built-in blue/red. */
+  pipeColorDefaults: Partial<Record<PipeType, string>>;
+  /** Shared (not per-type) most-recently-used custom pipe colors, newest first, max 3. */
+  recentPipeColors: string[];
+  /** Last font size the user picked/typed in the annotation insert menu — becomes the
+   *  starting value for the next annotation placed, so it doesn't reset every time. */
+  annotationFontSizeDefault: number;
   setActiveTool: (tool: ActiveTool) => void;
   setMrlConfig: (config: Partial<MrlConfig>) => void;
   addFloorLevel: (floor: Omit<FloorLevel, 'id'>) => void;
@@ -87,6 +96,10 @@ interface UiStore {
   setAlignmentGuide: (guide: AlignmentGuide) => void;
   clearAlignmentGuide: () => void;
   setFloorLevelOpacity: (opacity: number) => void;
+  setPipeColorDefault: (pipeType: PipeType, color: string) => void;
+  resetPipeColorDefault: (pipeType: PipeType) => void;
+  addRecentPipeColor: (color: string) => void;
+  setAnnotationFontSizeDefault: (size: number) => void;
 }
 
 export const useUiStore = create<UiStore>()(persist((set, get) => ({
@@ -110,6 +123,9 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   dcvToast: null,
   alignmentGuide: null,
   floorLevelOpacity: 1,
+  pipeColorDefaults: {},
+  recentPipeColors: [],
+  annotationFontSizeDefault: DEFAULT_ANNOTATION_FONT_SIZE,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
   setDraggingSymbolId: (id) => set({ draggingSymbolId: id }),
@@ -167,16 +183,33 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
     const lowerMrl = Math.max(MRL_LOWER_HARD_MIN, partial.lowerMrl ?? get().mrlConfig.lowerMrl);
     set({ mrlConfig: { lowerMrl, upperMrl: getUpperMrl(lowerMrl, get().sheetConfig) } });
   },
+
+  setPipeColorDefault: (pipeType, color) =>
+    set((state) => ({ pipeColorDefaults: { ...state.pipeColorDefaults, [pipeType]: color } })),
+  resetPipeColorDefault: (pipeType) =>
+    set((state) => {
+      const next = { ...state.pipeColorDefaults };
+      delete next[pipeType];
+      return { pipeColorDefaults: next };
+    }),
+  addRecentPipeColor: (color) =>
+    set((state) => ({
+      recentPipeColors: [color, ...state.recentPipeColors.filter((c) => c.toLowerCase() !== color.toLowerCase())].slice(0, 3),
+    })),
+  setAnnotationFontSizeDefault: (size) => set({ annotationFontSizeDefault: size }),
 }), {
   name: 'schematic-ui',
   version: 1,
   storage: createJSONStorage(() => localStorage),
   partialize: (state) => ({
-    sheetConfig:       state.sheetConfig,
-    mrlConfig:         state.mrlConfig,
-    floorLevels:       state.floorLevels,
-    sheetSetupOpen:    state.sheetSetupOpen,
-    floorLevelOpacity: state.floorLevelOpacity,
+    sheetConfig:        state.sheetConfig,
+    mrlConfig:          state.mrlConfig,
+    floorLevels:        state.floorLevels,
+    sheetSetupOpen:     state.sheetSetupOpen,
+    floorLevelOpacity:  state.floorLevelOpacity,
+    pipeColorDefaults:  state.pipeColorDefaults,
+    recentPipeColors:   state.recentPipeColors,
+    annotationFontSizeDefault: state.annotationFontSizeDefault,
   }),
   migrate: (_persisted, version) => {
     if (version < 1) return {} as UiStore;

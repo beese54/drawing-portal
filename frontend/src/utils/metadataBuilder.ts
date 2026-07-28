@@ -408,6 +408,8 @@ export function buildMetadata(
       flow_to_port_index,
       length_px:    Math.round(len * 100) / 100,
       rotation_deg: Math.round(angleDeg(p.startX, p.startY, p.endX, p.endY) * 100) / 100,
+      ...(p.customColor !== undefined ? { custom_color: p.customColor } : {}),
+      ...(p.diameterLabel !== undefined ? { diameter_label: p.diameterLabel } : {}),
     };
   });
 
@@ -488,6 +490,9 @@ export function buildMetadata(
         : {}),
       ...(el.symbolId === 'pump'
         ? { pump_rated_head_m: el.pumpRatedHeadM ?? null }
+        : {}),
+      ...(el.symbolId === 'highest_direct_supply_fitting'
+        ? { highest_fitting_elevation_m: el.highestFittingElevationM ?? null }
         : {}),
       ...(() => {
         const rule = getBackflowRule(el);

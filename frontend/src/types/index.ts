@@ -32,6 +32,17 @@ export const SCHEMATIC_SYMBOL_PX = SYMBOL_SIZE_MM * SHEET_PX_PER_MM; // 6
 /** Left-margin reserved for the MRL elevation axis (px). Exported so canvas store can use it. */
 export const AXIS_WIDTH = 64;
 
+/** Default annotation font size (schematic world units) before the user has ever picked one —
+ *  shared between `AnnotationContextMenu.tsx` (its initial state) and `uiStore.ts` (the
+ *  persisted "last used" default's own initial value) so the two can't drift apart. */
+export const DEFAULT_ANNOTATION_FONT_SIZE = 3;
+
+/** Highest Direct Supply Fitting marker's dynamic value label — shared by the canvas
+ *  renderer (ElementsLayer.tsx) and the PDF exporter (pdfVectorExport.ts) so the two
+ *  can't drift apart, same convention as the pipe styling constants in PipeElement.tsx. */
+export const HIGHEST_FITTING_LABEL_FONT_SIZE = 2.2;
+export const HIGHEST_FITTING_LABEL_COLOR = '#1a3a5c';
+
 /**
  * Canvas-pixel size for symbols at a given drawing scale.
  * Fixed at SCHEMATIC_SYMBOL_PX (3 mm paper size) regardless of scale — matches real CAD convention
@@ -340,6 +351,9 @@ export interface CanvasElement {
   carriesFluid?: 'cold' | 'hot';
   /** Declared pump rated head in metres — only present on pump elements. */
   pumpRatedHeadM?: number;
+  /** User-declared elevation (m AMSL) of the highest direct-supply fitting on the
+   *  drawing — only present on highest_direct_supply_fitting elements. */
+  highestFittingElevationM?: number;
 }
 
 // ─── Canvas annotations ───────────────────────────────────────────────────────
@@ -503,6 +517,12 @@ export interface PipeElement {
   startPortIndex?: number;
   endElementId?: string;
   endPortIndex?: number;
+  /** User-set color override (#rrggbb), replacing the pipeType default wherever
+   *  this pipe is drawn (canvas, PDF export, elbow/tee tint). Undefined = "Automatic". */
+  customColor?: string;
+  /** Freeform pipe size label (e.g. "20mm", "DN25") rendered above the pipe's
+   *  midpoint flow arrow. Undefined = no label shown. */
+  diameterLabel?: string;
 }
 
 export interface SymbolMeta {
@@ -583,6 +603,9 @@ export interface ExportedElement {
   long_bath_capacity_l?: number | null;
   /** Pump rated head in metres — only present on pump elements. */
   pump_rated_head_m?: number | null;
+  /** User-declared elevation (m AMSL) of the highest direct-supply fitting — only
+   *  present on highest_direct_supply_fitting elements. */
+  highest_fitting_elevation_m?: number | null;
   /** Backflow protection required: 'check_valve' (Reg28/§6.4) or 'vacuum_breaker' (§6.5). Absent if not applicable. */
   backflow_requirement?: 'check_valve' | 'vacuum_breaker';
   /** Per-instance upstream port override — only present when the user has changed the default inlet (e.g. on a tee junction). */
@@ -671,6 +694,10 @@ export interface ExportedPipe {
   flow_to_port_index: number | null;
   length_px: number;
   rotation_deg: number;
+  /** User-set color override (#rrggbb), or absent if using the pipe_type default ("Automatic"). */
+  custom_color?: string;
+  /** Freeform pipe size label (e.g. "20mm", "DN25"), or absent if none was set. */
+  diameter_label?: string;
 }
 
 /**

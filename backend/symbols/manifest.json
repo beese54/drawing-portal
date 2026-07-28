@@ -68,6 +68,8 @@
 
     { "id": "washing_machine",     "name": "Washing Machine",            "category": "sanitary",            "filename": "default/washing_machine.svg",           "created_at": "2026-05-19T00:00:00+00:00" },
     { "id": "dishwasher",          "name": "Dishwasher",                 "category": "sanitary",            "filename": "default/dishwasher.svg",                "created_at": "2026-05-19T00:00:00+00:00" },
-    { "id": "water_dispenser",     "name": "Water Dispenser / Fridge",   "category": "sanitary",            "filename": "default/water_dispenser.svg",           "created_at": "2026-05-19T00:00:00+00:00" }
+    { "id": "water_dispenser",     "name": "Water Dispenser / Fridge",   "category": "sanitary",            "filename": "default/water_dispenser.svg",           "created_at": "2026-05-19T00:00:00+00:00" },
+
+    { "id": "highest_direct_supply_fitting", "name": "Highest Direct Supply Fitting", "category": "default", "filename": "default/highest_direct_supply_fitting.svg", "created_at": "2026-07-26T00:00:00+00:00" }
   ]
 }

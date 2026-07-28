@@ -33,5 +33,6 @@ export interface EvaluationResponse {
   check5_long_bath: CheckResult;
   check6_hot_water: CheckResult;
   check7_section3_pipes: CheckResult;
+  check8_highest_fitting: CheckResult;
   annotated_image_b64: string | null;
 }

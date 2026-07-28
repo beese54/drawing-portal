@@ -29,6 +29,7 @@ function snapToAxis(
 export function useCanvasInteraction() {
   const activeTool = useUiStore((s) => s.activeTool);
   const setActiveTool = useUiStore((s) => s.setActiveTool);
+  const pipeColorDefaults = useUiStore((s) => s.pipeColorDefaults);
   const addPipe = useCanvasStore((s) => s.addPipe);
   const setSelected = useCanvasStore((s) => s.setSelected);
 
@@ -118,9 +119,10 @@ export function useCanvasInteraction() {
             Math.abs(nearPort.y - anchorPoint.y) < PORT_ALIGN_TOLERANCE);
         const usablePort = portAligned ? nearPort : null;
         const end = usablePort ? { x: usablePort.x, y: usablePort.y } : applyConstraint(rawX, rawY);
+        const pipeType = activeToPipeType(activeTool);
         const pipe: PipeElement = {
           id: crypto.randomUUID(),
-          pipeType: activeToPipeType(activeTool),
+          pipeType,
           startX: anchorPoint.x,
           startY: anchorPoint.y,
           endX: end.x,
@@ -129,6 +131,7 @@ export function useCanvasInteraction() {
           startPortIndex: anchorPortRef?.portIndex,
           endElementId: usablePort?.elementId,
           endPortIndex: usablePort?.portIndex,
+          customColor: pipeColorDefaults[pipeType],
         };
         addPipe(pipe);
         setSelected(pipe.id);
@@ -148,7 +151,7 @@ export function useCanvasInteraction() {
         setDrawState('waiting_second');
       }
     },
-    [isPipeTool, drawState, anchorPoint, anchorPortRef, applyConstraint, addPipe, activeTool]
+    [isPipeTool, drawState, anchorPoint, anchorPortRef, applyConstraint, addPipe, activeTool, pipeColorDefaults]
   );
 
   const handleCanvasMouseMove = useCallback(

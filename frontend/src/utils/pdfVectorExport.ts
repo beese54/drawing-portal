@@ -3,11 +3,15 @@ import { svg2pdf } from 'svg2pdf.js';
 import { useCanvasStore } from '../store/canvasStore';
 import { useUiStore } from '../store/uiStore';
 import type { CanvasElement, PipeElement as PipeElementType, PipeType, FloorLevel, AnnotationElement } from '../types';
-import { PAPER_SIZES_MM, SHEET_PX_PER_MM, AXIS_WIDTH } from '../types';
+import { PAPER_SIZES_MM, SHEET_PX_PER_MM, AXIS_WIDTH, HIGHEST_FITTING_LABEL_FONT_SIZE, HIGHEST_FITTING_LABEL_COLOR } from '../types';
 import { getGridMrlValues, mrlToPixel } from './mrlMapping';
-import { getPipeDrawStyle, PIPE_ARROW_POINTER_LENGTH, PIPE_ARROW_POINTER_WIDTH } from '../components/canvas/PipeElement';
+import {
+  getPipeDrawStyle, getPipeMidpointArrow, getPipeDiameterLabelAnchor, PIPE_ARROW_POINTER_LENGTH, PIPE_ARROW_POINTER_WIDTH, PIPE_HOT_DASH,
+  PIPE_DIAMETER_LABEL_FONT_SIZE, PIPE_DIAMETER_LABEL_OFFSET,
+} from '../components/canvas/PipeElement';
 import { shouldMirrorSymbolImage } from '../components/canvas/SymbolNode';
 import { getElbowTeeTint, TINT_SYMBOL_IDS } from '../components/canvas/ElementsLayer';
+import { computePipeJumps, buildJumpSegments, PIPE_JUMP_RADIUS_PX } from './pipeJumps';
 import { symbolsApi } from '../api/client';
 import {
   computeTitleBlockLayout, BORDER, LBL_CLR, VAL_CLR, LBL_SZ, VAL_SZ, PAD,
@@ -442,22 +446,58 @@ function drawArrowhead(pdf: jsPDF, sx: number, sy: number, ex: number, ey: numbe
   pdf.triangle(ex, ey, baseX + perpX, baseY + perpY, baseX - perpX, baseY - perpY, 'F');
 }
 
+/** Draws one pipe run (a straight segment or an arc bulge) as ONE continuous stroked
+ *  path via jsPDF's .lines() — a multi-point arc needs this so it doesn't fragment into
+ *  separately-stroked sub-segments; a 2-point straight run degrades to the same thing a
+ *  plain .line() would draw. Segments are drawn independently (not one path for the
+ *  whole pipe) precisely so an arc bulge's dash state can differ from the straight runs
+ *  around it — see buildJumpSegments' isArcBulge doc. */
+function drawPipeBody(pdf: jsPDF, points: { x: number; y: number }[], dashed: boolean): void {
+  if (dashed) pdf.setLineDashPattern([mm(PIPE_HOT_DASH[0]), mm(PIPE_HOT_DASH[1])], 0);
+  const [p0, ...rest] = points;
+  const deltas = rest.map((p, i) => {
+    const prev = i === 0 ? p0 : rest[i - 1];
+    return [mm(p.x) - mm(prev.x), mm(p.y) - mm(prev.y)];
+  });
+  pdf.lines(deltas, mm(p0.x), mm(p0.y), [1, 1], 'S');
+  if (dashed) pdf.setLineDashPattern([], 0); // reset before the next segment/pipe/shape, mirrors drawGrid's grid-line dash reset above
+}
+
 function drawPipes(pdf: jsPDF, pipes: PipeElementType[]): void {
+  const pipeJumps = computePipeJumps(pipes); // one-shot per export, not memoized like the canvas side
   for (const pipe of pipes) {
     const dx = pipe.endX - pipe.startX;
     const dy = pipe.endY - pipe.startY;
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue; // matches PipeElement.tsx zero-length skip
 
-    const { color, strokeWidth } = getPipeDrawStyle(pipe.pipeType, false);
-    const sx = mm(pipe.startX), sy = mm(pipe.startY), ex = mm(pipe.endX), ey = mm(pipe.endY);
+    const { color, strokeWidth } = getPipeDrawStyle(pipe.pipeType, false, pipe.customColor);
+    const segments = buildJumpSegments(pipe.startX, pipe.startY, pipe.endX, pipe.endY, pipeJumps.get(pipe.id) ?? [], PIPE_JUMP_RADIUS_PX);
 
     pdf.setDrawColor(color);
     pdf.setFillColor(color);
     pdf.setLineWidth(mm(strokeWidth));
     pdf.setLineCap('round');
-    pdf.line(sx, sy, ex, ey);
+    pdf.setLineJoin('round');
+    for (const seg of segments) {
+      drawPipeBody(pdf, seg.points, pipe.pipeType === 'hot' && !seg.isArcBulge);
+    }
 
-    drawArrowhead(pdf, sx, sy, ex, ey, mm(PIPE_ARROW_POINTER_LENGTH), mm(PIPE_ARROW_POINTER_WIDTH));
+    // Flow-direction arrowhead at the pipe's midpoint (matches PipeElement.tsx's canvas
+    // render — see getPipeMidpointArrow) rather than terminating the line at its endpoint.
+    const arrow = getPipeMidpointArrow(pipe.startX, pipe.startY, pipe.endX, pipe.endY, PIPE_ARROW_POINTER_LENGTH);
+    drawArrowhead(
+      pdf, mm(arrow.tailX), mm(arrow.tailY), mm(arrow.midX), mm(arrow.midY),
+      mm(PIPE_ARROW_POINTER_LENGTH), mm(PIPE_ARROW_POINTER_WIDTH),
+    );
+
+    if (pipe.diameterLabel) {
+      const anchor = getPipeDiameterLabelAnchor(pipe.startX, pipe.startY, pipe.endX, pipe.endY, PIPE_DIAMETER_LABEL_OFFSET);
+      pdf.setFontSize(pt(PIPE_DIAMETER_LABEL_FONT_SIZE));
+      pdf.setTextColor(color);
+      pdf.text(`Ø${pipe.diameterLabel}`, mm(anchor.x), mm(anchor.y), {
+        align: anchor.align, baseline: anchor.vAlign,
+      });
+    }
   }
 }
 
@@ -476,7 +516,7 @@ async function drawSymbols(
     const svgEl = template.cloneNode(true) as SVGElement;
     if (TINT_SYMBOL_IDS.has(el.symbolId)) {
       const tint = getElbowTeeTint(el, elements, pipes);
-      if (tint) recolorSvgStroke(svgEl, getPipeDrawStyle(tint, false).color);
+      if (tint) recolorSvgStroke(svgEl, getPipeDrawStyle(tint.pipeType, false, tint.customColor).color);
     }
 
     const mirror = (el.scaleX ?? 1) === -1 && shouldMirrorSymbolImage(el.symbolId);
@@ -489,6 +529,18 @@ async function drawSymbols(
     } catch (err) {
       // One malformed symbol shouldn't take down the whole export — skip it and keep going.
       console.error(`PDF export: failed to place symbol "${el.symbolId}" (element ${el.id}):`, err);
+    }
+
+    // Dynamic value label — matches ElementsLayer.tsx's canvas render (same shared
+    // constants) so the marker's declared elevation is actually visible on the exported
+    // drawing, not just on-screen.
+    if (el.symbolId === 'highest_direct_supply_fitting') {
+      pdf.setFontSize(pt(HIGHEST_FITTING_LABEL_FONT_SIZE));
+      pdf.setTextColor(HIGHEST_FITTING_LABEL_COLOR);
+      pdf.setFont('helvetica', 'bold');
+      const text = `Highest Direct Supply Fitting: ${el.highestFittingElevationM ?? '—'} m`;
+      pdf.text(text, mm(el.x + el.width / 2 + 2), mm(el.y - 1.5), { baseline: 'bottom' });
+      pdf.setFont('helvetica', 'normal');
     }
   }
 }

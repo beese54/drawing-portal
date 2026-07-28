@@ -9,6 +9,22 @@ import { getElementPorts, getPortPosition, findElementPortIndexAt } from '../uti
 // unrelated pipe endpoint that just happens to be close by.
 const PORT_MATCH = 0.5;
 
+/** Builds a new pipe carrying through `orig`'s "identity" fields (pipeType, customColor)
+ *  with a fresh id — the shared shape for every pipe-splitting operation (inserting a
+ *  fitting or backflow assembly mid-pipe). Centralizing this means a future per-pipe
+ *  field only needs adding here once, instead of by hand at every split call site (the
+ *  exact bug class that already required customColor to be added to 5 separate literals
+ *  when it was introduced).
+ *
+ *  diameterLabel is deliberately NOT auto-copied here (unlike pipeType/customColor) —
+ *  callers pass it explicitly only on the split segment that should keep it, since
+ *  copying it onto both halves of a split renders two identical "ØXXmm" text labels
+ *  clustered around the newly inserted fitting, which reads as a duplication bug rather
+ *  than two pipes sharing a color. */
+function derivePipe(orig: PipeElement, overrides: Omit<PipeElement, 'id' | 'pipeType' | 'customColor'>): PipeElement {
+  return { id: crypto.randomUUID(), pipeType: orig.pipeType, customColor: orig.customColor, ...overrides };
+}
+
 /**
  * Single sync point for "an element moved/rotated/flipped/resized — bring its
  * connected pipe endpoints along". Any pipe endpoint bound to `newElement`'s id
@@ -87,7 +103,7 @@ function applyDcvAssemblies(
     if (targetPipeId) {
       const orig = pipes.find((p) => p.id === targetPipeId);
       if (orig) {
-        const pipeA: PipeElement = { id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY };
+        const pipeA = derivePipe(orig, { startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY, diameterLabel: orig.diameterLabel });
         pipes = [...pipes.filter((p) => p.id !== targetPipeId), pipeA];
       }
     }
@@ -122,12 +138,17 @@ interface CanvasStore {
   updateElementPosition: (id: string, x: number, y: number) => void;
   moveElement: (id: string, newX: number, newY: number) => void;
   moveMultiple: (elementIds: string[], dx: number, dy: number, pipeIds?: string[], annotationIds?: string[]) => void;
+  /** Sets (or, with `null`, resets to "Automatic") the color override for every pipe id given. */
+  setPipesCustomColor: (pipeIds: string[], customColor: string | null) => void;
+  /** Sets (or, with `null`, clears) the diameter label for every pipe id given. */
+  setPipesDiameterLabel: (pipeIds: string[], diameterLabel: string | null) => void;
   updateElementRotation: (id: string, rotation: number) => void;
   updateElementScaleX: (id: string, scaleX: number) => void;
   updateFittingType: (id: string, fittingType: string) => void;
   updateEfficiencyRating: (id: string, rating: 1 | 2 | 3 | 4) => void;
   updateLongBathCapacity: (id: string, capacityL: number) => void;
   updatePumpRatedHead: (id: string, headM: number | undefined) => void;
+  updateHighestFittingElevation: (id: string, elevationM: number | undefined) => void;
   addPipe: (pipe: PipeElement) => void;
   updatePipeEndpoints: (id: string, startX: number, startY: number, endX: number, endY: number) => void;
   insertElementOnPipe: (pipeId: string, element: CanvasElement, snapX: number, snapY: number, terminatePipe?: boolean) => void;
@@ -285,6 +306,30 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
       });
     },
 
+    setPipesCustomColor: (pipeIds, customColor) => {
+      pushHistory();
+      set((state) => {
+        const idSet = new Set(pipeIds);
+        return {
+          pipes: state.pipes.map((p) =>
+            idSet.has(p.id) ? { ...p, customColor: customColor === null ? undefined : customColor } : p
+          ),
+        };
+      });
+    },
+
+    setPipesDiameterLabel: (pipeIds, diameterLabel) => {
+      pushHistory();
+      set((state) => {
+        const idSet = new Set(pipeIds);
+        return {
+          pipes: state.pipes.map((p) =>
+            idSet.has(p.id) ? { ...p, diameterLabel: diameterLabel === null ? undefined : diameterLabel } : p
+          ),
+        };
+      });
+    },
+
     updateElementRotation: (id, rotation) => {
       pushHistory();
       set((state) => {
@@ -331,6 +376,11 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
       set((state) => ({ elements: state.elements.map((el) => el.id === id ? { ...el, pumpRatedHeadM } : el) }));
     },
 
+    updateHighestFittingElevation: (id, highestFittingElevationM) => {
+      pushHistory();
+      set((state) => ({ elements: state.elements.map((el) => el.id === id ? { ...el, highestFittingElevationM } : el) }));
+    },
+
     addPipe: (pipe) => {
       pushHistory();
       set((state) => ({ pipes: [...state.pipes, pipe] }));
@@ -347,18 +397,21 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         const orig = state.pipes.find((p) => p.id === pipeId);
         if (!orig) return { elements: [...state.elements, element] };
         const portIndex = findElementPortIndexAt(element, snapX, snapY);
-        const pipeA: PipeElement = {
-          id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY,
+        const pipeA = derivePipe(orig, {
+          startX: orig.startX, startY: orig.startY, endX: snapX, endY: snapY,
           startElementId: orig.startElementId, startPortIndex: orig.startPortIndex,
           endElementId: element.id, endPortIndex: portIndex,
-        };
+          diameterLabel: orig.diameterLabel,
+        });
         const newPipes = terminatePipe
           ? [...state.pipes.filter((p) => p.id !== pipeId), pipeA]
-          : [...state.pipes.filter((p) => p.id !== pipeId), pipeA, {
-              id: crypto.randomUUID(), pipeType: orig.pipeType, startX: snapX, startY: snapY, endX: orig.endX, endY: orig.endY,
+          : [...state.pipes.filter((p) => p.id !== pipeId), pipeA, derivePipe(orig, {
+              startX: snapX, startY: snapY, endX: orig.endX, endY: orig.endY,
               startElementId: element.id, startPortIndex: portIndex,
               endElementId: orig.endElementId, endPortIndex: orig.endPortIndex,
-            } as PipeElement];
+              // diameterLabel intentionally omitted — keeping it here too would duplicate
+              // the "ØXXmm" label right next to the newly inserted element (see derivePipe).
+            })];
         return { elements: [...state.elements, element], pipes: newPipes };
       });
     },
@@ -374,20 +427,23 @@ export const useCanvasStore = create<CanvasStore>()(persist((set, get) => {
         const inletPortIndex = findElementPortIndexAt(element, inletPos.x, inletPos.y);
         const outletPortIndex = findElementPortIndexAt(element, outletPos.x, outletPos.y);
         const pipeALen = Math.hypot(inletPos.x - orig.startX, inletPos.y - orig.startY);
-        if (pipeALen > 1) newPipes.push({
-          id: crypto.randomUUID(), pipeType: orig.pipeType, startX: orig.startX, startY: orig.startY, endX: inletPos.x, endY: inletPos.y,
+        if (pipeALen > 1) newPipes.push(derivePipe(orig, {
+          startX: orig.startX, startY: orig.startY, endX: inletPos.x, endY: inletPos.y,
           startElementId: orig.startElementId, startPortIndex: orig.startPortIndex,
           endElementId: element.id, endPortIndex: inletPortIndex,
-        });
+          diameterLabel: orig.diameterLabel,
+        }));
         const pipeBdx = orig.endX - outletPos.x;
         const pipeBdy = orig.endY - outletPos.y;
         const pipeBLen = Math.hypot(pipeBdx, pipeBdy);
         const sameDir = pipeBdx * origDx + pipeBdy * origDy >= 0;
-        if (pipeBLen > 1 && sameDir) newPipes.push({
-          id: crypto.randomUUID(), pipeType: orig.pipeType, startX: outletPos.x, startY: outletPos.y, endX: orig.endX, endY: orig.endY,
+        if (pipeBLen > 1 && sameDir) newPipes.push(derivePipe(orig, {
+          startX: outletPos.x, startY: outletPos.y, endX: orig.endX, endY: orig.endY,
           startElementId: element.id, startPortIndex: outletPortIndex,
           endElementId: orig.endElementId, endPortIndex: orig.endPortIndex,
-        });
+          // diameterLabel intentionally omitted — keeping it here too would duplicate
+          // the "ØXXmm" label right next to the newly inserted element (see derivePipe).
+        }));
         return { elements: [...state.elements, element], pipes: newPipes };
       });
     },

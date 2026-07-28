@@ -13,5 +13,6 @@ export function getOrderedChecks(result: EvaluationResponse): CheckResult[] {
     result.check5_long_bath,
     result.check6_hot_water,
     result.check7_section3_pipes,
+    result.check8_highest_fitting,
   ].sort((a, b) => (CHECK_STATUS_PRIORITY[a.status] ?? 4) - (CHECK_STATUS_PRIORITY[b.status] ?? 4));
 }
