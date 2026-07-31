@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header
 from fastapi.responses import FileResponse
 
 from app.models.symbol import SymbolList, SymbolMeta, SymbolRenameRequest, SymbolCreateResponse
@@ -7,6 +7,14 @@ from app.config import settings
 from app.schemas.manifest import read_manifest
 
 router = APIRouter()
+
+
+def require_symbols_admin_key(x_admin_key: str | None = Header(default=None)) -> None:
+    # Fails closed: with no key configured, these endpoints are unusable rather
+    # than defaulting open. No frontend flow calls them today (custom-symbol
+    # upload/rename/delete has no UI) — see tasks/security_audit.md F1.
+    if not settings.symbols_admin_key or x_admin_key != settings.symbols_admin_key:
+        raise HTTPException(status_code=401, detail="Missing or invalid admin key")
 
 
 @router.get("", response_model=SymbolList)
@@ -44,7 +52,12 @@ async def get_symbol_image(symbol_id: str):
     return FileResponse(str(path), media_type=media_type)
 
 
-@router.post("", response_model=SymbolCreateResponse, status_code=201)
+@router.post(
+    "",
+    response_model=SymbolCreateResponse,
+    status_code=201,
+    dependencies=[Depends(require_symbols_admin_key)],
+)
 async def upload_symbol(
     file: UploadFile = File(...),
     name: str = Form(...),
@@ -52,7 +65,11 @@ async def upload_symbol(
     return await symbol_service.create_symbol(file, name)
 
 
-@router.patch("/{symbol_id}", response_model=SymbolMeta)
+@router.patch(
+    "/{symbol_id}",
+    response_model=SymbolMeta,
+    dependencies=[Depends(require_symbols_admin_key)],
+)
 async def rename_symbol(symbol_id: str, body: SymbolRenameRequest):
     updated = symbol_service.rename_symbol(symbol_id, body.name)
     from datetime import datetime, timezone
@@ -74,6 +91,10 @@ async def rename_symbol(symbol_id: str, body: SymbolRenameRequest):
     )
 
 
-@router.delete("/{symbol_id}", status_code=204)
+@router.delete(
+    "/{symbol_id}",
+    status_code=204,
+    dependencies=[Depends(require_symbols_admin_key)],
+)
 async def delete_symbol(symbol_id: str):
     symbol_service.delete_symbol(symbol_id)
