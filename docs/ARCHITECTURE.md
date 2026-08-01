@@ -32,13 +32,16 @@ there are not implemented).
                             │              │                │
                             └──────────────┼────────────────┘
                                            │
-                          ┌────────────────┼──────────────────┐
-                          ▼                                    ▼
-              PersistentVolumeClaim                    Slack webhook
-              (ReadWriteOnce, 1Gi)                      (feedback only,
-              custom symbol files +                     best-effort,
-              manifest.json                             admin-configured URL)
+                                           ▼
+                              PersistentVolumeClaim
+                              (ReadWriteOnce, 1Gi)
+                              custom symbol files +
+                              manifest.json
 ```
+
+The app makes **no outbound network calls of any kind**. A Slack feedback
+webhook was the sole exception; it was removed on 2026-08-01, along with
+`httpx`, the only HTTP client in the dependency list.
 
 There is no database anywhere in this app. State lives in two places only:
 the symbol manifest/files on the PVC, and whatever the browser holds
@@ -99,8 +102,9 @@ audit, `tasks/security_audit.md`, for the implications).
 
 **Feedback:** `POST /api/feedback` — validated Pydantic payload, printed to
 stdout (durable via the platform's log stream, since the container
-filesystem is read-only in production) and best-effort forwarded to a Slack
-webhook.
+filesystem is read-only in production). Nothing leaves the platform: the
+free-text fields are the one place a submitter could paste arbitrary
+content, so keeping them inside the boundary is deliberate.
 
 ## 5. Deployment topology
 
@@ -135,11 +139,17 @@ webhook.
 
 ## 6. Trust / network boundaries
 
-See `tasks/security_audit.md` Phase 0 for the full numbered list (14
-boundaries: 8 authenticated-nowhere HTTP endpoints, health check, static
-mount, the outbound Slack webhook, the client-local JSON import, and the two
-CI/CD → registry → runtime supply-chain hops). The single most important
-fact for a reviewer: **every HTTP endpoint in this app is unauthenticated**
+See `tasks/security_audit.md` Phase 0 for the full numbered list. That audit
+was written against 14 boundaries; **boundary #11, the outbound Slack
+webhook, no longer exists** (removed 2026-08-01), leaving 13: 8 HTTP
+endpoints, health check, static mount, the client-local JSON import, and the
+two CI/CD → registry → runtime supply-chain hops. The audit is kept as a
+dated record rather than edited retroactively.
+
+Note that the audit also predates the `X-Admin-Key` guard now on
+`POST`/`PATCH`/`DELETE /api/symbols` — see its own Remediation Log. The
+single most important fact for a reviewer: **every other HTTP endpoint in
+this app is unauthenticated**
 — there is no login, no API key, no session, no user concept anywhere in
 the codebase.
 
@@ -159,9 +169,9 @@ This document only reflects what's checked into the repository. It does
   any Cloudflare-side security features (WAF rules, rate limiting, bot
   management) live in a Cloudflare account this project has no visibility
   into.
-- **Runtime secrets storage** on the GovPaaS platform itself — env vars
-  like `SLACK_FEEDBACK_WEBHOOK_URL` are injected at container runtime per a
-  Dockerfile comment, but the actual secrets-management mechanism (vault,
+- **Runtime secrets storage** on the GovPaaS platform itself — the app's one
+  remaining secret, `SYMBOLS_ADMIN_KEY`, is injected at container runtime per
+  a Dockerfile comment, but the actual secrets-management mechanism (vault,
   platform secret store, etc.) is a platform feature, not app code.
 
 These gaps are the natural handoff points to a cyber/infra team — they

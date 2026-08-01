@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     static_path: str = _DEFAULT_STATIC_PATH
     allowed_origins: str = "http://localhost:3000,http://localhost:5173,https://spd-fe-2.app.tc1.airbase.sg"
     app_version: str = "1.0.0"
-    slack_feedback_webhook_url: str = ""
     symbols_admin_key: str = ""
 
     @property

@@ -4,9 +4,6 @@
 
 - **16 symbols**: gate valve, check valve, pump, flow meter, tee junction, elbow/bend, reducer, water heater, water tank, water meter, water fittings, fire hydrant, sump/manhole, water pipe, hot water pipe, cold water pipe
 - **3 compliance checks**: Reg 28 (backflow), HB 2.2.1 (mode of supply — thresholds later corrected), HB 7.2.1 (MWELS)
-- Hydraulic analysis — network pressure solver
-- RAG knowledge base — ChromaDB over PUB Handbook & Regulations
-- Dual LLM — GPT-4o-mini and Qwen 2.5-72B
 - Symbol manager — upload custom SVG/PNG
 - Docker / K8s deployment configs
 
@@ -111,8 +108,9 @@ Ran a `/code-review` pass on the pipe-diameter-label + Highest Direct Supply Fit
 
 ## Pending / What's Next
 
-- [ ] **Verify:** RAG knowledge base and AI evaluation still functional on deployed instance?
-- [ ] **Verify:** Symbol manager (custom SVG upload)
+- [ ] **Verify:** Symbol manager (custom SVG upload) — needs `SYMBOLS_ADMIN_KEY` set in the GovPaaS console
+- [ ] Add the official Singapore lion-head crest at `frontend/public/sg-crest.svg` (see that folder's README) — the masthead renders text-only until then
+- [ ] Publish a real support/contact channel (DSS BD-9) — the placeholder "Report a Bug / Feedback" link was removed, not replaced
 - [ ] Auto-insert for vb_and_check_valve rule (bidet spray) — done; consider extending double-click auto-insert pattern to other warning types (MWELS rating, long bath capacity) if useful
 - [ ] _(add items here)_
 

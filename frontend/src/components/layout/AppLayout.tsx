@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CanvasPane } from './CanvasPane';
 import { ControlPane } from './ControlPane';
+import { Masthead } from './Masthead';
 import { SheetSetupModal } from '../common/SheetSetupModal';
 import { ToastNotification, DcvToastNotification } from '../common/ToastNotification';
 import { useUiStore } from '../../store/uiStore';
@@ -12,6 +13,9 @@ export function AppLayout() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      {/* Official Government Banner — must stay the topmost component (DSS TL-3) */}
+      <Masthead />
+
       {/* Header */}
       <div style={{
         height: 48, background: '#1a3a5c', color: '#fff',

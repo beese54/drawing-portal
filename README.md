@@ -10,7 +10,11 @@ An interactive web application for designing water pipe schematics and running A
 
 **Stage 1 — Draw:** Design water pipe schematics on a real-world elevation (mRL) canvas using drag-and-drop symbols. Export structured JSON metadata for downstream processing.
 
-**Stage 2 — Evaluate:** Submit your schematic for deterministic compliance checking. The system parses the schematic JSON and runs 7 rule checks against Regulation 28, SS 636, and the PUB Handbook 2022.
+**Stage 2 — Evaluate:** Submit your schematic for deterministic compliance checking. The system parses the schematic JSON and runs 8 rule checks against Regulation 28, SS 636, and the PUB Handbook 2022.
+
+> **No AI is involved.** Every compliance check is a deterministic Python
+> function. The `backend/app/agents/` directory is named for historical
+> reasons and contains no model calls of any kind.
 
 ---
 
@@ -18,13 +22,11 @@ An interactive web application for designing water pipe schematics and running A
 
 | Feature | Description |
 |---|---|
-| Drawing Canvas | Drag-and-drop schematic editor with 67 built-in water system symbols |
+| Drawing Canvas | Drag-and-drop schematic editor with 70 built-in water system symbols |
 | Real-world Elevation | Y-axis maps directly to mRL (metres above sea level) |
-| 7 Compliance Checks | Reg 28 backflow, supply mode, MWELS water efficiency, tank/pump rules, long bath, hot water contamination, pipe materials |
-| RAG Knowledge Base | Retrieval-augmented Q&A over PUB Handbook 2022 and Public Utilities Regulations |
-| Dual LLM Support | Switch between OpenAI GPT-4o-mini and Together AI Qwen2.5-72B |
-| Token Metrics | Live per-query cost, latency, and token tracking |
-| Symbol Manager | Upload custom SVG/PNG symbols alongside built-in defaults |
+| 8 Compliance Checks | Reg 28 backflow, supply mode, MWELS water efficiency, tank/pump rules, long bath, hot water contamination, pipe materials, highest direct-supply fitting |
+| Report Export | Word (.docx) compliance report, PDF drawing, and structured JSON metadata |
+| Symbol Manager | Upload custom SVG/PNG symbols alongside built-in defaults (admin-key gated) |
 | Docker Ready | Full multi-stage Docker build for both development (hot reload) and production (Nginx) |
 
 ---
@@ -52,8 +54,8 @@ An interactive web application for designing water pipe schematics and running A
 
 ### Prerequisites
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
-- OpenAI API key ([get one here](https://platform.openai.com/api-keys))
-- Together AI API key ([free tier available](https://api.together.xyz)) — required for Qwen model
+
+No third-party API keys are needed — the app calls no external AI service.
 
 ### 1. Clone the repo
 
@@ -62,11 +64,11 @@ git clone https://github.com/your-username/schematic-drawing-portal.git
 cd schematic-drawing-portal
 ```
 
-### 2. Set up API keys
+### 2. Set up environment
 
 ```bash
 cp backend/.env.example backend/.env
-# Edit backend/.env and fill in your OPENAI_API_KEY and TOGETHER_API_KEY
+# Optional: set SYMBOLS_ADMIN_KEY to enable custom-symbol management.
 ```
 
 ### 3. Run (development — hot reload)
@@ -96,8 +98,7 @@ docker-compose -f docker-compose.yml up --build
 
 | Variable | Required | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | Yes (for GPT-4o-mini) | OpenAI API key |
-| `TOGETHER_API_KEY` | Yes (for Qwen 2.5-72B) | Together AI API key |
+| `SYMBOLS_ADMIN_KEY` | No | Enables `POST`/`PATCH`/`DELETE /api/symbols`. Unset = those routes fail closed with 401 |
 | `SYMBOLS_PATH` | No (default: `/app/symbols`) | Path to symbols directory inside container |
 | `ALLOWED_ORIGINS` | No | Comma-separated CORS origins |
 
@@ -160,13 +161,11 @@ The system exports the schematic JSON automatically, sends it to the backend, an
 | LONG_BATH — Long Bath | SS 636 | Capacity ≤250 L (no provisions); >250 L requires TMV, recirculation, 40 mm overflow |
 | HOT_WATER — Hot Water | SS 636 §6 | Supply mode consistency, heater protection (CV+PRV), appliance double check valves, bidet spray vacuum breaker |
 | SEC7_MATERIALS — Pipe Materials | SS 636 §7 | LP/PE acknowledgment that all pipes/fittings comply with SS 636 Table 1 |
+| HIGHEST_FITTING — Highest Direct Supply Fitting | HB 2.2.1 | Exactly one declared highest direct-supply fitting marker with an AMSL elevation, when a direct-supply fitting is present |
 
-### RAG Knowledge Base
-The Knowledge tab provides Q&A grounded in two official documents loaded into a ChromaDB vector store:
-- *PUB Handbook on Application for Water Supply 2022*
-- *Public Utilities (Water Supply) Regulations*
-
-To use a custom document set, drop PDF or DOCX files into `backend/knowledge/` and restart the container.
+Each check is a plain Python function under `backend/app/agents/` with unit
+tests in `backend/tests/`. There is no model, no vector store, and no
+external API call in the evaluation path.
 
 ---
 
@@ -189,7 +188,7 @@ schematic-drawing-portal/
 │   └── app/
 │       ├── main.py                   # FastAPI entry point
 │       ├── config.py                 # Settings & environment
-│       ├── agents/                   # Compliance checks, RAG, chat, LLM router
+│       ├── agents/                   # Deterministic compliance-check functions (no LLM)
 │       ├── routers/                  # API endpoints (evaluate, chat, symbols, health)
 │       ├── models/                   # Pydantic data models
 │       ├── schemas/                  # Request/response schemas
@@ -198,7 +197,6 @@ schematic-drawing-portal/
 │       ├── default/                  # 67 built-in SVG water system symbols
 │       ├── custom/                   # User-uploaded symbols (gitignored)
 │       └── manifest.json             # Symbol registry
-│   └── knowledge/                    # Regulatory PDFs for RAG (gitignored)
 │
 ├── frontend/
 │   ├── Dockerfile                    # Production (Node 20 → Nginx multi-stage)
@@ -292,8 +290,8 @@ kubectl apply -f k8s/app/
 |---|---|
 | Frontend | React 18, TypeScript, Vite, Konva.js (canvas), Zustand (state), Axios |
 | Backend | Python 3.12, FastAPI, Uvicorn |
-| AI / LLM | OpenAI GPT-4o-mini, Together AI Qwen2.5-72B |
-| RAG | ChromaDB, LangChain document loaders |
+| Compliance engine | Plain Python — deterministic rule functions, no AI |
+| Report export | python-docx (Word), jsPDF + svg2pdf (PDF), Pillow (image annotation) |
 | Containerisation | Docker, Docker Compose, Nginx |
 | Orchestration (optional) | Kubernetes |
 

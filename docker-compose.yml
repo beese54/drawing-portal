@@ -9,8 +9,6 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/symbols:/app/symbols
-      - ./backend/chroma_db:/app/chroma_db
-      - ./backend/knowledge:/app/knowledge
     env_file:
       - ./backend/.env
     environment:

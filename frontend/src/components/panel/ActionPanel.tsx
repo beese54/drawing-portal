@@ -24,9 +24,6 @@ interface ConnectionWarning {
   issues: Array<{ elementId: string; elementName: string; portLabel: string }>;
 }
 
-// TODO: replace with the real FormSG link once it's ready.
-const BUG_REPORT_URL = 'https://www.google.com/';
-
 // Personal escape hatch for the admin's own testing — visit once with
 // ?skipFeedback=1 and it's remembered in this browser via localStorage.
 // Does not affect other testers.
@@ -341,20 +338,10 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
         Clear Canvas
       </button>
 
-      <div style={{ borderTop: '1px solid #e8e8e8', paddingTop: 12, marginTop: 12 }} />
-      <a
-        href={BUG_REPORT_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          display: 'block', width: '100%', padding: '7px 12px', border: '1px solid #bbb',
-          borderRadius: 6, background: '#fff', color: '#374151',
-          cursor: 'pointer', fontSize: 13, textAlign: 'center', boxSizing: 'border-box',
-          textDecoration: 'none',
-        }}
-      >
-        Report a Bug / Feedback
-      </a>
+      {/* A "Report a Bug / Feedback" link sat here, pointing at an unreplaced
+          placeholder URL. Removed rather than left misleading. The in-app
+          feedback dialog (FeedbackModal) remains the feedback route; a real
+          published support channel is still outstanding — DSS control BD-9. */}
 
       <ConfirmDialog
         isOpen={confirmClear}

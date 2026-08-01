@@ -1,13 +1,19 @@
 """
 feedback.py — temporary early-tester feedback collection.
 
-POST /api/feedback   store a submission
+POST /api/feedback   record a submission
 
 Airbase's container filesystem isn't writable (confirmed via
 OperationalError('unable to open database file') in prod logs), so there's
-no on-disk persistence here. Durability comes from two independent
-best-effort channels instead: a stdout print (lands in Airbase's log
-stream) and a Slack webhook post for real-time visibility.
+no on-disk persistence here. Durability comes from a stdout print, which
+lands in the platform's log stream.
+
+Submissions are deliberately not forwarded anywhere off-platform. An earlier
+version posted them to a Slack webhook; that was removed on 2026-08-01 so
+that free-text feedback — the one field a submitter could paste anything
+into — stays inside the platform boundary. This is what lets the service
+hold an Official (Open) classification without a caveat about third-party
+egress, and it removed the app's only outbound HTTP call.
 """
 
 from __future__ import annotations
@@ -15,11 +21,8 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-
-from app.config import settings
 
 router = APIRouter()
 
@@ -36,31 +39,8 @@ class FeedbackSubmission(BaseModel):
 async def submit_feedback(submission: FeedbackSubmission) -> dict:
     submitted_at = datetime.now(timezone.utc).isoformat()
 
-    # Print first and unconditionally — this is the durable backstop (log
-    # stream survives even if the container's disk doesn't), so it must not
-    # be skipped or fail just because the Slack post below can't reach out.
+    # The durable record. The log stream survives even when the container's
+    # disk doesn't, so this must not be skipped or made conditional.
     print(f"FEEDBACK_SUBMISSION {submitted_at} {json.dumps(submission.model_dump())}")
-
-    # Best-effort: real-time visibility without depending on disk or having
-    # to dig submissions out of routine request-log noise.
-    if settings.slack_feedback_webhook_url:
-        try:
-            lines = [
-                f"Overall satisfaction: {submission.overall_satisfaction}/5",
-                f"Likelihood to use again: {submission.likelihood_to_use_again}/5",
-                f"Ease of use: {submission.ease_of_use}/5",
-            ]
-            if submission.confusion:
-                lines.append(f"What confused them: {submission.confusion}")
-            if submission.wished_features:
-                lines.append(f"Wished features: {submission.wished_features}")
-
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                await client.post(
-                    settings.slack_feedback_webhook_url,
-                    json={"text": "\n".join(lines)},
-                )
-        except Exception as e:
-            print(f"FEEDBACK_SLACK_POST_FAILED {submitted_at} {e!r}")
 
     return {"status": "ok"}

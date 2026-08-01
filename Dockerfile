@@ -25,8 +25,8 @@ COPY backend/app/ ./app/
 COPY backend/symbols/ ./symbols/
 COPY --from=frontend-build /fe/dist/ ./static/
 
-# Secrets (OPENAI_API_KEY, TOGETHER_API_KEY, SLACK_FEEDBACK_WEBHOOK_URL, etc.)
-# are injected at container runtime by the deploy platform — never baked in.
+# Secrets (SYMBOLS_ADMIN_KEY) are injected at container runtime by the
+# deploy platform — never baked in.
 ENV ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 
 RUN groupadd --system app && useradd --system --gid app --home /app app \

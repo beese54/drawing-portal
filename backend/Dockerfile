@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
 COPY symbols/ ./symbols/
 
-# Secrets (OPENAI_API_KEY, TOGETHER_API_KEY, SLACK_FEEDBACK_WEBHOOK_URL, etc.)
+# Secrets (SYMBOLS_ADMIN_KEY)
 # are injected at container runtime by the deploy platform (docker run -e,
 # a k8s Secret, ...) — never baked into the image. pydantic-settings
 # (app/config.py) reads process environment variables directly, so no code
