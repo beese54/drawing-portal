@@ -106,6 +106,23 @@ that path outright rather than mitigating it. The service now has no
 feedback or support channel — publishing one is tracked as DSS control
 BD-9.
 
+## 4a. Logging and the container filesystem
+
+**The production container filesystem is not writable.** This was discovered
+empirically: an early SQLite-backed feedback store failed in production with
+`OperationalError('unable to open database file')`, which is why that
+feature was redesigned around stdout before being removed altogether. The
+property holds regardless of the feedback feature and is relied on by the
+security posture — but note it is a platform behaviour, not an asserted one:
+the in-repo k8s manifests set no `securityContext` and no
+`readOnlyRootFilesystem`.
+
+**The application emits no logs of its own.** As of 2026-08-02 there is no
+`print`, no `logger` call and no `logging` configuration anywhere in
+`backend/app/`. The only log output is uvicorn's default access log — plain
+text, one line per request, no structured fields and no application events.
+Anything resembling an audit trail would have to be built from scratch.
+
 ## 5. Deployment topology
 
 - **Build:** a single root-level multi-stage `Dockerfile` — stage 1
