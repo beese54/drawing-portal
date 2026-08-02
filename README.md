@@ -1,6 +1,6 @@
 # Schematic Drawing Portal
 
-An interactive web application for designing water pipe schematics and running AI-powered compliance evaluations against Singapore's PUB water supply regulations.
+An interactive web application for designing water pipe schematics and running rule-based compliance evaluations against Singapore's PUB water supply regulations. Every check is a deterministic Python function — no AI, no model calls, no external inference service.
 
 ![Canvas Screenshot](docs/screenshots/evaluate_tab.jpg)
 
@@ -39,13 +39,13 @@ An interactive web application for designing water pipe schematics and running A
 ### Evaluate Schematic Tab
 ![Evaluate Schematic](docs/screenshots/evaluate_tab.jpg)
 
-### AI Compliance Report — Reg 28 (Backflow Prevention)
+### Compliance Report — Reg 28 (Backflow Prevention)
 ![Reg 28 Backflow Prevention](docs/screenshots/compliance_reg28.jpg)
 
-### AI Compliance Report — HB 2.2.1 (Mode of Supply)
+### Compliance Report — HB 2.2.1 (Mode of Supply)
 ![Mode of Supply](docs/screenshots/mode_of_supply.jpg)
 
-### AI Compliance Report — HB 7.2.1 (WELS Water Efficiency)
+### Compliance Report — HB 7.2.1 (WELS Water Efficiency)
 ![WELS Table](docs/screenshots/wels_table.jpg)
 
 ---

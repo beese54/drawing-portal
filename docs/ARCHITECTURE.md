@@ -3,8 +3,8 @@
 For PUB (Singapore's national water agency), deployed on GovPaaS
 (Northflank-based) at `wsi-drawing-portal.pub.gov.sg`. Written to be handed
 directly to a cyber/security team; grounded in the actual code and deploy
-config, not the README's aspirational feature list (RAG/dual-LLM described
-there are not implemented).
+config rather than any feature list. The service performs no AI or model
+inference of any kind — see §3.
 
 ## 1. Component overview
 
