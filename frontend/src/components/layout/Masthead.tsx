@@ -15,7 +15,7 @@ import { useState } from 'react';
  * The Singapore lion-head crest is NOT bundled — drop the official asset at
  * frontend/public/sg-crest.svg and it appears automatically. The banner is
  * fully readable and compliant on text alone until then; see
- * frontend/public/README.md.
+ * frontend/PUBLIC_ASSETS.md.
  *
  * Colours are contrast-checked: #333 on #f0f0f0 is 11.1:1 and #1a3a5c on
  * #f0f0f0 is 9.8:1, both well clear of the 4.5:1 minimum (WP-13).

@@ -1,4 +1,4 @@
-# Static assets
+# Static assets (frontend/public/)
 
 Files here are copied to the site root by Vite at build time and are served
 as `/<filename>`.

@@ -26,10 +26,10 @@ export function AppLayout() {
         {/* Agency logo, linked to the PUB homepage — DSS TL-3's companion control TL-2.
             Opens in a new tab deliberately: a drawing lives only in browser memory and is
             never persisted server-side, so a same-tab navigation would discard unsaved work.
-            The official PUB logo is NOT bundled — pub.gov.sg Terms of Use require PUB's prior
-            written consent to reproduce it. Drop the asset supplied by PUB comms at
-            frontend/public/pub-logo.svg and it appears automatically; until then this renders
-            as a text wordmark. See frontend/public/README.md. */}
+            The logo is the official artwork from pub.gov.sg, bundled at
+            frontend/public/pub-logo.svg. Written confirmation of approved use from PUB comms
+            is still outstanding — see frontend/PUBLIC_ASSETS.md. If the file is absent this
+            falls back to a plain "PUB" text wordmark, keeping the link intact. */}
         <a
           href="https://www.pub.gov.sg"
           target="_blank"

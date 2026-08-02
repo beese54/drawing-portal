@@ -1,0 +1,81 @@
+# Schematic Drawing Portal — Airbase / GovPaaS deployment image.
+#
+# One container serving both the API and the React SPA from a single origin,
+# replacing the previous split deployment (soar/sdp-be + soar/spd-fe-2). Same
+# origin means no CORS handling and no VITE_API_BASE_URL to keep in sync — the
+# frontend calls relative /api/* paths.
+#
+# Airbase requires linux/amd64 images and injects $PORT at runtime.
+#
+# IMPORTANT: always build with a UNIQUE tag. Airbase's registry serves the
+# cached image for a tag it has already seen, so reusing one deploys stale code
+# even when the build succeeded.
+#
+# Deploy (from the repository root, with Docker running):
+#   TIMESTAMP=$(date +%Y%m%d%H%M%S)
+#   docker build --platform linux/amd64 -f Dockerfile.airbase \
+#     -t "local.airbase.sg/drawing-portal:$TIMESTAMP" .
+#   airbase deploy --image "local.airbase.sg/drawing-portal:$TIMESTAMP" --yes
+#
+# This is separate from the root `Dockerfile`, which builds the combined image
+# published to ghcr.io by CI. Airbase does not pull from ghcr.io — it deploys
+# images built locally and pushed to its own registry — so the two exist for
+# different targets and must not be confused.
+
+# ── Stage 1: build the React frontend ────────────────────────────────────────
+FROM --platform=linux/amd64 node:20-slim AS frontend-builder
+WORKDIR /app/frontend
+
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci
+
+COPY frontend/ .
+# Empty on purpose: frontend/src/api/client.ts falls back to relative '/api/...'
+# paths when unset, which is what makes the single-origin deployment work.
+ARG VITE_API_BASE_URL=""
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+RUN npm run build
+# Output: /app/frontend/dist
+
+# ── Stage 2: runtime ─────────────────────────────────────────────────────────
+FROM --platform=linux/amd64 gdssingapore/airbase:demo-days
+WORKDIR /app
+USER root
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        python3.11 python3.11-venv python3.11-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1000 appuser
+
+RUN python3.11 -m venv /app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backend/ /app/backend/
+COPY --from=frontend-builder /app/frontend/dist /app/static
+
+COPY entrypoint.sh /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh \
+    && chmod +x /app/entrypoint.sh \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+# Consumed by backend/app/config.py (Settings.static_path / symbols_path).
+ENV STATIC_PATH=/app/static
+ENV SYMBOLS_PATH=/app/backend/symbols
+# Single origin, so the CORS allowlist is only needed for local development.
+ENV ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl --fail http://localhost:${PORT:-3000}/api/health || exit 1
+
+ENTRYPOINT ["/app/entrypoint.sh"]
