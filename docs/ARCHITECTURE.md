@@ -25,7 +25,6 @@ inference of any kind — see §3.
                             │  │ (uvicorn, port 8000)    │  │
                             │  │  /api/evaluate          │  │
                             │  │  /api/export/docx       │  │
-                            │  │  /api/feedback          │  │
                             │  │  /api/symbols/*         │  │
                             │  │  /api/health            │  │
                             │  └───────────┬────────────┘  │
@@ -52,8 +51,7 @@ as `.json` files by the user, not persisted server-side).
 
 - **`routers/`** — one file per HTTP surface: `symbols.py` (CRUD for symbol
   library), `evaluate.py` (compliance evaluation), `export.py` (DOCX report
-  generation), `feedback.py` (early-tester feedback), `health.py`
-  (liveness/readiness).
+  generation), `health.py` (liveness/readiness).
 - **`agents/`** — deterministic compliance-check functions, not LLM agents
   despite the name: `compliance_checks.py` (backflow prevention / supply
   mode / water efficiency), `tank_pump_check.py`, `long_bath_check.py`,
@@ -100,11 +98,13 @@ add/rename/delete custom symbols on the shared PVC — there is no per-user
 ownership, so this is a shared, mutable global resource (see the security
 audit, `tasks/security_audit.md`, for the implications).
 
-**Feedback:** `POST /api/feedback` — validated Pydantic payload, printed to
-stdout (durable via the platform's log stream, since the container
-filesystem is read-only in production). Nothing leaves the platform: the
-free-text fields are the one place a submitter could paste arbitrary
-content, so keeping them inside the boundary is deliberate.
+**Feedback:** removed 2026-08-02. `POST /api/feedback` and its modal
+collected three ratings and two free-text boxes, printed to stdout. The
+free-text fields were the only route by which arbitrary user-supplied text
+entered the service and reached the log stream; deleting the feature closes
+that path outright rather than mitigating it. The service now has no
+feedback or support channel — publishing one is tracked as DSS control
+BD-9.
 
 ## 5. Deployment topology
 

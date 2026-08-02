@@ -5,7 +5,6 @@ import { useJsonImport } from '../../hooks/useJsonImport';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { EvaluationModal } from '../common/EvaluationModal';
 import { AcknowledgmentModal } from '../common/AcknowledgmentModal';
-import { FeedbackModal } from '../common/FeedbackModal';
 import { TemplateModal } from '../common/TemplateModal';
 import { useUiStore } from '../../store/uiStore';
 import { getUnconnectedPorts } from '../../utils/portConnectionStatus';
@@ -22,18 +21,6 @@ interface ActionPanelProps {
 
 interface ConnectionWarning {
   issues: Array<{ elementId: string; elementName: string; portLabel: string }>;
-}
-
-// Personal escape hatch for the admin's own testing — visit once with
-// ?skipFeedback=1 and it's remembered in this browser via localStorage.
-// Does not affect other testers.
-function shouldSkipFeedback(): boolean {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('skipFeedback') === '1') {
-    localStorage.setItem('skipFeedback', '1');
-    return true;
-  }
-  return localStorage.getItem('skipFeedback') === '1';
 }
 
 export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
@@ -55,7 +42,6 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   const [showTemplates, setShowTemplates] = useState(false);
   const [connectionWarning, setConnectionWarning] = useState<ConnectionWarning | null>(null);
   const [showAckModal, setShowAckModal] = useState(false);
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [evalLoading, setEvalLoading] = useState(false);
   const [evalResult, setEvalResult] = useState<EvaluationResponse | null>(null);
   const [evalMetadata, setEvalMetadata] = useState<DrawingMetadata | null>(null);
@@ -81,11 +67,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   };
 
   const handleExportMetadata = () => {
-    if (shouldSkipFeedback()) {
-      runExportMetadataFlow();
-    } else {
-      setShowFeedbackModal(true);
-    }
+    runExportMetadataFlow();
   };
 
   const handleEvaluateClick = () => {
@@ -113,11 +95,6 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   const handleAckConfirm = (acks: AcknowledgmentFlags) => {
     setShowAckModal(false);
     runEvaluation(acks);
-  };
-
-  const handleFeedbackSubmit = () => {
-    setShowFeedbackModal(false);
-    runExportMetadataFlow();
   };
 
   const hasContent = elements.length > 0 || pipes.length > 0;
@@ -339,9 +316,12 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
       </button>
 
       {/* A "Report a Bug / Feedback" link sat here, pointing at an unreplaced
-          placeholder URL. Removed rather than left misleading. The in-app
-          feedback dialog (FeedbackModal) remains the feedback route; a real
-          published support channel is still outstanding — DSS control BD-9. */}
+          placeholder URL, and later an in-app feedback dialog. Both are gone:
+          the dialog's two free-text boxes were the only route by which
+          arbitrary user text entered the service and reached the log stream.
+          The service now has no feedback or support channel at all — DSS
+          controls BD-9, PR-5, TL-4, WU-9 and UU-1/UU-2 all depend on one
+          being published. */}
 
       <ConfirmDialog
         isOpen={confirmClear}
@@ -367,9 +347,6 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
           onConfirm={handleAckConfirm}
           onCancel={() => setShowAckModal(false)}
         />
-      )}
-      {showFeedbackModal && (
-        <FeedbackModal onSubmit={handleFeedbackSubmit} onCancel={() => setShowFeedbackModal(false)} />
       )}
       {evalResult && evalMetadata && (
         <EvaluationModal result={evalResult} metadata={evalMetadata} onClose={() => setEvalResult(null)} />

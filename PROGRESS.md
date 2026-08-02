@@ -109,8 +109,8 @@ Ran a `/code-review` pass on the pipe-diameter-label + Highest Direct Supply Fit
 ## Pending / What's Next
 
 - [ ] **Verify:** Symbol manager (custom SVG upload) — needs `SYMBOLS_ADMIN_KEY` set in the GovPaaS console
-- [ ] Add the official Singapore lion-head crest at `frontend/public/sg-crest.svg` (see that folder's README) — the masthead renders text-only until then
-- [ ] Publish a real support/contact channel (DSS BD-9) — the placeholder "Report a Bug / Feedback" link was removed, not replaced
+- [x] Add the official Singapore lion-head crest at `frontend/public/sg-crest.svg` — done 2026-08-02, extracted from `@govtechsg/sgds-web-component` v3.25.0. Closes DSS TL-3
+- [ ] **Publish a real support/contact channel (DSS BD-9)** — now the service's only route to its users. The placeholder "Report a Bug / Feedback" link was removed on 2026-08-01 and the in-app feedback dialog on 2026-08-02; neither was replaced. Also blocks PR-5, TL-4, WU-9 and both UU controls, which have no user-research instrument to rest on
 - [ ] Auto-insert for vb_and_check_valve rule (bidet spray) — done; consider extending double-click auto-insert pattern to other warning types (MWELS rating, long bath capacity) if useful
 - [ ] _(add items here)_
 
