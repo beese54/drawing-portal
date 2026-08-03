@@ -29,6 +29,7 @@ from app.agents.long_bath_check import check_long_bath_installation
 from app.agents.hot_water_contamination_check import check_hot_water_contamination
 from app.agents.section3_pipe_check import check_section3_pipes
 from app.agents.highest_fitting_check import check_highest_direct_supply_fitting
+from app.config import settings
 from app.services.image_annotator import annotate_schematic
 
 router = APIRouter()
@@ -38,25 +39,93 @@ router = APIRouter()
 # Metadata validation
 # ---------------------------------------------------------------------------
 
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png"}
+
+
 def _validate_metadata(metadata: dict) -> None:
-    """Validate the shape of parsed metadata_json before it reaches the check
-    functions, which index elements/pipes by "id" with no further guards."""
+    """Validate the shape and size of parsed metadata_json before it reaches
+    the check functions, which index elements/pipes by "id" with no further
+    guards.
+
+    The size caps exist because this endpoint is unauthenticated and publicly
+    reachable, and build_adjacency is quadratic — see docs/RISK_ASSESSMENT.md
+    R-01. They are deliberately generous: a hand-drawn schematic does not come
+    close to them.
+    """
     if not isinstance(metadata, dict):
         raise HTTPException(status_code=422, detail="metadata_json must be a JSON object.")
 
     elements = metadata.get("elements", [])
     if not isinstance(elements, list):
         raise HTTPException(status_code=422, detail="metadata.elements must be a list.")
+    if len(elements) > settings.max_elements:
+        raise HTTPException(
+            status_code=413,
+            detail=f"metadata.elements has {len(elements)} entries, over the {settings.max_elements} limit.",
+        )
+
+    total_ports = 0
     for i, el in enumerate(elements):
         if not isinstance(el, dict) or not el.get("id"):
             raise HTTPException(status_code=422, detail=f"metadata.elements[{i}] is missing a non-empty 'id' field.")
+        ports = el.get("ports")
+        if isinstance(ports, list):
+            total_ports += len(ports)
+
+    # This is the cap that actually bounds build_adjacency: its proximity pass
+    # compares every port against every other port, so cost grows with the
+    # square of the TOTAL port count. Capping elements alone does not bound it
+    # — 10 elements carrying 100k ports each would still hang the worker.
+    if total_ports > settings.max_total_ports:
+        raise HTTPException(
+            status_code=413,
+            detail=f"metadata contains {total_ports} ports, over the {settings.max_total_ports} limit.",
+        )
 
     pipes = metadata.get("pipes", [])
     if not isinstance(pipes, list):
         raise HTTPException(status_code=422, detail="metadata.pipes must be a list.")
+    if len(pipes) > settings.max_pipes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"metadata.pipes has {len(pipes)} entries, over the {settings.max_pipes} limit.",
+        )
     for i, pipe in enumerate(pipes):
         if not isinstance(pipe, dict) or not pipe.get("id"):
             raise HTTPException(status_code=422, detail=f"metadata.pipes[{i}] is missing a non-empty 'id' field.")
+
+
+def _validate_image_upload(upload: UploadFile) -> None:
+    """Reject an oversized or non-image upload before it is read into memory.
+
+    This bounds the read and the Pillow decode — the actual OOM vector. It does
+    NOT bound the network transfer: by the time this runs the body has already
+    been received and spooled by the ASGI layer. A true request-size limit
+    belongs at the platform/ingress layer, which this app does not control.
+
+    Note the frontend never sends schematic_image (see ActionPanel.tsx's
+    runEvaluation) — this is a public API surface with no UI behind it, so
+    tightening it has no user-facing effect.
+    """
+    if upload.size is not None and upload.size > settings.max_image_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"schematic_image is over the {settings.max_image_bytes // (1024 * 1024)}MB limit.",
+        )
+    if upload.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=422, detail="schematic_image must be image/jpeg or image/png.")
+
+
+def _safe_dimension(canvas: object, key: str, default: int) -> int:
+    """Coerce a canvas dimension without letting bad input raise an unhandled
+    500 — int("abc") and int(None) both throw, canvas itself may not be a dict,
+    and all of it is attacker-supplied."""
+    if not isinstance(canvas, dict):
+        return default
+    try:
+        return int(canvas.get(key, default))
+    except (TypeError, ValueError):
+        return default
 
 
 # ---------------------------------------------------------------------------
@@ -96,11 +165,16 @@ async def evaluate_schematic(
 
     _validate_metadata(metadata)
 
+    # Validated up front, before the 8 compliance checks run — an oversized
+    # upload should cost the pod as little work as possible.
+    if schematic_image is not None:
+        _validate_image_upload(schematic_image)
+
     elements: list[dict] = metadata.get("elements", [])
     pipes: list[dict] = metadata.get("pipes", [])
     canvas: dict = metadata.get("canvas", {})
-    canvas_w = int(canvas.get("width_px", 1200))
-    canvas_h = int(canvas.get("height_px", 800))
+    canvas_w = _safe_dimension(canvas, "width_px", 1200)
+    canvas_h = _safe_dimension(canvas, "height_px", 800)
 
     # Built once and shared by every check that needs topology (REG28, HOT_WATER,
     # TANK_PUMP) — they all previously rebuilt the identical O(n²) proximity graph.

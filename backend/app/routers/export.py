@@ -25,6 +25,8 @@ from docx.shared import Inches
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
+from app.config import settings
+
 router = APIRouter()
 
 
@@ -39,8 +41,36 @@ async def export_docx(
         raise HTTPException(status_code=422, detail=f"Invalid JSON in manifest_json: {e}")
     if not isinstance(rows, list):
         raise HTTPException(status_code=422, detail="manifest_json must be a JSON array.")
+    if len(rows) > settings.max_report_rows:
+        raise HTTPException(
+            status_code=413,
+            detail=f"manifest_json has {len(rows)} rows, over the {settings.max_report_rows} limit.",
+        )
 
-    crop_bytes: list[bytes] = [await f.read() for f in crops]
+    if len(crops) > settings.max_crops:
+        raise HTTPException(
+            status_code=413,
+            detail=f"{len(crops)} crops supplied, over the {settings.max_crops} limit.",
+        )
+
+    # Read one at a time against a running total rather than reading all of
+    # them up front. Every crop stays in memory for the life of the request, so
+    # the cumulative size is what bounds memory — a per-file cap would still
+    # allow max_crops x per_file. See docs/RISK_ASSESSMENT.md R-03.
+    crop_bytes: list[bytes] = []
+    total = 0
+    for f in crops:
+        data = await f.read()
+        total += len(data)
+        if total > settings.max_total_crop_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"crops exceed the {settings.max_total_crop_bytes // (1024 * 1024)}MB "
+                    "combined limit."
+                ),
+            )
+        crop_bytes.append(data)
 
     document = Document()
     document.add_heading("Compliance Evaluation — Non-Compliant Items", level=1)

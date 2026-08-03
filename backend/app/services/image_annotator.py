@@ -13,6 +13,16 @@ from typing import Any
 
 from PIL import Image, ImageDraw
 
+from app.config import settings
+
+# Pillow's own decompression-bomb guard defaults to ~89.5M pixels, which at
+# 3 bytes/px after .convert("RGB") is ~268MB — above this pod's memory limit,
+# so the default does not protect this deployment. Lower it to match the
+# configured ceiling. Note Pillow only *warns* at this threshold and raises at
+# 2x it, so this is defence in depth: the hard rejection is the explicit
+# size check in annotate_schematic below.
+Image.MAX_IMAGE_PIXELS = settings.max_image_pixels
+
 
 # Color mapping for highlight_color strings
 COLOR_MAP: dict[str, str] = {
@@ -52,8 +62,18 @@ def annotate_schematic(
     str
         Base64-encoded JPEG string (no data URI prefix).
     """
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    # Image.open only reads the header, so .size is available before any pixel
+    # buffer is allocated. Checking here — rather than after .convert("RGB") —
+    # is what keeps a decompression bomb from ever reaching memory.
+    img = Image.open(io.BytesIO(image_bytes))
     img_w, img_h = img.size
+    if img_w * img_h > settings.max_image_pixels:
+        raise ValueError(
+            f"schematic image is {img_w}x{img_h} ({img_w * img_h} px), "
+            f"over the {settings.max_image_pixels} px limit"
+        )
+
+    img = img.convert("RGB")
 
     # Scale factors: image pixels per canvas pixel
     scale_x = img_w / max(canvas_width, 1)
