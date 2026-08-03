@@ -120,7 +120,7 @@ the in-repo k8s manifests set no `securityContext` and no
 **The application emits almost no logs of its own.** As of 2026-08-03 there
 is no `logger` call and no `logging` configuration anywhere in
 `backend/app/`. There is exactly **one** application-emitted output in the
-whole backend: `traceback.print_exc()` at `routers/evaluate.py:149`, which
+whole backend: `traceback.print_exc()` at `routers/evaluate.py:223`, which
 prints a stack trace to stderr when schematic-image annotation fails, inside
 an `except Exception:` that then silently continues. It carries no request
 correlation and no structured fields.

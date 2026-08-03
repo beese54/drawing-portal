@@ -1,7 +1,8 @@
 """
 test_request_limits.py — Caps on the two unauthenticated public POST endpoints.
 
-Covers docs/RISK_ASSESSMENT.md R-01 (unbounded arrays), R-02 (unbounded image
+Covers the security risk assessment (held outside this repo): R-01 (unbounded
+arrays), R-02 (unbounded image
 decode) and R-03 (unbounded crops). Each test asserts both directions: that a
 legitimate payload still passes, and that the abusive one is rejected — a cap
 that rejects everything would "pass" a one-sided test.

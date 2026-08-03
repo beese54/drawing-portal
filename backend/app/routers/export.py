@@ -56,7 +56,7 @@ async def export_docx(
     # Read one at a time against a running total rather than reading all of
     # them up front. Every crop stays in memory for the life of the request, so
     # the cumulative size is what bounds memory — a per-file cap would still
-    # allow max_crops x per_file. See docs/RISK_ASSESSMENT.md R-03.
+    # allow max_crops x per_file. See the security risk assessment (held outside this repo), R-03.
     crop_bytes: list[bytes] = []
     total = 0
     for f in crops:

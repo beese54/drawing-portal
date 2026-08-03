@@ -2,7 +2,8 @@
 
 > **Dated record — partially superseded (2026-08-03).** Kept as written on
 > 2026-07-31 rather than edited retroactively. Before acting on anything
-> below, read `docs/RISK_ASSESSMENT.md`, which supersedes it in three places:
+> below, read the security risk assessment (held outside this repository),
+> which supersedes it in three places:
 > - **F1 is fixed** (commit `3bfc88d`) — see the Remediation Log at the end.
 > - **F4 (SVG XSS) is downgraded** to LOW as risk `R-05`. F4 was written
 >   against a codebase with no auth on symbol upload; the `X-Admin-Key`

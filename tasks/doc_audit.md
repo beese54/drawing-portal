@@ -1,7 +1,7 @@
 # Control Evidence Table — Schematic Drawing Portal
 
-Phase 1 artefact for the risk assessment (`docs/RISK_ASSESSMENT.md`) and
-hardening report (`docs/HARDENING_REPORT.md`). One row per control. Every
+Phase 1 artefact for the security risk assessment and hardening report, both
+held OUTSIDE this repository (this repo is public). One row per control. Every
 status traces to a `file:line` read this session (2026-08-03) or is marked
 `[UNVERIFIED]` with the reason.
 
@@ -58,7 +58,7 @@ can be declared acceptable and still be a gap — both are tracked.
 | AU-01 | Audit trail for state-changing actions | No logging middleware; no `logger` anywhere. Repo-wide grep across `backend/app/` for print / logger / logging calls returns exactly one hit (AU-04) | **Gap** |
 | AU-02 | Request/access logging | uvicorn default access log only (`Dockerfile:39` — no `--no-access-log`). Plain text, no structured fields | **Partial** |
 | AU-03 | Centralised log/error aggregation (Sentry) | Zero `sentry` references repo-wide; no `sentry-sdk` in `backend/requirements.txt` | **Gap** |
-| AU-04 | Application error capture | `evaluate.py:149` `traceback.print_exc()` — the **only** application-emitted output in the codebase, stderr, uncorrelated | **Partial** |
+| AU-04 | Application error capture | `evaluate.py:223` `traceback.print_exc()` — the **only** application-emitted output in the codebase, stderr, uncorrelated | **Partial** |
 | AU-05 | Logs contain no sensitive data | Stack traces to stderr (AU-04); no PII collected to leak (DP-02) | **Partial** |
 | AU-06 | Log retention / tamper protection | Platform-dependent | **[UNVERIFIED]** |
 
@@ -142,7 +142,7 @@ can be declared acceptable and still be a gap — both are tracked.
 | RA-03 | Live vulnerability assessment (dynamic scan) | Never performed | **Gap** |
 | RA-04 | Penetration test | Never performed. `pub.gov.sg` asset → requires a CSA-licensed provider under the Cybersecurity Act | **Gap** — cannot be closed by this project |
 | RA-05 | Dependency CVE status validated | `requirements.txt` pins `fastapi==0.111.0`, `python-multipart==0.0.9`, `uvicorn==0.30.1` (mid-2024). Never checked against a CVE feed | **Gap** — unquantified |
-| RA-06 | Security documentation is current | `security_audit.md` predates removal of boundaries #3 and #11 (12 remain, not 14). `ARCHITECTURE.md:160-164` says 13 — accounts for the webhook but still counts the removed feedback endpoint. `ARCHITECTURE.md:120-123` asserts "no `print`, no `logger` call" — contradicted by `evaluate.py:149` | **Gap** — both defects corrected in `ARCHITECTURE.md` this pass |
+| RA-06 | Security documentation is current | `security_audit.md` predates removal of boundaries #3 and #11 (12 remain, not 14). `ARCHITECTURE.md:160-164` says 13 — accounts for the webhook but still counts the removed feedback endpoint. `ARCHITECTURE.md:120-123` asserts "no `print`, no `logger` call" — contradicted by `evaluate.py:223` | **Gap** — both defects corrected in `ARCHITECTURE.md` this pass |
 
 ## IR — Incident Response
 

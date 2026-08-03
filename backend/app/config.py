@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # ── Request limits ──────────────────────────────────────────────────────
     # /api/evaluate and /api/export/docx are unauthenticated and publicly
     # reachable, so a single request must not be able to exhaust the pod.
-    # See docs/RISK_ASSESSMENT.md R-01/R-02/R-03.
+    # See the security risk assessment (held outside this repo), R-01/R-02/R-03.
     #
     # Env-overridable on purpose: the safe ceiling depends on the container's
     # memory limit, which currently differs between k8s/ (256Mi) and the

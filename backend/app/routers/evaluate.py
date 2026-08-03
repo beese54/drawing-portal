@@ -48,8 +48,8 @@ def _validate_metadata(metadata: dict) -> None:
     guards.
 
     The size caps exist because this endpoint is unauthenticated and publicly
-    reachable, and build_adjacency is quadratic — see docs/RISK_ASSESSMENT.md
-    R-01. They are deliberately generous: a hand-drawn schematic does not come
+    reachable, and build_adjacency is quadratic — see the security risk
+    assessment (held outside this repo), R-01. They are deliberately generous: a hand-drawn schematic does not come
     close to them.
     """
     if not isinstance(metadata, dict):
