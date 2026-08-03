@@ -390,7 +390,7 @@ other needs a licensed external provider.
 
 | Priority | Action | Closes | Effort |
 |---|---|---|---|
-| **P1** | Cap array lengths in `_validate_metadata`; cap request/upload size; set `Image.MAX_IMAGE_PIXELS`; cap crop count | R-01, R-02, R-03 | Low |
+| ~~**P1**~~ ✅ | ~~Cap array lengths in `_validate_metadata`; cap request/upload size; set `Image.MAX_IMAGE_PIXELS`; cap crop count~~ — **done 2026-08-03, `c73cd7e`** (see Remediation Log) | R-01, R-02, R-03 | Low |
 | **P1** | Run `pip-audit` + `npm audit` once, then re-rate R-08 with real data | R-08 | Low |
 | **P1** | Reconcile `k8s/` against the GovPaaS console; declare one authoritative — or delete `k8s/` | R-16 | Low |
 | **P1** | Decide explicitly whether `.code.run` public exposure is intended now | R-18 | Decision only |
@@ -466,12 +466,65 @@ control IDs are re-anchored to the actual IM8 catalogue.
 
 ---
 
+## Remediation Log
+
+Risk rows in Part C are kept as originally assessed rather than rewritten, so
+the inherent ratings remain auditable. Treatment outcomes are recorded here.
+
+### R-01 / R-02 / R-03 — MITIGATED (2026-08-03, commit `c73cd7e`)
+
+All three P1 code caps implemented in one change, with limits held as
+env-overridable settings in `config.py` so they can track the container's
+actual memory limit (see R-16).
+
+**R-01 — element / pipe / port caps.** The important finding during
+implementation: **capping elements alone would not have worked.**
+`build_adjacency`'s proximity pass compares every port against every other
+port, so cost is quadratic in *total ports*, not element count — 10 elements
+carrying 40,000 ports would still have pinned the worker. `max_total_ports`
+is therefore the cap that does the work; `max_elements` and `max_pipes`
+bound the cheaper outer loops.
+
+Measured, not estimated:
+
+| Payload | Before | After |
+|---|---|---|
+| At every cap simultaneously | — | **200 in 1.54s** |
+| One element over cap | — | **413 in 0.02s** (refused before any check runs) |
+| 10 elements × 4,000 ports | ~100s pinned CPU (extrapolated from a measured 6.35s at 10,000 ports; curve is quadratic) | **413 in 0.16s** |
+
+**R-02 — image upload.** Byte cap and content-type check now run before the
+compliance checks. `Image.MAX_IMAGE_PIXELS` lowered from Pillow's default
+(~89.5M px ≈ 268MB after RGB conversion — above this pod's limit, so it never
+protected this deployment) to the configured ceiling, plus an explicit
+dimension check between `Image.open` (header only) and `.convert()`, so a
+decompression bomb is rejected before any pixel buffer is allocated.
+
+**R-03 — DOCX crops.** Crops are counted and read against a running total
+rather than all at once. The cumulative size is what bounds memory, since
+every crop is held for the life of the request — a per-file cap alone would
+still have permitted `max_crops × per_file`.
+
+**Also fixed:** control `SI-09` — `int(canvas["width_px"])` on
+attacker-supplied input raised an unhandled 500 for a non-numeric or non-dict
+`canvas`. Now coerced safely.
+
+**Verification:** `backend/tests/test_request_limits.py` — 19 tests, each
+asserting both that a legitimate payload still passes and that the abusive
+one is refused, so a cap that rejected everything could not pass. Full suite
+132 passed.
+
+**Residual, stated plainly:** this bounds a *single request*. It does not
+stop a sustained flood from many requests — R-01's residual MEDIUM rating
+stands, and closing it further needs the per-IP rate limiting tracked at P2.
+
 ## Revision History
 
 | Date | Change | By |
 |---|---|---|
 | 2026-08-03 | Initial assessment. Frame: publicly reachable on `.code.run`, OFFICIAL (OPEN), locally-defined catalogue. 18 risks; 0 CRITICAL, 5 HIGH. R-02 and R-07 newly identified this pass; R-05 downgraded from the source audit's F4 following the `3bfc88d` auth fix | Development team |
 | 2026-08-03 | Moved R-16 (reconcile `k8s/` against the console) from P3 to P1, matching `HARDENING_REPORT.md` §8. The two documents disagreed on its priority; the hardening report's sequencing argument is the correct one — it gates the manifest-level work above it. No risk rating changed | Development team |
+| 2026-08-03 | R-01, R-02, R-03 mitigated in commit `c73cd7e`; `SI-09` fixed alongside. Remediation Log added with measured before/after. Inherent ratings left as originally assessed. Implementation surfaced that total port count, not element count, is the cap that bounds `build_adjacency` — recorded because it changes what "cap the arrays" has to mean | Development team |
 
 ## Source Documents
 
