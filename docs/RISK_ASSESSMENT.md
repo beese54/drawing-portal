@@ -392,6 +392,7 @@ other needs a licensed external provider.
 |---|---|---|---|
 | **P1** | Cap array lengths in `_validate_metadata`; cap request/upload size; set `Image.MAX_IMAGE_PIXELS`; cap crop count | R-01, R-02, R-03 | Low |
 | **P1** | Run `pip-audit` + `npm audit` once, then re-rate R-08 with real data | R-08 | Low |
+| **P1** | Reconcile `k8s/` against the GovPaaS console; declare one authoritative — or delete `k8s/` | R-16 | Low |
 | **P1** | Decide explicitly whether `.code.run` public exposure is intended now | R-18 | Decision only |
 | **P2** | Add error capture + structured logging, then wire to Sentry (see R-06 scope note) | R-06, partial R-13 | **Medium–High** |
 | **P2** | Add per-IP rate limiting (`slowapi`) | R-01, R-02, R-03 | Low–Medium |
@@ -400,10 +401,17 @@ other needs a licensed external provider.
 | **P3** | Wire CORS to `origins_list`; narrow `force_cors`; add security headers; disable `/docs` | R-04, R-07, R-17 | Low |
 | **P3** | Pull credential → then GHCR private; pin image by digest; pin CI actions to SHA; add SBOM | R-09, R-10 | Low–Medium |
 | **P3** | Publish `SECURITY.md` with a security contact | R-13, DSS BD-9 | Trivial |
-| **P3** | Reconcile `k8s/` against the GovPaaS console; declare one authoritative | R-16 | Low |
 | **P3** | Confirm PVC snapshot policy | R-12 | Investigation |
 | **P4** | Replace the SVG blocklist with an allowlist sanitiser | R-05 | Medium |
 | **External** | Commission CSA-licensed VAPT via PUB's process | R-15 | PUB cyber team |
+
+**Why R-16 sits at P1 despite being rated MEDIUM.** Priority here is
+sequencing, not severity. Until the `k8s/` manifests are reconciled against
+the GovPaaS console, it is unknown whether editing them changes the running
+service at all — which makes every other manifest-level action (the
+`securityContext` block at P2, the resource limits underpinning R-01 and
+R-02's OOM thresholds) unverifiable. Cheap to resolve, and it gates work
+above it.
 
 ---
 
@@ -463,6 +471,7 @@ control IDs are re-anchored to the actual IM8 catalogue.
 | Date | Change | By |
 |---|---|---|
 | 2026-08-03 | Initial assessment. Frame: publicly reachable on `.code.run`, OFFICIAL (OPEN), locally-defined catalogue. 18 risks; 0 CRITICAL, 5 HIGH. R-02 and R-07 newly identified this pass; R-05 downgraded from the source audit's F4 following the `3bfc88d` auth fix | Development team |
+| 2026-08-03 | Moved R-16 (reconcile `k8s/` against the console) from P3 to P1, matching `HARDENING_REPORT.md` §8. The two documents disagreed on its priority; the hardening report's sequencing argument is the correct one — it gates the manifest-level work above it. No risk rating changed | Development team |
 
 ## Source Documents
 
