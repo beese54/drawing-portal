@@ -117,11 +117,21 @@ security posture — but note it is a platform behaviour, not an asserted one:
 the in-repo k8s manifests set no `securityContext` and no
 `readOnlyRootFilesystem`.
 
-**The application emits no logs of its own.** As of 2026-08-02 there is no
-`print`, no `logger` call and no `logging` configuration anywhere in
-`backend/app/`. The only log output is uvicorn's default access log — plain
-text, one line per request, no structured fields and no application events.
-Anything resembling an audit trail would have to be built from scratch.
+**The application emits almost no logs of its own.** As of 2026-08-03 there
+is no `logger` call and no `logging` configuration anywhere in
+`backend/app/`. There is exactly **one** application-emitted output in the
+whole backend: `traceback.print_exc()` at `routers/evaluate.py:149`, which
+prints a stack trace to stderr when schematic-image annotation fails, inside
+an `except Exception:` that then silently continues. It carries no request
+correlation and no structured fields.
+
+Everything else is uvicorn's default access log — plain text, one line per
+request, no application events. Anything resembling an audit trail would
+have to be built from scratch, and that single `print_exc` is the natural
+first hook for error aggregation.
+
+(An earlier revision of this section stated there was no `print` call at
+all. That was wrong — corrected 2026-08-03 during the risk assessment.)
 
 ## 5. Deployment topology
 
@@ -157,11 +167,16 @@ Anything resembling an audit trail would have to be built from scratch.
 ## 6. Trust / network boundaries
 
 See `tasks/security_audit.md` Phase 0 for the full numbered list. That audit
-was written against 14 boundaries; **boundary #11, the outbound Slack
-webhook, no longer exists** (removed 2026-08-01), leaving 13: 8 HTTP
-endpoints, health check, static mount, the client-local JSON import, and the
-two CI/CD → registry → runtime supply-chain hops. The audit is kept as a
-dated record rather than edited retroactively.
+was written against 14 boundaries. **Two no longer exist:** #11, the
+outbound Slack webhook (removed 2026-08-01), and #3, `POST /api/feedback`
+(removed 2026-08-02 with the whole feedback feature). That leaves **12**: 7
+HTTP endpoints, health check, static mount, the client-local JSON import,
+and the two CI/CD → registry → runtime supply-chain hops. The audit is kept
+as a dated record rather than edited retroactively.
+
+(An earlier revision of this section said 13 — it accounted for the webhook
+removal but still counted the deleted feedback endpoint. Corrected
+2026-08-03.)
 
 Note that the audit also predates the `X-Admin-Key` guard now on
 `POST`/`PATCH`/`DELETE /api/symbols` — see its own Remediation Log. The
