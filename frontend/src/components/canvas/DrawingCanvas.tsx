@@ -16,7 +16,6 @@ import { FlipOrientationDialog } from './FlipOrientationDialog';
 import { HighestFittingValueDialog } from './HighestFittingValueDialog';
 import { LongBathPanel } from './LongBathPanel';
 import { SymbolPropertiesModal } from './SymbolPropertiesModal';
-import { PdfBackgroundLayer } from './PdfBackgroundLayer';
 import { WaterTankPropertiesModal } from './WaterTankPropertiesModal';
 import { useUiStore } from '../../store/uiStore';
 import { useCanvasStore } from '../../store/canvasStore';
@@ -27,7 +26,6 @@ import { symbolsApi } from '../../api/client';
 import { closestPointOnSegment, distance } from '../../utils/geometry';
 import { inferFluidAtPoint } from '../../utils/fluidInference';
 import { SYMBOL_PORTS, rotateOffset, getScaledPortOffset, getPortPosition, getEffectivePortRole, getElementPorts, DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
-import { renderPdfPageToDataUrl } from '../../utils/pdfRenderer';
 import { exportSchematicToPdf } from '../../utils/pdfVectorExport';
 
 const SNAP_THRESHOLD = 4;
@@ -191,33 +189,6 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     }),
     [stageScale, stageOffsetX, stageOffsetY]
   );
-
-  // PDF background — state lives in uiStore; DrawingCanvas registers the import handler
-  // because it needs access to the current viewport/zoom state for initial placement.
-  const pdfBackground = useUiStore((s) => s.pdfBackground);
-  const setPdfBackground = useUiStore((s) => s.setPdfBackground);
-  const updatePdfBackground = useUiStore((s) => s.updatePdfBackground);
-  const registerPdfImport = useUiStore((s) => s.registerPdfImport);
-
-  useEffect(() => {
-    const handler = async (file: File) => {
-      try {
-        const { dataUrl, naturalWidth, naturalHeight } = await renderPdfPageToDataUrl(file);
-        const viewportContentW = canvasSize.width / stageScale;
-        const viewportContentH = canvasSize.height / stageScale;
-        const targetW = viewportContentW * 0.9;
-        const targetH = (naturalHeight / naturalWidth) * targetW;
-        // x, y are the CENTER of the image in content coords
-        const cx = stageOffsetX / stageScale + viewportContentW / 2;
-        const cy = stageOffsetY / stageScale + viewportContentH / 2;
-        setPdfBackground({ dataUrl, x: cx, y: cy, width: targetW, height: targetH, rotation: 0, locked: false, opacity: 0.4 });
-      } catch (err) {
-        console.error('PDF import failed:', err);
-        alert('Could not read the PDF. Please try a different file.');
-      }
-    };
-    registerPdfImport(handler);
-  }, [canvasSize, stageScale, stageOffsetX, stageOffsetY, setPdfBackground, registerPdfImport]);
 
   const mrlConfig          = useUiStore((s) => s.mrlConfig);
   const floorLevels        = useUiStore((s) => s.floorLevels);
@@ -1494,7 +1465,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         onMouseMove={handleStageMouseMove}
         style={{ background: '#b0b8c1', cursor: (pendingSymbol || pendingTemplate) ? 'crosshair' : undefined }}
       >
-        {/* White page sheet — must be the very first layer so PDF and content render on top */}
+        {/* White page sheet — must be the very first layer so content renders on top */}
         <Layer listening={false}>
           <KonvaRect
             x={0}
@@ -1509,19 +1480,6 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           />
         </Layer>
 
-        {pdfBackground && (
-          <PdfBackgroundLayer
-            dataUrl={pdfBackground.dataUrl}
-            x={pdfBackground.x}
-            y={pdfBackground.y}
-            width={pdfBackground.width}
-            height={pdfBackground.height}
-            opacity={pdfBackground.opacity}
-            rotation={pdfBackground.rotation}
-            locked={pdfBackground.locked}
-            onChange={updatePdfBackground}
-          />
-        )}
         <GridLayer
           canvasWidth={virtualWidth}
           canvasHeight={virtualHeight}

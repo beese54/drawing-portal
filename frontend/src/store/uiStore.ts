@@ -11,17 +11,6 @@ export interface PendingTemplate {
   annotations: AnnotationElement[];
 }
 
-export interface PdfBackground {
-  dataUrl: string;
-  x: number;      // center x in content coords
-  y: number;      // center y in content coords
-  width: number;
-  height: number;
-  rotation: number;
-  locked: boolean;
-  opacity: number; // 0–1
-}
-
 export interface BidetToast {
   tapElementId: string;
   tapX: number;
@@ -52,8 +41,6 @@ interface UiStore {
   pendingTemplate: PendingTemplate | null;
   exportPdfFn: (() => void) | null;
   captureStageRegionFn: ((region: { x: number; y: number; width: number; height: number }, pixelRatio?: number) => string | null) | null;
-  pdfBackground: PdfBackground | null;
-  pdfImportFn: ((file: File) => Promise<void>) | null;
   sheetConfig: SheetConfig;
   sheetSetupOpen: boolean;
   sheetSetupInitialTab: 'sheet' | 'titleblock';
@@ -70,6 +57,10 @@ interface UiStore {
   /** Last font size the user picked/typed in the annotation insert menu — becomes the
    *  starting value for the next annotation placed, so it doesn't reset every time. */
   annotationFontSizeDefault: number;
+  /** Whether the user has closed the whole-of-government anti-scam advisory. Persisted
+   *  so returning users get the canvas height back — the shell is a fixed 100vh with no
+   *  page scroll, so every row above the canvas is taken from the drawing area. */
+  scamAdvisoryDismissed: boolean;
   setActiveTool: (tool: ActiveTool) => void;
   setMrlConfig: (config: Partial<MrlConfig>) => void;
   addFloorLevel: (floor: Omit<FloorLevel, 'id'>) => void;
@@ -80,9 +71,6 @@ interface UiStore {
   setPendingTemplate: (t: PendingTemplate | null) => void;
   registerExportPdf: (fn: () => void) => void;
   registerCaptureStageRegion: (fn: (region: { x: number; y: number; width: number; height: number }, pixelRatio?: number) => string | null) => void;
-  setPdfBackground: (bg: PdfBackground | null) => void;
-  updatePdfBackground: (props: Partial<PdfBackground>) => void;
-  registerPdfImport: (fn: (file: File) => Promise<void>) => void;
   setSheetConfig: (cfg: SheetConfig) => void;
   setTitleBlock: (tb: TitleBlockData) => void;
   resetTitleBlock: () => void;
@@ -100,6 +88,7 @@ interface UiStore {
   resetPipeColorDefault: (pipeType: PipeType) => void;
   addRecentPipeColor: (color: string) => void;
   setAnnotationFontSizeDefault: (size: number) => void;
+  dismissScamAdvisory: () => void;
 }
 
 export const useUiStore = create<UiStore>()(persist((set, get) => ({
@@ -114,8 +103,6 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   pendingTemplate: null,
   exportPdfFn: null,
   captureStageRegionFn: null,
-  pdfBackground: null,
-  pdfImportFn: null,
   sheetConfig: DEFAULT_SHEET_CONFIG,
   sheetSetupOpen: true,
   sheetSetupInitialTab: 'sheet' as const,
@@ -126,6 +113,7 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   pipeColorDefaults: {},
   recentPipeColors: [],
   annotationFontSizeDefault: DEFAULT_ANNOTATION_FONT_SIZE,
+  scamAdvisoryDismissed: false,
 
   setActiveTool: (tool) => set({ activeTool: tool }),
   setDraggingSymbolId: (id) => set({ draggingSymbolId: id }),
@@ -133,11 +121,6 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   setPendingTemplate: (t) => set({ pendingTemplate: t }),
   registerExportPdf: (fn) => set({ exportPdfFn: fn }),
   registerCaptureStageRegion: (fn) => set({ captureStageRegionFn: fn }),
-  setPdfBackground: (bg) => set({ pdfBackground: bg }),
-  updatePdfBackground: (props) => set((state) => ({
-    pdfBackground: state.pdfBackground ? { ...state.pdfBackground, ...props } : null,
-  })),
-  registerPdfImport: (fn) => set({ pdfImportFn: fn }),
   setSheetConfig: (cfg) => {
     const { sheetConfig: prev, mrlConfig } = get();
     if (cfg.drawingScale !== prev.drawingScale) {
@@ -197,6 +180,7 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
       recentPipeColors: [color, ...state.recentPipeColors.filter((c) => c.toLowerCase() !== color.toLowerCase())].slice(0, 3),
     })),
   setAnnotationFontSizeDefault: (size) => set({ annotationFontSizeDefault: size }),
+  dismissScamAdvisory: () => set({ scamAdvisoryDismissed: true }),
 }), {
   name: 'schematic-ui',
   version: 1,
@@ -210,6 +194,9 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
     pipeColorDefaults:  state.pipeColorDefaults,
     recentPipeColors:   state.recentPipeColors,
     annotationFontSizeDefault: state.annotationFontSizeDefault,
+    // Without this line the dismissal works but never survives a reload — the
+    // allowlist is the whole persistence contract, not an optimisation.
+    scamAdvisoryDismissed: state.scamAdvisoryDismissed,
   }),
   migrate: (_persisted, version) => {
     if (version < 1) return {} as UiStore;
