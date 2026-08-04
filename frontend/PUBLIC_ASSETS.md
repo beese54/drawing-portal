@@ -69,3 +69,34 @@ Until the file is present the banner degrades gracefully — the `<img>`
 `onError` handler hides the slot and the banner renders with its text only,
 which is still readable and correctly positioned. Add the crest before
 production sign-off.
+
+## Anti-scam advisory copy — no asset, provenance recorded here
+
+`src/components/layout/ScamAdvisoryBanner.tsx` ships **no file** — it is text
+and inline styles only, so nothing lands in `public/`. Its provenance is
+recorded here because the copy and the palette are reproduced from another
+site, and that is the same class of question the two entries above answer.
+
+Source: the live advisory on `https://www.pub.gov.sg`, read from the rendered
+DOM on **2026-08-04**. PUB serves it as a Bootstrap
+`div.alert.alert-primary.main-alert.alert-dismissible`. Reproduced verbatim:
+
+> **Government officials will NEVER ask you to transfer money or disclose bank
+> log-in details over a phone call.**
+> Call the 24/7 ScamShield Helpline at 1799 if you are unsure if something is a
+> scam. For more information, visit www.scamshield.gov.sg.
+
+Palette taken from the same element — background `#f8f3d6`, headline `#344054`,
+body `#2e2f33` — with the link recoloured to the app's own navy `#1a3a5c`. All
+three pairs were contrast-checked before shipping (9.36:1, 11.96:1, 10.41:1)
+and the ratios are recorded in the component docblock.
+
+**No consent question arises.** This is whole-of-government public-safety
+messaging carrying no agency mark, reproduced by a PUB service, and it is
+already published for exactly this purpose. That is a different position from
+the crest and the logo above, both of which are protected artwork.
+
+Three deliberate differences from PUB's markup, each explained in the component
+docblock: `role="region"` with a label instead of `role="alert"`; `https://` on
+the ScamShield link where PUB still uses `http://`; and "opens in a new tab" in
+the link's accessible name, matching the `TL-2` idiom used for the agency mark.

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CanvasPane } from './CanvasPane';
 import { ControlPane } from './ControlPane';
 import { Masthead } from './Masthead';
+import { ScamAdvisoryBanner } from './ScamAdvisoryBanner';
 import { SheetSetupModal } from '../common/SheetSetupModal';
 import { ToastNotification, DcvToastNotification } from '../common/ToastNotification';
 import { useUiStore } from '../../store/uiStore';
@@ -16,6 +17,11 @@ export function AppLayout() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       {/* Official Government Banner — must stay the topmost component (DSS TL-3) */}
       <Masthead />
+
+      {/* Whole-of-government anti-scam advisory. Deliberately BELOW the masthead:
+          TL-3 is Level 0 and requires the Official Government Banner to be topmost,
+          so a voluntary advisory can never be allowed to displace it. */}
+      <ScamAdvisoryBanner />
 
       {/* Header */}
       <div style={{
