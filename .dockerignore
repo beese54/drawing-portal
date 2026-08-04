@@ -2,12 +2,12 @@
 .github
 .planning
 docs/
-k8s/
 *.md
 node_modules
 frontend/node_modules
 frontend/dist
-backend/__pycache__
+__pycache__/
+*.pyc
 backend/.env
 backend/.env.*
 !backend/.env.example

@@ -68,7 +68,7 @@ cd schematic-drawing-portal
 
 ```bash
 cp backend/.env.example backend/.env
-# Optional: set SYMBOLS_ADMIN_KEY to enable custom-symbol management.
+# The application has no secrets — the defaults are fine for local development.
 ```
 
 ### 3. Run (development — hot reload)
@@ -98,7 +98,6 @@ docker-compose -f docker-compose.yml up --build
 
 | Variable | Required | Description |
 |---|---|---|
-| `SYMBOLS_ADMIN_KEY` | No | Enables `POST`/`PATCH`/`DELETE /api/symbols`. Unset = those routes fail closed with 401 |
 | `SYMBOLS_PATH` | No (default: `/app/symbols`) | Path to symbols directory inside container |
 | `ALLOWED_ORIGINS` | No | Comma-separated CORS origins |
 
@@ -130,7 +129,7 @@ docker-compose -f docker-compose.yml up --build
 4. Pipes chain automatically; press **Escape** to exit pipe mode
 
 ### Export Metadata
-Click **Export Metadata (JSON)** to download a structured JSON file with all symbol positions, mRL elevations, and pipe segments. See [example exports](docs/examples/).
+Click **Export Metadata (JSON)** to download a structured JSON file with all symbol positions, mRL elevations, and pipe segments.
 
 ### Symbol Manager
 - Click **Manage Symbols** to open the manager
@@ -194,7 +193,7 @@ schematic-drawing-portal/
 │       ├── schemas/                  # Request/response schemas
 │       └── services/                 # Business logic (vector store, metrics, symbols)
 │   └── symbols/
-│       ├── default/                  # 67 built-in SVG water system symbols
+│       ├── default/                  # 64 built-in SVG water system symbols
 │       ├── custom/                   # User-uploaded symbols (gitignored)
 │       └── manifest.json             # Symbol registry
 │
@@ -215,14 +214,9 @@ schematic-drawing-portal/
 │       ├── types/                    # TypeScript type definitions
 │       └── utils/                    # Geometry, mRL mapping, metadata builder
 │
-├── k8s/                              # Kubernetes manifests
-│   ├── namespace.yaml
-│   ├── storage/                      # PersistentVolumeClaim for symbols
-│   └── app/                          # Deployment, Service, ConfigMap (combined image)
-│
 └── docs/
-    ├── screenshots/                  # UI screenshots
-    └── examples/                     # Example exported schematic JSON files
+    ├── ARCHITECTURE.md               # Components, data flow, deployment topology
+    └── screenshots/                  # UI screenshots
 ```
 
 ---
@@ -263,24 +257,26 @@ schematic-drawing-portal/
 }
 ```
 
-See [docs/examples/](docs/examples/) for real exported schematics.
-
 ---
 
-## Kubernetes Deployment
+## Deployment
 
-Frontend and backend ship as a single combined image
-(`ghcr.io/beese54/drawing-portal`) — FastAPI serves the built frontend as
-static files alongside the `/api/*` routes. Manifests are in `k8s/`. Apply
-in order:
+Frontend and backend ship as a **single combined image**,
+`ghcr.io/beese54/drawing-portal` — FastAPI serves the built frontend as static
+files alongside the `/api/*` routes. CI builds it from the root `Dockerfile` on
+every push to `main`, and GovPaaS pulls that image directly.
 
-```bash
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/storage/
-kubectl apply -f k8s/app/
-```
+The service holds **no persistent state**. Nothing a user draws is stored
+server-side, and the symbol library is baked into the image, so the container is
+disposable and can be restarted or replaced at any time without data loss.
 
-> **Note:** The app uses a `ReadWriteOnce` PVC for symbol storage. For multi-replica scaling, replace the PVC with a shared object store (S3/MinIO) and update `SYMBOLS_PATH` accordingly.
+### Adding or changing a symbol
+
+There is no upload API — the symbol library is read-only at runtime. To add a
+symbol, commit the SVG to `backend/symbols/`, add its entry to
+`backend/symbols/manifest.json`, and redeploy. This is deliberate: it keeps the
+library version-controlled and reviewable, and the container filesystem is not
+writable in production in any case.
 
 ---
 
@@ -292,8 +288,8 @@ kubectl apply -f k8s/app/
 | Backend | Python 3.12, FastAPI, Uvicorn |
 | Compliance engine | Plain Python — deterministic rule functions, no AI |
 | Report export | python-docx (Word), jsPDF + svg2pdf (PDF), Pillow (image annotation) |
-| Containerisation | Docker, Docker Compose, Nginx |
-| Orchestration (optional) | Kubernetes |
+| Containerisation | Docker, Docker Compose (local development only) |
+| Hosting | GovPaaS, pulling the CI-built image from GHCR |
 
 ---
 

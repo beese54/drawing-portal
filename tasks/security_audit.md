@@ -1,22 +1,5 @@
 # Security Audit — Schematic Drawing Portal
 
-> **Dated record — partially superseded (2026-08-03).** Kept as written on
-> 2026-07-31 rather than edited retroactively. Before acting on anything
-> below, read the security risk assessment (held outside this repository),
-> which supersedes it in three places:
-> - **F1 is fixed** (commit `3bfc88d`) — see the Remediation Log at the end.
-> - **F4 (SVG XSS) is downgraded** to LOW as risk `R-05`. F4 was written
->   against a codebase with no auth on symbol upload; the `X-Admin-Key`
->   guard landed afterwards and removes anonymous reachability. The
->   sanitiser is still a blocklist — only the exposure changed.
-> - **Boundaries #3 and #11 no longer exist** — the feedback endpoint and
->   the Slack webhook were both removed. 12 boundaries remain, not 14.
->
-> Two vulnerabilities not in this audit were found on 2026-08-03 and are
-> recorded as `R-02` and `R-07` in the risk assessment: an unbounded Pillow
-> decode path on the schematic-image upload, and publicly exposed
-> `/docs` + `/openapi.json`.
-
 Audit type: static, read-only source code review (Pattern E protocol). No
 exploit payloads were run; nothing was executed against the live
 `wsi-drawing-portal.pub.gov.sg` deployment. Every verdict below cites a

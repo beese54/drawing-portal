@@ -11,9 +11,8 @@ class Settings(BaseSettings):
 
     symbols_path: str = _DEFAULT_SYMBOLS_PATH
     static_path: str = _DEFAULT_STATIC_PATH
-    allowed_origins: str = "http://localhost:3000,http://localhost:5173,https://spd-fe-2.app.tc1.airbase.sg"
+    allowed_origins: str = "http://localhost:3000,http://localhost:5173"
     app_version: str = "1.0.0"
-    symbols_admin_key: str = ""
 
     # ── Request limits ──────────────────────────────────────────────────────
     # /api/evaluate and /api/export/docx are unauthenticated and publicly
@@ -56,9 +55,6 @@ class Settings(BaseSettings):
     def default_symbols_dir(self) -> Path:
         return self.symbols_dir / "default"
 
-    @property
-    def custom_symbols_dir(self) -> Path:
-        return self.symbols_dir / "custom"
 
     @property
     def manifest_path(self) -> Path:

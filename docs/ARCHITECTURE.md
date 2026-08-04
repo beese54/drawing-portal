@@ -30,13 +30,12 @@ inference of any kind — see §3.
                             │  └───────────┬────────────┘  │
                             │              │                │
                             └──────────────┼────────────────┘
-                                           │
-                                           ▼
-                              PersistentVolumeClaim
-                              (ReadWriteOnce, 1Gi)
-                              custom symbol files +
-                              manifest.json
 ```
+
+**There is no persistent storage.** The symbol library and its `manifest.json`
+are baked into the container image and are read-only at runtime. Nothing a user
+draws is stored server-side, so the container is disposable — restarting or
+replacing it loses nothing.
 
 The app makes **no outbound network calls of any kind**. A Slack feedback
 webhook was the sole exception; it was removed on 2026-08-01, along with
@@ -49,7 +48,7 @@ as `.json` files by the user, not persisted server-side).
 
 ## 2. Backend components (`backend/app/`)
 
-- **`routers/`** — one file per HTTP surface: `symbols.py` (CRUD for symbol
+- **`routers/`** — one file per HTTP surface: `symbols.py` (read-only symbol
   library), `evaluate.py` (compliance evaluation), `export.py` (DOCX report
   generation), `health.py` (liveness/readiness).
 - **`agents/`** — deterministic compliance-check functions, not LLM agents
@@ -58,11 +57,11 @@ as `.json` files by the user, not persisted server-side).
   `hot_water_contamination_check.py`, `section3_pipe_check.py`,
   `highest_fitting_check.py`, plus `graph_utils.py` (shared
   element/pipe-adjacency graph builder used by several checks).
-- **`services/`** — `symbol_service.py` (upload/rename/delete + validation
-  for the symbol library), `image_annotator.py` (Pillow-based marker
-  overlay on an uploaded schematic JPEG for the evaluation report).
-- **`schemas/manifest.py`** — flat JSON-file "database" for the symbol
-  library (`symbols_dir/manifest.json`), read/written directly, no locking.
+- **`services/`** — `symbol_service.py` (resolves a symbol id to a file on
+  disk), `image_annotator.py` (Pillow-based marker overlay on an uploaded
+  schematic JPEG for the evaluation report).
+- **`schemas/manifest.py`** — read-only index of the symbol library
+  (`symbols_dir/manifest.json`). Read at request time, never written.
 - **`models/symbol.py`**, **`config.py`** — Pydantic models and
   `pydantic-settings`-based config (env-var driven).
 
@@ -91,12 +90,16 @@ canvas → POSTs `manifest_json` (row data) + the crop images to
 `POST /api/export/docx` → backend assembles a Word document in-memory
 (`io.BytesIO`, no disk temp files) and streams it back. Nothing persisted.
 
-**Symbol library:** `GET /api/symbols` lists everything (built-in +
-custom) from `manifest.json`; `GET /api/symbols/{id}/image` serves the
-actual SVG/PNG file; `POST/PATCH/DELETE /api/symbols` let any caller
-add/rename/delete custom symbols on the shared PVC — there is no per-user
-ownership, so this is a shared, mutable global resource (see the security
-audit, `tasks/security_audit.md`, for the implications).
+**Symbol library:** `GET /api/symbols` lists the library from
+`manifest.json`; `GET /api/symbols/{id}/image` serves the SVG file. Both are
+read-only and public by design — the library is reference data, not user data.
+
+The `POST`/`PATCH`/`DELETE` routes and their `X-Admin-Key` guard were **removed
+on 2026-08-04**. They wrote into the container filesystem, which §4a records as
+not writable in production, so they could not have worked; the shared, mutable
+global resource they implied never really existed. Symbols are now added by
+committing an SVG and redeploying. **The service holds no credential of any
+kind.**
 
 **Feedback:** removed 2026-08-02. `POST /api/feedback` and its modal
 collected three ratings and two free-text boxes, printed to stdout. The
@@ -144,16 +147,19 @@ all. That was wrong — corrected 2026-08-03 during the risk assessment.)
   tag, using the ephemeral `GITHUB_TOKEN` (scoped `contents: read`,
   `packages: write`). The image is currently anonymously, publicly
   pullable.
-- **Runtime:** GovPaaS (Northflank-based PaaS), one pod, `replicas: 1` —
-  this is a hard requirement, not a sizing choice: the custom-symbol
-  storage is a `ReadWriteOnce` PVC, which a second replica physically
-  cannot mount. Resources: 0.5 vCPU / 1024Mi requested at the platform
-  level (k8s manifests in-repo request less — 100m/128Mi request,
-  500m/256Mi limit — platform-level GovPaaS config may differ from the
-  in-repo manifests; reconcile before treating either as authoritative).
-  Rollout strategy: Steady (one-at-a-time), specifically because a
-  surge-style rollout would deadlock trying to mount the RWO volume the
-  outgoing pod still holds.
+- **Runtime:** GovPaaS (Northflank-based PaaS), pulling the CI-built image
+  from GHCR directly. One pod, `replicas: 1` — now a **sizing choice rather
+  than a constraint**. It was previously forced by a `ReadWriteOnce` volume
+  that a second replica could not mount; with the symbol write path removed
+  on 2026-08-04 there is no attached storage and nothing stateful, so the
+  service could be scaled horizontally whenever that is wanted.
+  Resources: 0.5 vCPU / 1024Mi at the platform level.
+
+  **The GovPaaS console is the only authoritative source for runtime
+  configuration.** In-repo Kubernetes manifests were deleted on 2026-08-04:
+  they were never applied, they disagreed with the console, and they mounted a
+  volume over the directory holding the built-in symbols, which would have
+  started the service with an empty palette.
 - **Networking:** publicly exposed, no IP allowlist, no basic auth, no
   SSO/org-restricted access at the platform level. Custom domain
   `wsi-drawing-portal.pub.gov.sg` reaches the app via a Cloudflare NS
@@ -178,12 +184,11 @@ as a dated record rather than edited retroactively.
 removal but still counted the deleted feedback endpoint. Corrected
 2026-08-03.)
 
-Note that the audit also predates the `X-Admin-Key` guard now on
-`POST`/`PATCH`/`DELETE /api/symbols` — see its own Remediation Log. The
-single most important fact for a reviewer: **every other HTTP endpoint in
-this app is unauthenticated**
-— there is no login, no API key, no session, no user concept anywhere in
-the codebase.
+Note that the audit predates the removal of the symbol write API on
+2026-08-04, and with it the `X-Admin-Key` guard it discusses. The single most
+important fact for a reviewer is now simpler than it was: **every HTTP endpoint
+in this app is unauthenticated, and the application holds no credential** —
+no login, no API key, no session, no user concept anywhere in the codebase.
 
 ## 7. Explicitly out of scope / not visible from this repo
 
@@ -192,7 +197,7 @@ This document only reflects what's checked into the repository. It does
 
 - **GovPaaS/Northflank's own ingress/edge layer** — load balancer config,
   TLS termination details, any WAF or DDoS mitigation the platform provides
-  independently of what's requested in `k8s/`.
+  independently of anything this repository declares.
 - **PUB's WOG (Whole-of-Government) DNS infrastructure** — the
   `pub.gov.sg` zone is administered outside this project; the developer
   does not hold admin rights to it.
@@ -201,10 +206,10 @@ This document only reflects what's checked into the repository. It does
   any Cloudflare-side security features (WAF rules, rate limiting, bot
   management) live in a Cloudflare account this project has no visibility
   into.
-- **Runtime secrets storage** on the GovPaaS platform itself — the app's one
-  remaining secret, `SYMBOLS_ADMIN_KEY`, is injected at container runtime per
-  a Dockerfile comment, but the actual secrets-management mechanism (vault,
-  platform secret store, etc.) is a platform feature, not app code.
+- **Runtime secrets storage** on the GovPaaS platform — not because the app
+  uses it, but because a reviewer will ask. Since 2026-08-04 the application
+  has **no secrets at all**: the last one, `SYMBOLS_ADMIN_KEY`, went with the
+  symbol write API. Nothing needs injecting at runtime.
 
 These gaps are the natural handoff points to a cyber/infra team — they
 require platform/account access this review didn't have, not more code

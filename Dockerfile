@@ -25,8 +25,8 @@ COPY backend/app/ ./app/
 COPY backend/symbols/ ./symbols/
 COPY --from=frontend-build /fe/dist/ ./static/
 
-# Secrets (SYMBOLS_ADMIN_KEY) are injected at container runtime by the
-# deploy platform — never baked in.
+# The application has no secrets. SYMBOLS_ADMIN_KEY was removed with the
+# symbol write API on 2026-08-04; nothing needs injecting at runtime.
 ENV ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 
 RUN groupadd --system app && useradd --system --gid app --home /app app \

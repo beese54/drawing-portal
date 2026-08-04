@@ -61,7 +61,6 @@ Added (50+):
 - **Ctrl+scroll** — browser zoom disabled globally when Ctrl is held; canvas zoom still works normally
 - **Long bath capacity panel** — floating panel appears on select
 - **Water tank properties modal** — double-click to open
-- **PDF background layer** — import a PDF as a canvas underlay
 - **Annotations layer** — add text labels to the canvas; editable width/height with edit-mode and display-mode now pixel-matched; included in the JSON metadata export (with MRL elevation) so notes like "valve normally closed" carry through to compliance review
 - **Sheet setup modal** — paper size, drawing scale, title block
 - **Templates** — pre-built schematic starting points, including annotation support. Available: 2-storey residential, 2x pump manifold (with and without bypass)
@@ -108,7 +107,7 @@ Ran a `/code-review` pass on the pipe-diameter-label + Highest Direct Supply Fit
 
 ## Pending / What's Next
 
-- [ ] **Verify:** Symbol manager (custom SVG upload) — needs `SYMBOLS_ADMIN_KEY` set in the GovPaaS console
+- [x] ~~Verify symbol manager (custom SVG upload)~~ — **removed 2026-08-04**. The write API could not work: the production container filesystem is not writable and no storage is attached. Symbols are now added by committing an SVG and redeploying
 - [x] Add the official Singapore lion-head crest at `frontend/public/sg-crest.svg` — done 2026-08-02, extracted from `@govtechsg/sgds-web-component` v3.25.0. Closes DSS TL-3
 - [ ] **Publish a real support/contact channel (DSS BD-9)** — now the service's only route to its users. The placeholder "Report a Bug / Feedback" link was removed on 2026-08-01 and the in-app feedback dialog on 2026-08-02; neither was replaced. Also blocks PR-5, TL-4, WU-9 and both UU controls, which have no user-research instrument to rest on
 - [ ] Auto-insert for vb_and_check_valve rule (bidet spray) — done; consider extending double-click auto-insert pattern to other warning types (MWELS rating, long bath capacity) if useful

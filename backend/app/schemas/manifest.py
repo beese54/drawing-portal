@@ -1,7 +1,16 @@
+"""manifest.py — read access to the symbol library index.
+
+`write_manifest` and `now_iso` were removed on 2026-08-04 with the symbol write
+API. `write_manifest` truncated the file before writing, so an interruption
+mid-write would have left the library's only index corrupt — a defect that no
+longer has a code path to reach it.
+
+manifest.json now ships inside the container image and is never written at
+runtime.
+"""
+
 import json
 from pathlib import Path
-from datetime import datetime, timezone
-from typing import Any
 
 
 def read_manifest(manifest_path: Path) -> dict:
@@ -11,18 +20,8 @@ def read_manifest(manifest_path: Path) -> dict:
         return json.load(f)
 
 
-def write_manifest(manifest_path: Path, data: dict) -> None:
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(manifest_path, "w") as f:
-        json.dump(data, f, indent=2, default=str)
-
-
 def find_symbol(manifest: dict, symbol_id: str) -> dict | None:
     for sym in manifest.get("symbols", []):
         if sym["id"] == symbol_id:
             return sym
     return None
-
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
