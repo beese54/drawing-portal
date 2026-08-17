@@ -42,6 +42,22 @@ class Settings(BaseSettings):
     max_report_rows: int = 1000
     max_crops: int = 200
     max_total_crop_bytes: int = 32 * 1024 * 1024
+    # Per-crop ceiling as well as the cumulative one. The cumulative cap alone
+    # still lets a single crop claim the whole budget in one allocation.
+    max_crop_bytes: int = 8 * 1024 * 1024
+
+    # Text form fields are json.loads()'d in full before any structural cap can
+    # run, so the caps above bound counts but never bytes. These bound the parse.
+    #
+    # metadata_json is the larger of the two because it carries images: the
+    # title block holds up to three base64 stamps, each permitted 4MB by
+    # frontend/src/utils/importValidation.ts MAX_DATA_URL_LEN. Measured in
+    # characters rather than bytes — the payload is already in memory by the
+    # time it is visible here, so this bounds the parse, not the transfer. A
+    # true request-body limit belongs at the ingress, which this app does not
+    # control (same boundary as _validate_image_upload).
+    max_metadata_chars: int = 20 * 1024 * 1024
+    max_manifest_chars: int = 4 * 1024 * 1024
 
     @property
     def symbols_dir(self) -> Path:

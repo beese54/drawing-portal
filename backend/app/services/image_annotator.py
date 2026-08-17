@@ -65,7 +65,14 @@ def annotate_schematic(
     # Image.open only reads the header, so .size is available before any pixel
     # buffer is allocated. Checking here — rather than after .convert("RGB") —
     # is what keeps a decompression bomb from ever reaching memory.
-    img = Image.open(io.BytesIO(image_bytes))
+    #
+    # formats= restricts which Pillow plugins may even attempt the decode.
+    # Without it Pillow tries every registered plugin (~50 formats), so the
+    # caller's Content-Type allowlist would constrain the label while the parser
+    # stayed wide open. The router checks the signature bytes too
+    # (routers/evaluate.py _validate_image_bytes); this is the same bound
+    # enforced at the point of decode, so any future caller inherits it.
+    img = Image.open(io.BytesIO(image_bytes), formats=["JPEG", "PNG"])
     img_w, img_h = img.size
     if img_w * img_h > settings.max_image_pixels:
         raise ValueError(

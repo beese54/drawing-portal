@@ -31,6 +31,7 @@ from app.agents.section3_pipe_check import check_section3_pipes
 from app.agents.highest_fitting_check import check_highest_direct_supply_fitting
 from app.config import settings
 from app.services.image_annotator import annotate_schematic
+from app.services.upload_validation import is_allowed_image
 
 router = APIRouter()
 
@@ -116,6 +117,21 @@ def _validate_image_upload(upload: UploadFile) -> None:
         raise HTTPException(status_code=422, detail="schematic_image must be image/jpeg or image/png.")
 
 
+def _validate_image_bytes(data: bytes) -> None:
+    """Confirm the bytes really are JPEG or PNG, not merely labelled as such.
+
+    _validate_image_upload above checks upload.content_type, which is a header
+    the caller sets and can therefore lie about at no cost. Pillow will decode
+    roughly fifty formats, so without this check the allowlist constrains the
+    label and not the parser a payload actually reaches.
+    """
+    if not is_allowed_image(data, ALLOWED_IMAGE_TYPES):
+        raise HTTPException(
+            status_code=422,
+            detail="schematic_image content is not a JPEG or PNG.",
+        )
+
+
 def _safe_dimension(canvas: object, key: str, default: int) -> int:
     """Coerce a canvas dimension without letting bad input raise an unhandled
     500 — int("abc") and int(None) both throw, canvas itself may not be a dict,
@@ -157,6 +173,18 @@ async def evaluate_schematic(
     Run all compliance checks on a schematic metadata JSON.
     Optionally annotate the uploaded schematic JPG with element markers.
     """
+    # Bounded before the parse, not after. Every cap in _validate_metadata
+    # bounds a COUNT (elements, ports, pipes) and runs on the already-parsed
+    # object, so none of them bounds the allocation json.loads makes here. This
+    # field is also the larger of the two attacker-controlled inputs: the
+    # frontend never sends schematic_image, but it does send the title block's
+    # base64 stamps inside metadata_json (frontend/src/utils/metadataBuilder.ts).
+    if len(metadata_json) > settings.max_metadata_chars:
+        raise HTTPException(
+            status_code=413,
+            detail=f"metadata_json is over the {settings.max_metadata_chars // (1024 * 1024)}MB limit.",
+        )
+
     # Parse metadata
     try:
         metadata = json.loads(metadata_json)
@@ -165,10 +193,19 @@ async def evaluate_schematic(
 
     _validate_metadata(metadata)
 
-    # Validated up front, before the 8 compliance checks run — an oversized
-    # upload should cost the pod as little work as possible.
+    # Validated up front, before the 8 compliance checks run — an oversized or
+    # wrong-format upload should cost the pod as little work as possible.
+    #
+    # The read moved here from the annotation block below so that the signature
+    # check can run before the checks, not after: a payload that is not an image
+    # should be refused rather than carried through eight compliance checks and
+    # then quietly dropped by the annotator's exception handler. The bytes are
+    # already bounded by _validate_image_upload.
+    image_bytes: bytes | None = None
     if schematic_image is not None:
         _validate_image_upload(schematic_image)
+        image_bytes = await schematic_image.read()
+        _validate_image_bytes(image_bytes)
 
     elements: list[dict] = metadata.get("elements", [])
     pipes: list[dict] = metadata.get("pipes", [])
@@ -193,10 +230,8 @@ async def evaluate_schematic(
     # ── Image annotation ─────────────────────────────────────────────────────
     annotated_image_b64: str | None = None
 
-    if schematic_image is not None and check1.elements_of_interest:
+    if image_bytes is not None and check1.elements_of_interest:
         try:
-            image_bytes = await schematic_image.read()
-
             # Resolve canvas coordinates for each element of interest
             elem_by_id = {e["id"]: e for e in elements}
             annotated_elements: list[dict] = []

@@ -153,7 +153,9 @@ def test_pixel_dense_image_is_rejected_before_decode():
     import app.services.image_annotator as annotator
 
     original = annotator.Image.open
-    annotator.Image.open = lambda _buf: _FakeImage()
+    # **_kw absorbs formats=["JPEG","PNG"], which annotate_schematic now passes
+    # to bound which Pillow plugins may attempt the decode.
+    annotator.Image.open = lambda _buf, **_kw: _FakeImage()
     try:
         with pytest.raises(ValueError, match="over the"):
             annotate_schematic(b"stub", [{"canvas_x": 0, "canvas_y": 0, "label": "x", "color": "red"}], 100, 100)
@@ -187,9 +189,105 @@ def test_too_many_crops_is_rejected():
 
 
 def test_crops_over_the_combined_size_limit_are_rejected():
-    """Each crop is individually unremarkable; the total is what bites."""
-    chunk = b"\x00" * (4 * 1024 * 1024)
+    """Each crop is individually unremarkable; the total is what bites.
+
+    Padded onto a real PNG header so the signature check passes and the
+    CUMULATIVE cap is what rejects this — otherwise the test would pass for the
+    wrong reason (422 on format) and stop covering R-03.
+    """
+    chunk = _png(4, 4) + b"\x00" * (4 * 1024 * 1024)
     count = (settings.max_total_crop_bytes // len(chunk)) + 2
     files = [("crops", (f"c{i}.png", chunk, "image/png")) for i in range(count)]
     r = client.post("/api/export/docx", data={"manifest_json": _rows(1)}, files=files)
     assert r.status_code == 413
+    assert "combined" in r.json()["detail"]
+
+
+def test_single_oversized_crop_is_rejected():
+    """The cumulative cap alone would let one crop claim the whole budget."""
+    blob = _png(4, 4) + b"\x00" * (settings.max_crop_bytes + 1024)
+    files = [("crops", ("c.png", blob, "image/png"))]
+    r = client.post("/api/export/docx", data={"manifest_json": _rows(1)}, files=files)
+    assert r.status_code == 413
+    assert "per-file" in r.json()["detail"]
+
+
+# ── Declared type vs. actual content ────────────────────────────────────────
+
+def test_image_labelled_png_but_carrying_other_bytes_is_rejected():
+    """content_type is caller-supplied. Without a signature check the allowlist
+    constrains the label while Pillow's ~50 decoders stay reachable."""
+    r = client.post(
+        "/api/evaluate",
+        data={"metadata_json": _metadata(2)},
+        files={"schematic_image": ("s.png", b"GIF89a" + b"\x00" * 64, "image/png")},
+    )
+    assert r.status_code == 422
+
+
+def test_crop_labelled_png_but_carrying_other_bytes_is_rejected():
+    """This endpoint previously performed no type checking on crops at all."""
+    files = [("crops", ("c.png", b"%PDF-1.4\n" + b"\x00" * 64, "image/png"))]
+    r = client.post("/api/export/docx", data={"manifest_json": _rows(1)}, files=files)
+    assert r.status_code == 422
+
+
+def test_corrupt_but_png_signed_crop_does_not_500():
+    """A signature proves a crop STARTS like an image, not that it parses.
+    python-docx raises on the rest; that must not take the report down."""
+    rows = json.dumps([
+        {"check_id": "C1", "check_title": "t", "status": "FAIL", "text": "x", "crop_index": 0}
+    ])
+    truncated = _png(8, 8)[:20]  # valid signature, body cut off
+    files = [("crops", ("c.png", truncated, "image/png"))]
+    r = client.post("/api/export/docx", data={"manifest_json": rows}, files=files)
+    assert r.status_code == 200
+
+
+# ── Form-field size caps (the fields that carry the images) ─────────────────
+
+def test_oversized_metadata_json_is_rejected_before_parsing():
+    """Every other cap bounds a COUNT on the already-parsed object, so none of
+    them bounds json.loads. metadata_json is also the field the frontend uses
+    to carry base64 title-block stamps."""
+    payload = '{"elements": [], "pipes": [], "pad": "' + "A" * (settings.max_metadata_chars + 16) + '"}'
+    r = client.post("/api/evaluate", data={"metadata_json": payload})
+    assert r.status_code == 413
+
+
+def test_oversized_manifest_json_is_rejected_before_parsing():
+    payload = '[{"text": "' + "A" * (settings.max_manifest_chars + 16) + '"}]'
+    r = client.post("/api/export/docx", data={"manifest_json": payload})
+    assert r.status_code == 413
+
+
+# ── Response security headers ───────────────────────────────────────────────
+
+def test_security_headers_are_set():
+    """nosniff matters here specifically: /api/symbols/{id}/image serves
+    image/svg+xml, and the CSP is img-src only, so it does not cover an SVG
+    fetched as a document."""
+    r = client.get("/api/health")
+    assert r.headers["X-Content-Type-Options"] == "nosniff"
+    assert r.headers["X-Frame-Options"] == "DENY"
+    assert r.headers["Referrer-Policy"] == "no-referrer"
+    assert r.headers["Content-Security-Policy"] == "img-src 'self' data:"
+
+
+def test_cors_fallback_still_fills_the_gap_when_middleware_is_silent():
+    """The split-deployment fix this fallback exists for: CORSMiddleware emits
+    nothing on a request with no Origin header, and symbol images were observed
+    failing for exactly that reason. Making the fallback conditional must not
+    have removed the behaviour it was added for.
+
+    Note what this canNOT assert while allow_origins is ["*"]: that the fallback
+    DEFERS to CORSMiddleware. Starlette answers "*" rather than echoing the
+    origin under a wildcard allowlist, so both paths produce the same header and
+    the override case is indistinguishable here. It becomes assertable the
+    moment allow_origins is narrowed to settings.origins_list at go-live —
+    at which point this test should be extended to send a disallowed Origin and
+    assert the header is ABSENT. That is the regression the conditional exists
+    to prevent.
+    """
+    r = client.get("/api/health")
+    assert r.headers["access-control-allow-origin"] == "*"

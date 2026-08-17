@@ -9,6 +9,11 @@ from app.routers import health, symbols, evaluate, export
 
 app = FastAPI(title="Schematic Drawing Portal API", version=settings.app_version)
 
+# Wildcard for now. The allowlist to narrow to at go-live already exists and is
+# wired to the ALLOWED_ORIGINS env var — settings.origins_list (config.py) —
+# it is simply not referenced here yet. Note the app is same-origin in the
+# combined image (the frontend is served by this process, see the static mount
+# below), so CORS is not load-bearing for normal operation.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,17 +23,46 @@ app.add_middleware(
 )
 
 
-# Belt-and-suspenders fallback: on an earlier split deployment, requests for symbol
-# images (loaded via <img crossorigin> so Konva can rasterize them) have been
-# observed missing Access-Control-Allow-Origin even with CORSMiddleware
-# configured above — restored after a prior cleanup (commit d99ab4e) removed
-# this and reintroduced the exact "blocked by CORS policy" failure it fixed.
 @app.middleware("http")
-async def force_cors(request: Request, call_next):
+async def security_headers(request: Request, call_next):
     response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
+
+    # ── CORS fallback ────────────────────────────────────────────────────────
+    # Fills the header in only when CORSMiddleware did not set one. On an
+    # earlier split deployment, requests for symbol images (loaded via
+    # <img crossorigin> so Konva can rasterize them) were observed missing
+    # Access-Control-Allow-Origin even with CORSMiddleware configured above —
+    # restored after a prior cleanup (commit d99ab4e) removed this and
+    # reintroduced the exact "blocked by CORS policy" failure it fixed.
+    #
+    # Conditional, deliberately. Setting it unconditionally made this
+    # middleware silently override CORSMiddleware on EVERY response: narrowing
+    # allow_origins above would then have had no effect whatsoever, because
+    # this line re-forced "*" afterwards. That is a trap for whoever tightens
+    # CORS at go-live, and it is why the two must be changed together — or,
+    # as now, why this one defers to the other.
+    if "access-control-allow-origin" not in response.headers:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+
+    # ── Security headers ─────────────────────────────────────────────────────
+    # nosniff is the one that matters for this service specifically:
+    # /api/symbols/{id}/image serves image/svg+xml, and an SVG rendered as a
+    # DOCUMENT (direct navigation, not via <img>) executes script in this
+    # origin. The CSP below is img-src only, so it does not constrain that path
+    # at all. The symbol library is baked into the container image and the
+    # write API was removed on 2026-08-04, so this guards against a future
+    # committed SVG rather than a live exposure.
+    #
+    # Strict-Transport-Security is deliberately NOT set here. TLS terminates at
+    # the Cloudflare edge and the zone's HSTS position is GovPaaS's to state —
+    # asked 2026-08-04 and again since, still unanswered. Setting a max-age
+    # from the application would commit a pub.gov.sg subdomain to a policy the
+    # platform owner has not agreed to.
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
 
     # Content-Security-Policy: img-src ONLY, deliberately.
     #

@@ -26,8 +26,13 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.config import settings
+from app.services.upload_validation import is_allowed_image
 
 router = APIRouter()
+
+# The same set /api/evaluate accepts. Crops are canvas captures produced by the
+# frontend, which emits PNG.
+ALLOWED_CROP_TYPES = {"image/jpeg", "image/png"}
 
 
 @router.post("/export/docx")
@@ -35,6 +40,15 @@ async def export_docx(
     manifest_json: str = Form(...),
     crops: list[UploadFile] = File(default=[]),
 ) -> StreamingResponse:
+    # Bounded before the parse — max_report_rows below bounds the row COUNT on
+    # the already-parsed list, so it cannot bound the allocation json.loads
+    # makes here. See config.max_manifest_chars.
+    if len(manifest_json) > settings.max_manifest_chars:
+        raise HTTPException(
+            status_code=413,
+            detail=f"manifest_json is over the {settings.max_manifest_chars // (1024 * 1024)}MB limit.",
+        )
+
     try:
         rows: list[dict] = json.loads(manifest_json)
     except json.JSONDecodeError as e:
@@ -61,6 +75,11 @@ async def export_docx(
     total = 0
     for f in crops:
         data = await f.read()
+        if len(data) > settings.max_crop_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"a crop is over the {settings.max_crop_bytes // (1024 * 1024)}MB per-file limit.",
+            )
         total += len(data)
         if total > settings.max_total_crop_bytes:
             raise HTTPException(
@@ -70,6 +89,13 @@ async def export_docx(
                     "combined limit."
                 ),
             )
+        # add_picture below parses each crop to determine its format and
+        # dimensions, so unverified bytes reach an image parser in-process.
+        # Checked on the signature rather than on Content-Type: that header is
+        # supplied by the caller and is not evidence of anything. This endpoint
+        # previously performed no type checking at all.
+        if not is_allowed_image(data, ALLOWED_CROP_TYPES):
+            raise HTTPException(status_code=422, detail="crops must be JPEG or PNG images.")
         crop_bytes.append(data)
 
     document = Document()
@@ -86,8 +112,16 @@ async def export_docx(
         crop_index = row.get("crop_index")
         table_row = table.add_row()
         if isinstance(crop_index, int) and 0 <= crop_index < len(crop_bytes):
-            run = table_row.cells[0].paragraphs[0].add_run()
-            run.add_picture(io.BytesIO(crop_bytes[crop_index]), width=Inches(2.5))
+            try:
+                run = table_row.cells[0].paragraphs[0].add_run()
+                run.add_picture(io.BytesIO(crop_bytes[crop_index]), width=Inches(2.5))
+            except Exception:
+                # The signature check proves a crop STARTS like an image; it
+                # does not prove the rest parses. python-docx raises on
+                # truncated or corrupt data, and an uncaught raise here turned
+                # one bad crop into a 500 for the whole report. A blank cell
+                # loses one thumbnail; the alternative loses the document.
+                pass
         status = row.get("status", "")
         check_title = row.get("check_title", "")
         check_id = row.get("check_id", "")
