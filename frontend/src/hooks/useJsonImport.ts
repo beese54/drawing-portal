@@ -1,14 +1,16 @@
 import { useCallback, useRef } from 'react';
 import { useCanvasStore } from '../store/canvasStore';
 import { useUiStore } from '../store/uiStore';
-import { DEFAULT_SHEET_CONFIG } from '../types';
+import { DEFAULT_ANNOTATION_FONT_SIZE, DEFAULT_SHEET_CONFIG } from '../types';
 import type { CanvasElement, PipeElement, AnnotationElement, TankProperties, DrawingMetadata, ExportedTankProperties, TitleBlockData } from '../types';
 import {
   HEX_COLOR_RE,
   MAX_IMPORT_FILE_BYTES,
+  STAMP_FIELD_LABELS,
   SchematicImportError,
   reencodeTitleBlockStamps,
   safeHexColor,
+  safeNumber,
   safeText,
   sanitizeTitleBlock,
   validateSchematicShape,
@@ -33,7 +35,9 @@ const DEFAULT_ANNOTATION_COLOR = '#1a1a1a';
 // title-block stamp fields, which are assigned to img.src and must be data-URLs.
 
 function importTankProperties(tp: ExportedTankProperties): TankProperties {
-  const num = (v: number | null): number | undefined => (v !== null ? v : undefined);
+  // safeNumber, not a null check: a hand-edited file can carry "3.5" or NaN here, and these
+  // values feed the compliance calculations rather than just the canvas.
+  const num = (v: number | null): number | undefined => safeNumber(v);
   return {
     ...(tp.material !== null && { material: tp.material }),
     ...(tp.is_sunken_tank !== null && { isSunkenTank: tp.is_sunken_tank }),
@@ -64,8 +68,10 @@ function parseSchematic(data: DrawingMetadata): { elements: CanvasElement[]; pip
       y: el.position.canvas_y,
       width: el.width,
       height: el.height,
-      rotation: el.rotation_deg,
-      ...(el.scale_x !== 1 && { scaleX: el.scale_x }),
+      // Geometry (position/width/height) is guaranteed numeric by validateSchematicShape —
+      // without it there is no drawing. Rotation is not: 0 is a coherent fallback.
+      rotation: safeNumber(el.rotation_deg) ?? 0,
+      ...(safeNumber(el.scale_x) !== undefined && el.scale_x !== 1 && { scaleX: el.scale_x }),
       ...(el.fitting_type !== undefined && { fittingType: el.fitting_type }),
       ...(el.efficiency_rating !== undefined && { efficiencyRating: el.efficiency_rating }),
       ...(el.long_bath_capacity_l != null && { longBathCapacityL: el.long_bath_capacity_l }),
@@ -91,18 +97,25 @@ function parseSchematic(data: DrawingMetadata): { elements: CanvasElement[]; pip
     ...(p.diameter_label !== undefined && { diameterLabel: p.diameter_label }),
   }));
 
-  const annotations: AnnotationElement[] = (data.annotations ?? []).map((ann) => ({
-    id: ann.id,
-    x: ann.position.canvas_x,
-    y: ann.position.canvas_y,
-    text: safeText(ann.text) ?? '',
-    fontSize: ann.font_size,
-    // Same guard as the pipes above — pdfVectorExport:setTextColor is fed this value.
-    // Falls back to the colour new annotations are created with (DrawingCanvas.tsx:1139).
-    color: safeHexColor(ann.color) ?? DEFAULT_ANNOTATION_COLOR,
-    maxWidth: ann.max_width,
-    height: ann.height,
-  }));
+  const annotations: AnnotationElement[] = (data.annotations ?? []).map((ann) => {
+    // max_width and height were added after schema 1.0 shipped, so a genuine older export
+    // can legitimately lack them. Defaults mirror how the app itself creates an annotation:
+    // maxWidth = fontSize * 20 (AnnotationContextMenu.tsx:12) and
+    // height = fontSize * 1.35 * 2 (canvasStore.ts addAnnotation).
+    const fontSize = safeNumber(ann.font_size) ?? DEFAULT_ANNOTATION_FONT_SIZE;
+    return {
+      id: ann.id,
+      x: ann.position.canvas_x,
+      y: ann.position.canvas_y,
+      text: safeText(ann.text) ?? '',
+      fontSize,
+      // Same guard as the pipes above — pdfVectorExport:setTextColor is fed this value.
+      // Falls back to the colour new annotations are created with (DrawingCanvas.tsx:1139).
+      color: safeHexColor(ann.color) ?? DEFAULT_ANNOTATION_COLOR,
+      maxWidth: safeNumber(ann.max_width) ?? fontSize * 20,
+      height: safeNumber(ann.height) ?? fontSize * 1.35 * 2,
+    };
+  });
 
   return { elements, pipes, annotations };
 }
@@ -151,9 +164,16 @@ export function useJsonImport() {
           //                         decoded pixels survive and anything appended is lost
           //   Content-Security-Policy img-src (backend main.py) — enforces the first layer
           //                         in the browser even if this code regresses later
-          const sanitized = sanitizeTitleBlock(data.title_block);
+          //
+          // Both layers report what they discard. A stamp is a signature block on a
+          // regulatory drawing: opening a schematic whose LP/PE stamp has silently
+          // vanished lets it be forwarded as though it were still signed. The drop is
+          // still the right action; going quiet about it is not.
+          const droppedStamps = new Set<string>();
+          const noteDrop = (field: string) => droppedStamps.add(field);
+          const sanitized = sanitizeTitleBlock(data.title_block, noteDrop);
           const titleBlock = (sanitized
-            ? await reencodeTitleBlockStamps(sanitized)
+            ? await reencodeTitleBlockStamps(sanitized, noteDrop)
             : undefined) as TitleBlockData | undefined;
           if (data.sheet_config) {
             setSheetConfig({
@@ -167,6 +187,19 @@ export function useJsonImport() {
           }
           setMrlConfig({ lowerMrl: data.mrl_config.lower_mrl });
           loadSchematic(elements, pipes, annotations);
+          // After the drawing is on screen, so the warning describes something visible.
+          if (droppedStamps.size > 0) {
+            const names = [...droppedStamps].map((k) => STAMP_FIELD_LABELS[k] ?? k);
+            const list = names.length === 1
+              ? names[0]
+              : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+            const [was, it] = names.length === 1 ? ['was', 'it'] : ['were', 'them'];
+            alert(
+              `The schematic was imported, but ${list} could not be read as a valid PNG, `
+              + `JPEG or WebP image and ${was} removed.\n\n`
+              + `Re-attach ${it} under Sheet Setup before issuing this drawing.`,
+            );
+          }
         } catch (err) {
           // A structural problem gets its own specific message; anything else is a
           // malformed file and the parser's own wording is the most useful thing to show.

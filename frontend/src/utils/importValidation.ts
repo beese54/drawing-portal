@@ -37,6 +37,8 @@
  * problems (wrong shape, over the caps) refuse the file, and they say why.
  */
 
+import { PAPER_SIZES_MM } from '../types';
+
 // Mirrors backend/app/config.py — keep the two in step.
 export const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024; // config.max_image_bytes
 export const MAX_ELEMENTS = 1000; // config.max_elements
@@ -48,6 +50,22 @@ export const MAX_TEXT_LEN = 5000;
 export const MAX_DATA_URL_LEN = 4 * 1024 * 1024;
 
 export const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+/** Accepted `sheet_config` values. Paper sizes come straight from PAPER_SIZES_MM so the
+ *  two cannot drift; DrawingScale is a bare union with no runtime list, so it is mirrored
+ *  here — keep in step with types/index.ts. */
+const PAPER_SIZES = Object.keys(PAPER_SIZES_MM);
+const DRAWING_SCALES: readonly number[] = [20, 25, 50, 100, 200, 500];
+
+/** Reported to the caller when a value is discarded, so the user can be told. */
+export type DroppedFieldReporter = (field: string) => void;
+
+/** How each stamp field is named to the user. */
+export const STAMP_FIELD_LABELS: Record<string, string> = {
+  ownerStamp: "the Owner's stamp",
+  structuralEngineerStamp: "the Structural Engineer's stamp",
+  lpPeStamp: 'the LP/PE stamp',
+};
 
 /** png/jpeg/webp only — the same set SheetSetupModal offers on upload. */
 const SAFE_IMAGE_DATA_URL_RE = /^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/;
@@ -180,14 +198,20 @@ export function reencodeImageDataUrl(dataUrl: string, maxEdgePx = 2000): Promise
 }
 
 /** Re-encode every stamp on an already-sanitised title block, dropping any that will not decode. */
-export async function reencodeTitleBlockStamps(tb: Record<string, unknown>): Promise<Record<string, unknown>> {
+export async function reencodeTitleBlockStamps(
+  tb: Record<string, unknown>,
+  onDrop?: DroppedFieldReporter,
+): Promise<Record<string, unknown>> {
   const out = { ...tb };
   for (const k of ['ownerStamp', 'structuralEngineerStamp', 'lpPeStamp']) {
     const v = out[k];
     if (typeof v !== 'string') continue;
     const clean = await reencodeImageDataUrl(v);
     if (clean) out[k] = clean;
-    else delete out[k];
+    else {
+      delete out[k];
+      onDrop?.(k);
+    }
   }
   return out;
 }
@@ -216,7 +240,7 @@ export function safeNumber(value: unknown): number | undefined {
  * the file happens to contain, and the three stamp fields are exactly the ones that
  * must not pass unchecked.
  */
-export function sanitizeTitleBlock(raw: unknown): Record<string, unknown> | undefined {
+export function sanitizeTitleBlock(raw: unknown, onDrop?: DroppedFieldReporter): Record<string, unknown> | undefined {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const tb = raw as Record<string, unknown>;
   const out: Record<string, unknown> = {};
@@ -232,9 +256,16 @@ export function sanitizeTitleBlock(raw: unknown): Record<string, unknown> | unde
   }
 
   // The three sinks that reach img.src.
+  //
+  // A rejected stamp is REPORTED as well as dropped. These are signature blocks on a
+  // regulatory drawing: silently opening a schematic whose LP/PE stamp has vanished lets
+  // someone forward it believing the signature is still attached. Dropping stays the
+  // behaviour; saying so is the fix.
   for (const k of ['ownerStamp', 'structuralEngineerStamp', 'lpPeStamp']) {
+    if (tb[k] === undefined || tb[k] === null) continue;
     const v = safeImageDataUrl(tb[k]);
     if (v !== undefined) out[k] = v;
+    else onDrop?.(k);
   }
 
   for (const k of ['lpPeStampX', 'lpPeStampY', 'lpPeStampSize']) {
@@ -246,9 +277,40 @@ export function sanitizeTitleBlock(raw: unknown): Record<string, unknown> | unde
 }
 
 /**
+ * A finite number at `obj[key]`, or a refusal.
+ *
+ * `JSON.parse(...) as DrawingMetadata` is erased at compile time, so nothing before this
+ * point establishes that a coordinate is a number. An unchecked `"canvas_x": "abc"` — or a
+ * missing one — flows into `parseSchematic` and lands on the canvas as `undefined`, which
+ * renders as an element at NaN with no error anywhere. That is the worst outcome available:
+ * the import "succeeds" and the drawing is silently wrong. A drawing whose geometry cannot
+ * be read is not a coherent drawing, so this refuses the file rather than dropping the value.
+ */
+function requireNumber(obj: Record<string, unknown>, key: string, where: string): void {
+  if (safeNumber(obj[key]) === undefined) {
+    throw new SchematicImportError(
+      `${where} has a missing or non-numeric "${key}" (found ${JSON.stringify(obj[key] ?? null)}).`,
+    );
+  }
+}
+
+/** An object carrying finite `canvas_x` and `canvas_y`, or a refusal. */
+function requirePoint(value: unknown, where: string): void {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new SchematicImportError(`${where} is missing or is not an object.`);
+  }
+  const p = value as Record<string, unknown>;
+  requireNumber(p, 'canvas_x', where);
+  requireNumber(p, 'canvas_y', where);
+}
+
+/**
  * Structural check, run before anything is read out of the parsed object.
  *
- * Throws SchematicImportError with a specific message; the caller shows it verbatim.
+ * Refuses the file outright for anything that would not produce a coherent drawing:
+ * wrong schema, over the caps, or geometry that is not numeric. Everything softer —
+ * colours, stamps, free text — is dropped by the helpers above instead, so a schematic
+ * with one bad annotation colour still opens.
  */
 export function validateSchematicShape(data: unknown): void {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -278,15 +340,17 @@ export function validateSchematicShape(data: unknown): void {
     }
   }
 
+  let annotations: unknown[] = [];
   if (d.annotations !== undefined && d.annotations !== null) {
     if (!Array.isArray(d.annotations)) {
-      throw new SchematicImportError('The file\'s "annotations" entry is not a list.');
+      throw new SchematicImportError(`The file's "annotations" entry is not a list.`);
     }
     if (d.annotations.length > MAX_ANNOTATIONS) {
       throw new SchematicImportError(
         `This schematic has ${d.annotations.length.toLocaleString()} annotations, over the ${MAX_ANNOTATIONS.toLocaleString()} limit.`,
       );
     }
+    annotations = d.annotations;
   }
 
   const mrl = d.mrl_config;
@@ -294,14 +358,34 @@ export function validateSchematicShape(data: unknown): void {
     throw new SchematicImportError('The file is missing a valid "mrl_config.lower_mrl" value.');
   }
 
+  // sheet_config is optional — files exported before it existed are still valid 1.0 —
+  // but when present both values are consumed as-is by setSheetConfig, and an unknown
+  // paper size resolves to no page dimensions at all downstream.
+  if (d.sheet_config !== undefined && d.sheet_config !== null) {
+    if (typeof d.sheet_config !== 'object' || Array.isArray(d.sheet_config)) {
+      throw new SchematicImportError(`The file's "sheet_config" entry is not an object.`);
+    }
+    const sc = d.sheet_config as Record<string, unknown>;
+    if (typeof sc.paper_size !== 'string' || !PAPER_SIZES.includes(sc.paper_size)) {
+      throw new SchematicImportError(
+        `Unsupported paper size ${JSON.stringify(sc.paper_size ?? null)}. Expected one of: ${PAPER_SIZES.join(', ')}.`,
+      );
+    }
+    if (typeof sc.drawing_scale !== 'number' || !DRAWING_SCALES.includes(sc.drawing_scale)) {
+      throw new SchematicImportError(
+        `Unsupported drawing scale ${JSON.stringify(sc.drawing_scale ?? null)}. Expected one of: ${DRAWING_SCALES.join(', ')}.`,
+      );
+    }
+  }
+
   for (const [i, el] of (d.elements as unknown[]).entries()) {
     if (!el || typeof el !== 'object' || Array.isArray(el)) {
       throw new SchematicImportError(`Element ${i + 1} in the file is not an object.`);
     }
-    const pos = (el as Record<string, unknown>).position;
-    if (!pos || typeof pos !== 'object') {
-      throw new SchematicImportError(`Element ${i + 1} in the file has no position.`);
-    }
+    const e = el as Record<string, unknown>;
+    requirePoint(e.position, `Element ${i + 1}'s position`);
+    requireNumber(e, 'width', `Element ${i + 1}`);
+    requireNumber(e, 'height', `Element ${i + 1}`);
   }
 
   for (const [i, p] of (d.pipes as unknown[]).entries()) {
@@ -309,8 +393,14 @@ export function validateSchematicShape(data: unknown): void {
       throw new SchematicImportError(`Pipe ${i + 1} in the file is not an object.`);
     }
     const pp = p as Record<string, unknown>;
-    if (!pp.start || typeof pp.start !== 'object' || !pp.end || typeof pp.end !== 'object') {
-      throw new SchematicImportError(`Pipe ${i + 1} in the file has no start or end point.`);
+    requirePoint(pp.start, `Pipe ${i + 1}'s start point`);
+    requirePoint(pp.end, `Pipe ${i + 1}'s end point`);
+  }
+
+  for (const [i, a] of annotations.entries()) {
+    if (!a || typeof a !== 'object' || Array.isArray(a)) {
+      throw new SchematicImportError(`Annotation ${i + 1} in the file is not an object.`);
     }
+    requirePoint((a as Record<string, unknown>).position, `Annotation ${i + 1}'s position`);
   }
 }
