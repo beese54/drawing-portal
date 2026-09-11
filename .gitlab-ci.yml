@@ -108,6 +108,34 @@ frontend:check:
     paths:
       - frontend/dist
 
+# ── TEMPORARY: runner capability probe ────────────────────────────────────
+# Delete this job once the build engine question is settled. It exists because
+# both build engines have now failed for privilege reasons, and guessing costs a
+# pipeline run each time:
+#   build:image        → docker:dind unreachable (no DOCKER_HOST; needs privileged)
+#   build:image:kaniko → Permission denied writing /kaniko
+# Kaniko must write its own container rootfs to extract base-image layers, so if
+# this reports a non-root UID or a read-only rootfs, NEITHER engine can work on
+# these runners and the fix is a config.toml change by a GitLab admin.
+diag:runner:
+  stage: test
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  allow_failure: true
+  script:
+    - echo "=== identity ==="
+    - id || true
+    - echo "=== what is writable ==="
+    - touch /kaniko/.probe && echo "KANIKO WRITABLE" || echo "KANIKO READ-ONLY"
+    - touch /probe-root && echo "ROOTFS WRITABLE" || echo "ROOTFS READ-ONLY"
+    - touch /tmp/.probe && echo "TMP WRITABLE" || echo "TMP READ-ONLY"
+    - touch "$CI_PROJECT_DIR/.probe" && echo "PROJDIR WRITABLE" || echo "PROJDIR READ-ONLY"
+    - echo "=== uid/gid/capabilities ==="
+    - grep -Ei '^(Uid|Gid|CapEff|CapBnd|NoNewPrivs)' /proc/self/status || true
+    - echo "=== root mount ==="
+    - mount | grep -E ' / ' || true
+
 # ─────────────────────────────────────────────────────────────── build stage ──
 # Exactly one of these runs, chosen by $BUILD_ENGINE.
 
@@ -147,23 +175,31 @@ build:image:kaniko:
   image:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
+  variables:
+    # This instance's runners refuse writes to /kaniko (job failed 2026-09-11 with
+    # "can't create /kaniko/.docker/config.json: Permission denied"). Kaniko reads
+    # DOCKER_CONFIG and only defaults to /kaniko/.docker, so point it at the build
+    # directory, which the git checkout proves is writable.
+    DOCKER_CONFIG: "$CI_PROJECT_DIR/.docker"
   rules:
     - if: '$BUILD_ENGINE != "kaniko"'
       when: never
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG'
   script:
     # Kaniko builds in userspace — no privileged runner, no docker daemon.
-    - mkdir -p /kaniko/.docker
-    - printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}' "$CI_REGISTRY" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" > /kaniko/.docker/config.json
+    - mkdir -p "$DOCKER_CONFIG"
+    - printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}' "$CI_REGISTRY" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" > "$DOCKER_CONFIG/config.json"
     - *compute_tags
+    # --digest-file also lands in the build dir: if /kaniko is unwritable, /tmp is
+    # not a safe assumption either.
     - >
       /kaniko/executor
       --context "$CI_PROJECT_DIR"
       --dockerfile "$CI_PROJECT_DIR/Dockerfile"
       $(for t in $TAGS; do printf -- '--destination %s:%s ' "$IMAGE" "$t"; done)
       --cache=true
-      --digest-file=/tmp/digest
-    - echo "$IMAGE@$(cat /tmp/digest)" > image-digest.txt
+      --digest-file="$CI_PROJECT_DIR/digest"
+    - echo "$IMAGE@$(cat "$CI_PROJECT_DIR/digest")" > image-digest.txt
     - cat image-digest.txt
   artifacts:
     expire_in: 1 week
