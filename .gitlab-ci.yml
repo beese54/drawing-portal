@@ -17,6 +17,16 @@
 # automatically and the image lands in this project's own Container Registry.
 #
 # Settings → CI/CD → Variables, only for the opt-in jobs:
+#   ENABLE_BUILD         "true" to run the build stage at all. OFF BY DEFAULT:
+#                        this instance's runners cannot build container images
+#                        — uid 65533, CapEff 0000000000000000, read-only rootfs
+#                        (probed 2026-09-11), which blocks docker:dind (needs
+#                        privileged) and kaniko (needs root + writable /) alike.
+#                        No .gitlab-ci.yml change can lift that; it is a runner
+#                        config.toml decision for a GitLab admin. Until then the
+#                        image is built by GitHub Actions and published to GHCR,
+#                        and this pipeline's job is the test stage. Flip this to
+#                        "true" the day privileges are granted — no commit needed.
 #   BUILD_ENGINE         "docker" (default) or "kaniko" — see the build jobs
 #   ENABLE_SCAN          "true" to run the Trivy job
 #   GHCR_USER            GitHub username, if mirroring to GHCR
@@ -108,34 +118,6 @@ frontend:check:
     paths:
       - frontend/dist
 
-# ── TEMPORARY: runner capability probe ────────────────────────────────────
-# Delete this job once the build engine question is settled. It exists because
-# both build engines have now failed for privilege reasons, and guessing costs a
-# pipeline run each time:
-#   build:image        → docker:dind unreachable (no DOCKER_HOST; needs privileged)
-#   build:image:kaniko → Permission denied writing /kaniko
-# Kaniko must write its own container rootfs to extract base-image layers, so if
-# this reports a non-root UID or a read-only rootfs, NEITHER engine can work on
-# these runners and the fix is a config.toml change by a GitLab admin.
-diag:runner:
-  stage: test
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
-  allow_failure: true
-  script:
-    - echo "=== identity ==="
-    - id || true
-    - echo "=== what is writable ==="
-    - touch /kaniko/.probe && echo "KANIKO WRITABLE" || echo "KANIKO READ-ONLY"
-    - touch /probe-root && echo "ROOTFS WRITABLE" || echo "ROOTFS READ-ONLY"
-    - touch /tmp/.probe && echo "TMP WRITABLE" || echo "TMP READ-ONLY"
-    - touch "$CI_PROJECT_DIR/.probe" && echo "PROJDIR WRITABLE" || echo "PROJDIR READ-ONLY"
-    - echo "=== uid/gid/capabilities ==="
-    - grep -Ei '^(Uid|Gid|CapEff|CapBnd|NoNewPrivs)' /proc/self/status || true
-    - echo "=== root mount ==="
-    - mount | grep -E ' / ' || true
-
 # ─────────────────────────────────────────────────────────────── build stage ──
 # Exactly one of these runs, chosen by $BUILD_ENGINE.
 
@@ -144,7 +126,20 @@ build:image:
   image: docker:27-cli
   services:
     - docker:27-dind
+  variables:
+    # On a Kubernetes executor the dind service is a SEPARATE container in the
+    # pod, so there is no shared /var/run/docker.sock and the CLI must reach it
+    # over TCP. Without this the job fails with "Cannot connect to the Docker
+    # daemon at unix:///var/run/docker.sock" (observed 2026-09-11) no matter
+    # what privileges the runner grants. Services share the pod network, so the
+    # `docker` alias resolves to localhost; TLS is off because the k8s executor
+    # does not share /certs between the service and build containers, and the
+    # traffic never leaves the pod.
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
   rules:
+    - if: '$ENABLE_BUILD != "true"'
+      when: never
     - if: '$BUILD_ENGINE == "kaniko"'
       when: never
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG'
@@ -182,6 +177,8 @@ build:image:kaniko:
     # directory, which the git checkout proves is writable.
     DOCKER_CONFIG: "$CI_PROJECT_DIR/.docker"
   rules:
+    - if: '$ENABLE_BUILD != "true"'
+      when: never
     - if: '$BUILD_ENGINE != "kaniko"'
       when: never
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG'
