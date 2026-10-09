@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 
 from docx import Document
 from docx.shared import Inches
@@ -27,6 +28,17 @@ from fastapi.responses import StreamingResponse
 
 from app.config import settings
 from app.services.upload_validation import is_allowed_image
+
+# Characters XML 1.0 cannot hold: C0 controls other than tab/LF/CR, the two
+# non-characters, and lone surrogates (json.loads accepts "\ud800"). python-docx
+# raises ValueError on any of them, which turned one bad row into a 500 for the
+# whole report (found by fuzzing, 2026-10-09). Dropping them loses nothing a real
+# row contains.
+_XML_ILLEGAL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f￾￿\ud800-\udfff]")
+
+
+def _xml_safe(text: str) -> str:
+    return _XML_ILLEGAL.sub("", text)
 
 router = APIRouter()
 
@@ -126,7 +138,7 @@ async def export_docx(
         check_title = row.get("check_title", "")
         check_id = row.get("check_id", "")
         text = row.get("text", "")
-        table_row.cells[1].text = f"[{status}] {check_title} ({check_id}): {text}"
+        table_row.cells[1].text = _xml_safe(f"[{status}] {check_title} ({check_id}): {text}")
 
     if len(rows) == 0:
         table.add_row().cells[1].text = "No FAIL or WARN items — schematic passed all checks."

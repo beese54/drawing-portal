@@ -1,0 +1,5273 @@
+{
+ "schema_version": "1.0",
+ "exported_at": "2026-10-09T09:20:02.861Z",
+ "title_block": {},
+ "mrl_config": {
+  "upper_mrl": 60,
+  "lower_mrl": 30,
+  "unit": "m AMSL",
+  "range": 30
+ },
+ "canvas": {
+  "width_px": 1400,
+  "height_px": 1000
+ },
+ "sheet_config": {
+  "paper_size": "A1",
+  "drawing_scale": 50
+ },
+ "materials_acknowledged": true,
+ "pump_discharge_material_acknowledged": true,
+ "appliance_check_valve_acknowledged": true,
+ "bidet_vacuum_breaker_acknowledged": true,
+ "tank_position_acknowledged": true,
+ "elements": [
+  {
+   "id": "el-0-cold_water_pipe",
+   "type": "symbol",
+   "symbol_id": "cold_water_pipe",
+   "symbol_name": "Cold Water Pipe",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 100,
+    "canvas_y": 100
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 57,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [],
+   "connected_pipe_ids": []
+  },
+  {
+   "id": "el-1-hot_water_pipe",
+   "type": "symbol",
+   "symbol_id": "hot_water_pipe",
+   "symbol_name": "Hot Water Pipe",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 220,
+    "canvas_y": 100
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 57,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [],
+   "connected_pipe_ids": []
+  },
+  {
+   "id": "el-2-gate_valve",
+   "type": "symbol",
+   "symbol_id": "gate_valve",
+   "symbol_name": "Gate Valve",
+   "node_type": "isolation_valve",
+   "position": {
+    "canvas_x": 340,
+    "canvas_y": 100
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 57,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 310,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": null,
+     "connects_to_element_id": null,
+     "connects_to_port_index": null,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 370,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-2",
+     "connects_to_element_id": "el-3-globe_valve",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-2"
+   ]
+  },
+  {
+   "id": "el-3-globe_valve",
+   "type": "symbol",
+   "symbol_id": "globe_valve",
+   "symbol_name": "Globe Valve",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 460,
+    "canvas_y": 100
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 57,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 430,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-2",
+     "connects_to_element_id": "el-2-gate_valve",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 490,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-3",
+     "connects_to_element_id": "el-4-solenoid_valve",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-2",
+    "pipe-3"
+   ]
+  },
+  {
+   "id": "el-4-solenoid_valve",
+   "type": "symbol",
+   "symbol_id": "solenoid_valve",
+   "symbol_name": "Solenoid Valve",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 580,
+    "canvas_y": 100
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 57,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 550,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-3",
+     "connects_to_element_id": "el-3-globe_valve",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 610,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-4",
+     "connects_to_element_id": "el-5-motorised_valve",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-3",
+    "pipe-4"
+   ]
+  },
+  {
+   "id": "el-5-motorised_valve",
+   "type": "symbol",
+   "symbol_id": "motorised_valve",
+   "symbol_name": "Motorised Valve",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 700,
+    "canvas_y": 100
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 57,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 670,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-4",
+     "connects_to_element_id": "el-4-solenoid_valve",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 730,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-5",
+     "connects_to_element_id": "el-6-multiport_valve",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-4",
+    "pipe-5"
+   ]
+  },
+  {
+   "id": "el-6-multiport_valve",
+   "type": "symbol",
+   "symbol_id": "multiport_valve",
+   "symbol_name": "Multiport Valve",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 820,
+    "canvas_y": 100
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 57,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 790,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-5",
+     "connects_to_element_id": "el-5-motorised_valve",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 850,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": null,
+     "connects_to_element_id": null,
+     "connects_to_port_index": null,
+     "supply_mode": null
+    },
+    {
+     "index": 2,
+     "role": "downstream",
+     "label": "Branch",
+     "position": {
+      "canvas_x": 820,
+      "canvas_y": 130
+     },
+     "mrl": {
+      "value": 56.1,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-6",
+     "connects_to_element_id": "el-7-cap_off_valve",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-5",
+    "pipe-6"
+   ]
+  },
+  {
+   "id": "el-7-cap_off_valve",
+   "type": "symbol",
+   "symbol_id": "cap_off_valve",
+   "symbol_name": "Cap-Off Valve",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 940,
+    "canvas_y": 100
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 57,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 910,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-7",
+     "connects_to_element_id": "el-8-pressure_gauge_cock",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-6",
+    "pipe-7"
+   ]
+  },
+  {
+   "id": "el-8-pressure_gauge_cock",
+   "type": "symbol",
+   "symbol_id": "pressure_gauge_cock",
+   "symbol_name": "Pressure Gauge c/w Cock",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 1060,
+    "canvas_y": 100
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 57,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 1030,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-7",
+     "connects_to_element_id": "el-7-cap_off_valve",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 1090,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-8",
+     "connects_to_element_id": "el-9-water_meter",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-7",
+    "pipe-8"
+   ]
+  },
+  {
+   "id": "el-9-water_meter",
+   "type": "symbol",
+   "symbol_id": "water_meter",
+   "symbol_name": "Water Meter",
+   "node_type": "flow_meter",
+   "position": {
+    "canvas_x": 1180,
+    "canvas_y": 100
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 57,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 1150,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-8",
+     "connects_to_element_id": "el-8-pressure_gauge_cock",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 1210,
+      "canvas_y": 100
+     },
+     "mrl": {
+      "value": 57,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-9",
+     "connects_to_element_id": "el-10-sub_meter",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-8",
+    "pipe-9"
+   ]
+  },
+  {
+   "id": "el-10-sub_meter",
+   "type": "symbol",
+   "symbol_id": "sub_meter",
+   "symbol_name": "Sub-Meter",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 100,
+    "canvas_y": 220
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 53.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 70,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-9",
+     "connects_to_element_id": "el-9-water_meter",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 130,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-10",
+     "connects_to_element_id": "el-11-flow_meter",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-9",
+    "pipe-10"
+   ]
+  },
+  {
+   "id": "el-11-flow_meter",
+   "type": "symbol",
+   "symbol_id": "flow_meter",
+   "symbol_name": "Flow Meter",
+   "node_type": "flow_meter",
+   "position": {
+    "canvas_x": 220,
+    "canvas_y": 220
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 53.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 190,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-10",
+     "connects_to_element_id": "el-10-sub_meter",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": null,
+     "position": {
+      "canvas_x": 250,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-11",
+     "connects_to_element_id": "el-12-tee_junction",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-10",
+    "pipe-11"
+   ]
+  },
+  {
+   "id": "el-12-tee_junction",
+   "type": "symbol",
+   "symbol_id": "tee_junction",
+   "symbol_name": "Tee Junction",
+   "node_type": "junction",
+   "position": {
+    "canvas_x": 340,
+    "canvas_y": 220
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 53.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "in",
+     "position": {
+      "canvas_x": 310,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-11",
+     "connects_to_element_id": "el-11-flow_meter",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "out",
+     "position": {
+      "canvas_x": 370,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": null,
+     "connects_to_element_id": null,
+     "connects_to_port_index": null,
+     "supply_mode": null
+    },
+    {
+     "index": 2,
+     "role": "downstream",
+     "label": "out",
+     "position": {
+      "canvas_x": 340,
+      "canvas_y": 250
+     },
+     "mrl": {
+      "value": 52.5,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-12",
+     "connects_to_element_id": "el-13-elbow_bend",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-11",
+    "pipe-12"
+   ],
+   "pipe_type": "cold"
+  },
+  {
+   "id": "el-13-elbow_bend",
+   "type": "symbol",
+   "symbol_id": "elbow_bend",
+   "symbol_name": "Elbow Bend (90°)",
+   "node_type": "bend",
+   "position": {
+    "canvas_x": 460,
+    "canvas_y": 220
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 53.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 432.5,
+      "canvas_y": 192.5
+     },
+     "mrl": {
+      "value": 54.23,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-12",
+     "connects_to_element_id": "el-12-tee_junction",
+     "connects_to_port_index": 2,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 487.5,
+      "canvas_y": 247.5
+     },
+     "mrl": {
+      "value": 52.58,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-13",
+     "connects_to_element_id": "el-14-strainer",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-12",
+    "pipe-13"
+   ],
+   "pipe_type": "cold"
+  },
+  {
+   "id": "el-14-strainer",
+   "type": "symbol",
+   "symbol_id": "strainer",
+   "symbol_name": "Strainer",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 580,
+    "canvas_y": 220
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 53.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 550,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-13",
+     "connects_to_element_id": "el-13-elbow_bend",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 610,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-14",
+     "connects_to_element_id": "el-15-y_type_strainer",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-13",
+    "pipe-14"
+   ]
+  },
+  {
+   "id": "el-15-y_type_strainer",
+   "type": "symbol",
+   "symbol_id": "y_type_strainer",
+   "symbol_name": "Y-Type Strainer",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 700,
+    "canvas_y": 220
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 53.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 730,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-14",
+     "connects_to_element_id": "el-14-strainer",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 670,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-15",
+     "connects_to_element_id": "el-16-sight_glass",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-14",
+    "pipe-15"
+   ]
+  },
+  {
+   "id": "el-16-sight_glass",
+   "type": "symbol",
+   "symbol_id": "sight_glass",
+   "symbol_name": "Sight Glass",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 820,
+    "canvas_y": 220
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 53.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 790,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-15",
+     "connects_to_element_id": "el-15-y_type_strainer",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 850,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-16",
+     "connects_to_element_id": "el-17-sampling_tap",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-15",
+    "pipe-16"
+   ]
+  },
+  {
+   "id": "el-17-sampling_tap",
+   "type": "symbol",
+   "symbol_id": "sampling_tap",
+   "symbol_name": "Sampling Tap",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 940,
+    "canvas_y": 220
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 53.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 920,
+      "canvas_y": 245
+     },
+     "mrl": {
+      "value": 52.65,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-16",
+     "connects_to_element_id": "el-16-sight_glass",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 962.5,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-17",
+     "connects_to_element_id": "el-18-flexible_connection",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-16",
+    "pipe-17"
+   ]
+  },
+  {
+   "id": "el-18-flexible_connection",
+   "type": "symbol",
+   "symbol_id": "flexible_connection",
+   "symbol_name": "Flexible Connection",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 1060,
+    "canvas_y": 220
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 53.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 1030,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-17",
+     "connects_to_element_id": "el-17-sampling_tap",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 1090,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-18",
+     "connects_to_element_id": "el-19-puddle_flange",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-17",
+    "pipe-18"
+   ]
+  },
+  {
+   "id": "el-19-puddle_flange",
+   "type": "symbol",
+   "symbol_id": "puddle_flange",
+   "symbol_name": "Puddle Flange",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 1180,
+    "canvas_y": 220
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 53.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 1150,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-18",
+     "connects_to_element_id": "el-18-flexible_connection",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 1210,
+      "canvas_y": 220
+     },
+     "mrl": {
+      "value": 53.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-19",
+     "connects_to_element_id": "el-20-pipe_blank_off",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-18",
+    "pipe-19"
+   ]
+  },
+  {
+   "id": "el-20-pipe_blank_off",
+   "type": "symbol",
+   "symbol_id": "pipe_blank_off",
+   "symbol_name": "Pipe Blank Off",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 100,
+    "canvas_y": 340
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 49.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 70,
+      "canvas_y": 340
+     },
+     "mrl": {
+      "value": 49.8,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-20",
+     "connects_to_element_id": "el-21-tap_point_schematic",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-19",
+    "pipe-20"
+   ]
+  },
+  {
+   "id": "el-21-tap_point_schematic",
+   "type": "symbol",
+   "symbol_id": "tap_point_schematic",
+   "symbol_name": "Tap Point (Schematic)",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 220,
+    "canvas_y": 340
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 49.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 202.5,
+      "canvas_y": 345
+     },
+     "mrl": {
+      "value": 49.65,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-21",
+     "connects_to_element_id": "el-22-water_hammer_absorber",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-20",
+    "pipe-21"
+   ]
+  },
+  {
+   "id": "el-22-water_hammer_absorber",
+   "type": "symbol",
+   "symbol_id": "water_hammer_absorber",
+   "symbol_name": "Water Hammer Absorber",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 340,
+    "canvas_y": 340
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 49.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 340,
+      "canvas_y": 370
+     },
+     "mrl": {
+      "value": 48.9,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-22",
+     "connects_to_element_id": "el-23-prv_with_sensor",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-21",
+    "pipe-22"
+   ]
+  },
+  {
+   "id": "el-23-prv_with_sensor",
+   "type": "symbol",
+   "symbol_id": "prv_with_sensor",
+   "symbol_name": "PRV with Pressure Sensor",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 460,
+    "canvas_y": 340
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 49.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 430,
+      "canvas_y": 340
+     },
+     "mrl": {
+      "value": 49.8,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-22",
+     "connects_to_element_id": "el-22-water_hammer_absorber",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 490,
+      "canvas_y": 340
+     },
+     "mrl": {
+      "value": 49.8,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-23",
+     "connects_to_element_id": "el-24-pressure_gauge_prv",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-22",
+    "pipe-23"
+   ]
+  },
+  {
+   "id": "el-24-pressure_gauge_prv",
+   "type": "symbol",
+   "symbol_id": "pressure_gauge_prv",
+   "symbol_name": "Pressure Gauge c/w PRV",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 580,
+    "canvas_y": 340
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 49.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input (top)",
+     "position": {
+      "canvas_x": 595,
+      "canvas_y": 320
+     },
+     "mrl": {
+      "value": 50.4,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-23",
+     "connects_to_element_id": "el-23-prv_with_sensor",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output (right)",
+     "position": {
+      "canvas_x": 610,
+      "canvas_y": 340
+     },
+     "mrl": {
+      "value": 49.8,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-24",
+     "connects_to_element_id": "el-25-check_valve",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-23",
+    "pipe-24"
+   ]
+  },
+  {
+   "id": "el-25-check_valve",
+   "type": "symbol",
+   "symbol_id": "check_valve",
+   "symbol_name": "Check Valve",
+   "node_type": "check_valve",
+   "position": {
+    "canvas_x": 700,
+    "canvas_y": 340
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 49.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 670,
+      "canvas_y": 340
+     },
+     "mrl": {
+      "value": 49.8,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-24",
+     "connects_to_element_id": "el-24-pressure_gauge_prv",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 730,
+      "canvas_y": 340
+     },
+     "mrl": {
+      "value": 49.8,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-25",
+     "connects_to_element_id": "el-26-vacuum_breaker",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-24",
+    "pipe-25"
+   ]
+  },
+  {
+   "id": "el-26-vacuum_breaker",
+   "type": "symbol",
+   "symbol_id": "vacuum_breaker",
+   "symbol_name": "Vacuum Breaker",
+   "node_type": "check_valve",
+   "position": {
+    "canvas_x": 820,
+    "canvas_y": 340
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 49.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 820,
+      "canvas_y": 310
+     },
+     "mrl": {
+      "value": 50.7,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-25",
+     "connects_to_element_id": "el-25-check_valve",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 820,
+      "canvas_y": 370
+     },
+     "mrl": {
+      "value": 48.9,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-26",
+     "connects_to_element_id": "el-27-pressure_relief_valve",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-25",
+    "pipe-26"
+   ]
+  },
+  {
+   "id": "el-27-pressure_relief_valve",
+   "type": "symbol",
+   "symbol_id": "pressure_relief_valve",
+   "symbol_name": "Pressure Relief Valve",
+   "node_type": "check_valve",
+   "position": {
+    "canvas_x": 940,
+    "canvas_y": 340
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 49.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 940,
+      "canvas_y": 310
+     },
+     "mrl": {
+      "value": 50.7,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-26",
+     "connects_to_element_id": "el-26-vacuum_breaker",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 940,
+      "canvas_y": 370
+     },
+     "mrl": {
+      "value": 48.9,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-27",
+     "connects_to_element_id": "el-28-auto_air_relief_valve",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-26",
+    "pipe-27"
+   ]
+  },
+  {
+   "id": "el-28-auto_air_relief_valve",
+   "type": "symbol",
+   "symbol_id": "auto_air_relief_valve",
+   "symbol_name": "Automatic Air Relief Valve",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 1060,
+    "canvas_y": 340
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 49.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 1060,
+      "canvas_y": 370
+     },
+     "mrl": {
+      "value": 48.9,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-28",
+     "connects_to_element_id": "el-29-ball_float_valve",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-27",
+    "pipe-28"
+   ]
+  },
+  {
+   "id": "el-29-ball_float_valve",
+   "type": "symbol",
+   "symbol_id": "ball_float_valve",
+   "symbol_name": "Ball Float Valve",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 1180,
+    "canvas_y": 340
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 49.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 1150,
+      "canvas_y": 340
+     },
+     "mrl": {
+      "value": 49.8,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-29",
+     "connects_to_element_id": "el-30-pump",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-28",
+    "pipe-29"
+   ]
+  },
+  {
+   "id": "el-30-pump",
+   "type": "symbol",
+   "symbol_id": "pump",
+   "symbol_name": "Pump",
+   "node_type": "pressure_booster",
+   "position": {
+    "canvas_x": 100,
+    "canvas_y": 460
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 46.2,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 87.5,
+      "canvas_y": 460
+     },
+     "mrl": {
+      "value": 46.2,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-29",
+     "connects_to_element_id": "el-29-ball_float_valve",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 115,
+      "canvas_y": 460
+     },
+     "mrl": {
+      "value": 46.2,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": null,
+     "connects_to_element_id": null,
+     "connects_to_port_index": null,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-29"
+   ],
+   "pump_rated_head_m": 30
+  },
+  {
+   "id": "el-31-control_panel",
+   "type": "symbol",
+   "symbol_id": "control_panel",
+   "symbol_name": "Control Panel (FMCP)",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 220,
+    "canvas_y": 460
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 46.2,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [],
+   "connected_pipe_ids": []
+  },
+  {
+   "id": "el-32-water_tank",
+   "type": "symbol",
+   "symbol_id": "water_tank",
+   "symbol_name": "Water Tank",
+   "node_type": "source",
+   "position": {
+    "canvas_x": 340,
+    "canvas_y": 460
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 46.2,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 312.5,
+      "canvas_y": 430
+     },
+     "mrl": {
+      "value": 47.1,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": null,
+     "connects_to_element_id": null,
+     "connects_to_port_index": null,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 367.5,
+      "canvas_y": 490
+     },
+     "mrl": {
+      "value": 45.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-32",
+     "connects_to_element_id": "el-33-cold_water_tank",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-32"
+   ],
+   "tank_properties": {
+    "material": "FRP",
+    "length_m": 2,
+    "width_m": 1.5,
+    "height_m": 1.2,
+    "floor_level_m_amsl": 40,
+    "inlet_pipe_diameter_m": 0.05,
+    "inlet_pipe_m_amsl": 41,
+    "outlet_pipe_diameter_m": 0.05,
+    "distance_outlet_to_base_m": 0.08,
+    "overflow_pipe_diameter_m": 0.08,
+    "overflow_pipe_m_amsl": 41.1,
+    "warning_pipe_diameter_m": 0.025,
+    "warning_pipe_m_amsl": 41.05,
+    "support_height_m": 0.5,
+    "effective_capacity_l": 795,
+    "is_sunken_tank": false,
+    "occupants": 6,
+    "daily_demand_m3": 0.846
+   }
+  },
+  {
+   "id": "el-33-cold_water_tank",
+   "type": "symbol",
+   "symbol_id": "cold_water_tank",
+   "symbol_name": "Cold Water Tank (CWT)",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 460,
+    "canvas_y": 460
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 46.2,
+   "supply_mode": "indirect_supply",
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 430,
+      "canvas_y": 460
+     },
+     "mrl": {
+      "value": 46.2,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-32",
+     "connects_to_element_id": "el-32-water_tank",
+     "connects_to_port_index": 1,
+     "supply_mode": "indirect_supply"
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 490,
+      "canvas_y": 460
+     },
+     "mrl": {
+      "value": 46.2,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-33",
+     "connects_to_element_id": "el-34-water_heater",
+     "connects_to_port_index": 0,
+     "supply_mode": "indirect_supply"
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-32",
+    "pipe-33"
+   ]
+  },
+  {
+   "id": "el-34-water_heater",
+   "type": "symbol",
+   "symbol_id": "water_heater",
+   "symbol_name": "Storage Water Heater",
+   "node_type": "heat_exchanger",
+   "position": {
+    "canvas_x": 580,
+    "canvas_y": 460
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 46.2,
+   "supply_mode": "indirect_supply",
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 550,
+      "canvas_y": 460
+     },
+     "mrl": {
+      "value": 46.2,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-33",
+     "connects_to_element_id": "el-33-cold_water_tank",
+     "connects_to_port_index": 1,
+     "supply_mode": "indirect_supply"
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 610,
+      "canvas_y": 460
+     },
+     "mrl": {
+      "value": 46.2,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-34",
+     "connects_to_element_id": "el-35-instantaneous_water_heater",
+     "connects_to_port_index": 0,
+     "supply_mode": "indirect_supply"
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-33",
+    "pipe-34"
+   ],
+   "backflow_requirement": "check_valve"
+  },
+  {
+   "id": "el-35-instantaneous_water_heater",
+   "type": "symbol",
+   "symbol_id": "instantaneous_water_heater",
+   "symbol_name": "Instantaneous Water Heater",
+   "node_type": "heat_exchanger",
+   "position": {
+    "canvas_x": 700,
+    "canvas_y": 460
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 46.2,
+   "supply_mode": "indirect_supply",
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Input",
+     "position": {
+      "canvas_x": 670,
+      "canvas_y": 460
+     },
+     "mrl": {
+      "value": 46.2,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-34",
+     "connects_to_element_id": "el-34-water_heater",
+     "connects_to_port_index": 1,
+     "supply_mode": "indirect_supply"
+    },
+    {
+     "index": 1,
+     "role": "downstream",
+     "label": "Output",
+     "position": {
+      "canvas_x": 730,
+      "canvas_y": 460
+     },
+     "mrl": {
+      "value": 46.2,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-35",
+     "connects_to_element_id": "el-36-pressure_vessel_schematic",
+     "connects_to_port_index": 0,
+     "supply_mode": "indirect_supply"
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-34",
+    "pipe-35"
+   ]
+  },
+  {
+   "id": "el-36-pressure_vessel_schematic",
+   "type": "symbol",
+   "symbol_id": "pressure_vessel_schematic",
+   "symbol_name": "Pressure Vessel (Schematic)",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 820,
+    "canvas_y": 460
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 46.2,
+   "supply_mode": "indirect_supply",
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 820,
+      "canvas_y": 490
+     },
+     "mrl": {
+      "value": 45.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-36",
+     "connects_to_element_id": "el-37-vortex_inhibitor_schematic",
+     "connects_to_port_index": 0,
+     "supply_mode": "indirect_supply"
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-35",
+    "pipe-36"
+   ]
+  },
+  {
+   "id": "el-37-vortex_inhibitor_schematic",
+   "type": "symbol",
+   "symbol_id": "vortex_inhibitor_schematic",
+   "symbol_name": "Vortex Inhibitor (Schematic)",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 940,
+    "canvas_y": 460
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 46.2,
+   "supply_mode": "indirect_supply",
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 970,
+      "canvas_y": 460
+     },
+     "mrl": {
+      "value": 46.2,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-37",
+     "connects_to_element_id": "el-38-water_tank_air_vent",
+     "connects_to_port_index": 0,
+     "supply_mode": "indirect_supply"
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-36",
+    "pipe-37"
+   ]
+  },
+  {
+   "id": "el-38-water_tank_air_vent",
+   "type": "symbol",
+   "symbol_id": "water_tank_air_vent",
+   "symbol_name": "Water Tank Air Vent",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 1060,
+    "canvas_y": 460
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 46.2,
+   "supply_mode": "indirect_supply",
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 1060,
+      "canvas_y": 490
+     },
+     "mrl": {
+      "value": 45.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-37",
+     "connects_to_element_id": "el-37-vortex_inhibitor_schematic",
+     "connects_to_port_index": 0,
+     "supply_mode": "indirect_supply"
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-37"
+   ]
+  },
+  {
+   "id": "el-39-level_sensor_switch",
+   "type": "symbol",
+   "symbol_id": "level_sensor_switch",
+   "symbol_name": "Level Sensor Switch",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 1180,
+    "canvas_y": 460
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 46.2,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [],
+   "connected_pipe_ids": []
+  },
+  {
+   "id": "el-40-vent_cowl_schematic",
+   "type": "symbol",
+   "symbol_id": "vent_cowl_schematic",
+   "symbol_name": "Vent Cowl (Schematic)",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 100,
+    "canvas_y": 580
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 42.6,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [],
+   "connected_pipe_ids": []
+  },
+  {
+   "id": "el-41-single_tap",
+   "type": "symbol",
+   "symbol_id": "single_tap",
+   "symbol_name": "Single Tap",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 220,
+    "canvas_y": 580
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 42.6,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 225,
+      "canvas_y": 550
+     },
+     "mrl": {
+      "value": 43.5,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-41",
+     "connects_to_element_id": "el-42-single_tap_combined",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-41"
+   ]
+  },
+  {
+   "id": "el-42-single_tap_combined",
+   "type": "symbol",
+   "symbol_id": "single_tap_combined",
+   "symbol_name": "Single Tap Combined Outlet",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 340,
+    "canvas_y": 580
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 42.6,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Hot",
+     "position": {
+      "canvas_x": 320,
+      "canvas_y": 550
+     },
+     "mrl": {
+      "value": 43.5,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-41",
+     "connects_to_element_id": "el-41-single_tap",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "upstream",
+     "label": "Cold",
+     "position": {
+      "canvas_x": 360,
+      "canvas_y": 550
+     },
+     "mrl": {
+      "value": 43.5,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-42",
+     "connects_to_element_id": "el-43-twin_tap",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-41",
+    "pipe-42"
+   ]
+  },
+  {
+   "id": "el-43-twin_tap",
+   "type": "symbol",
+   "symbol_id": "twin_tap",
+   "symbol_name": "Twin Tap",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 460,
+    "canvas_y": 580
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 42.6,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 463.75,
+      "canvas_y": 555
+     },
+     "mrl": {
+      "value": 43.35,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-43",
+     "connects_to_element_id": "el-44-bib_tap_cw_cap_and_lock_schematic",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-42",
+    "pipe-43"
+   ]
+  },
+  {
+   "id": "el-44-bib_tap_cw_cap_and_lock_schematic",
+   "type": "symbol",
+   "symbol_id": "bib_tap_cw_cap_and_lock_schematic",
+   "symbol_name": "Bib Tap c/w Cap & Lock (Schematic)",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 580,
+    "canvas_y": 580
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 42.6,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Supply",
+     "position": {
+      "canvas_x": 550,
+      "canvas_y": 580
+     },
+     "mrl": {
+      "value": 42.6,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-44",
+     "connects_to_element_id": "el-45-shower_head",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-43",
+    "pipe-44"
+   ],
+   "backflow_requirement": "check_valve"
+  },
+  {
+   "id": "el-45-shower_head",
+   "type": "symbol",
+   "symbol_id": "shower_head",
+   "symbol_name": "Shower Head",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 700,
+    "canvas_y": 580
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 42.6,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 700,
+      "canvas_y": 550
+     },
+     "mrl": {
+      "value": 43.5,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-45",
+     "connects_to_element_id": "el-46-multiple_show_unit",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-44",
+    "pipe-45"
+   ],
+   "fitting_type": "shower_tap",
+   "efficiency_rating": 3
+  },
+  {
+   "id": "el-46-multiple_show_unit",
+   "type": "symbol",
+   "symbol_id": "multiple_show_unit",
+   "symbol_name": "Multiple Shower Unit",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 820,
+    "canvas_y": 580
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 42.6,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Supply",
+     "position": {
+      "canvas_x": 820,
+      "canvas_y": 550
+     },
+     "mrl": {
+      "value": 43.5,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-46",
+     "connects_to_element_id": "el-47-long_bath",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-45",
+    "pipe-46"
+   ],
+   "fitting_type": "shower_tap",
+   "efficiency_rating": 3
+  },
+  {
+   "id": "el-47-long_bath",
+   "type": "symbol",
+   "symbol_id": "long_bath",
+   "symbol_name": "Long Bath",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 940,
+    "canvas_y": 580
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 42.6,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 940,
+      "canvas_y": 550
+     },
+     "mrl": {
+      "value": 43.5,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-47",
+     "connects_to_element_id": "el-48-shower_bath",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-46",
+    "pipe-47"
+   ],
+   "long_bath_capacity_l": 250
+  },
+  {
+   "id": "el-48-shower_bath",
+   "type": "symbol",
+   "symbol_id": "shower_bath",
+   "symbol_name": "Shower Bath",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 1060,
+    "canvas_y": 580
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 42.6,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 1060,
+      "canvas_y": 550
+     },
+     "mrl": {
+      "value": 43.5,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-48",
+     "connects_to_element_id": "el-49-square_bath",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-47",
+    "pipe-48"
+   ],
+   "fitting_type": "shower_tap",
+   "efficiency_rating": 3
+  },
+  {
+   "id": "el-49-square_bath",
+   "type": "symbol",
+   "symbol_id": "square_bath",
+   "symbol_name": "Square Bath",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 1180,
+    "canvas_y": 580
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 42.6,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Supply",
+     "position": {
+      "canvas_x": 1180,
+      "canvas_y": 550
+     },
+     "mrl": {
+      "value": 43.5,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-49",
+     "connects_to_element_id": "el-50-foot_bath",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-48",
+    "pipe-49"
+   ]
+  },
+  {
+   "id": "el-50-foot_bath",
+   "type": "symbol",
+   "symbol_id": "foot_bath",
+   "symbol_name": "Foot Bath",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 100,
+    "canvas_y": 700
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 39,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Supply",
+     "position": {
+      "canvas_x": 100,
+      "canvas_y": 670
+     },
+     "mrl": {
+      "value": 39.9,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-50",
+     "connects_to_element_id": "el-51-wash_basin_rectangular",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-49",
+    "pipe-50"
+   ]
+  },
+  {
+   "id": "el-51-wash_basin_rectangular",
+   "type": "symbol",
+   "symbol_id": "wash_basin_rectangular",
+   "symbol_name": "Wash Basin (Rectangular)",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 220,
+    "canvas_y": 700
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 39,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Supply",
+     "position": {
+      "canvas_x": 216.25,
+      "canvas_y": 670
+     },
+     "mrl": {
+      "value": 39.9,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-51",
+     "connects_to_element_id": "el-52-sink",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-50",
+    "pipe-51"
+   ],
+   "fitting_type": "basin_tap",
+   "efficiency_rating": 3
+  },
+  {
+   "id": "el-52-sink",
+   "type": "symbol",
+   "symbol_id": "sink",
+   "symbol_name": "Sink",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 340,
+    "canvas_y": 700
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 39,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Supply",
+     "position": {
+      "canvas_x": 340,
+      "canvas_y": 670
+     },
+     "mrl": {
+      "value": 39.9,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-52",
+     "connects_to_element_id": "el-53-water_closet",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-51",
+    "pipe-52"
+   ],
+   "fitting_type": "sink_tap",
+   "efficiency_rating": 3
+  },
+  {
+   "id": "el-53-water_closet",
+   "type": "symbol",
+   "symbol_id": "water_closet",
+   "symbol_name": "Water Closet (Pedestal)",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 460,
+    "canvas_y": 700
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 39,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 460,
+      "canvas_y": 670
+     },
+     "mrl": {
+      "value": 39.9,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-53",
+     "connects_to_element_id": "el-54-urinal_wall",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-52",
+    "pipe-53"
+   ],
+   "fitting_type": "dual_flushing_cistern",
+   "efficiency_rating": 3
+  },
+  {
+   "id": "el-54-urinal_wall",
+   "type": "symbol",
+   "symbol_id": "urinal_wall",
+   "symbol_name": "Urinal - Wall Hung",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 580,
+    "canvas_y": 700
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 39,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 582.5,
+      "canvas_y": 687.5
+     },
+     "mrl": {
+      "value": 39.38,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-54",
+     "connects_to_element_id": "el-55-drinking_fountain_pedestal",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-53",
+    "pipe-54"
+   ],
+   "fitting_type": "urinal_flush",
+   "efficiency_rating": 3
+  },
+  {
+   "id": "el-55-drinking_fountain_pedestal",
+   "type": "symbol",
+   "symbol_id": "drinking_fountain_pedestal",
+   "symbol_name": "Drinking Fountain - Pedestal",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 700,
+    "canvas_y": 700
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 39,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 700,
+      "canvas_y": 670
+     },
+     "mrl": {
+      "value": 39.9,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-55",
+     "connects_to_element_id": "el-56-drinking_fountain_trough",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-54",
+    "pipe-55"
+   ]
+  },
+  {
+   "id": "el-56-drinking_fountain_trough",
+   "type": "symbol",
+   "symbol_id": "drinking_fountain_trough",
+   "symbol_name": "Drinking Fountain - Trough",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 820,
+    "canvas_y": 700
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 39,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 820,
+      "canvas_y": 690
+     },
+     "mrl": {
+      "value": 39.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-56",
+     "connects_to_element_id": "el-57-drinking_fountain_wall",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-55",
+    "pipe-56"
+   ]
+  },
+  {
+   "id": "el-57-drinking_fountain_wall",
+   "type": "symbol",
+   "symbol_id": "drinking_fountain_wall",
+   "symbol_name": "Drinking Fountain - Wall",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 940,
+    "canvas_y": 700
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 39,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": null,
+     "position": {
+      "canvas_x": 940,
+      "canvas_y": 690
+     },
+     "mrl": {
+      "value": 39.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-57",
+     "connects_to_element_id": "el-58-bidet_spray",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-56",
+    "pipe-57"
+   ]
+  },
+  {
+   "id": "el-58-bidet_spray",
+   "type": "symbol",
+   "symbol_id": "bidet_spray",
+   "symbol_name": "Bidet Spray",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 1060,
+    "canvas_y": 700
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 39,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Supply",
+     "position": {
+      "canvas_x": 1030,
+      "canvas_y": 700
+     },
+     "mrl": {
+      "value": 39,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-57",
+     "connects_to_element_id": "el-57-drinking_fountain_wall",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-57"
+   ],
+   "backflow_requirement": "vacuum_breaker"
+  },
+  {
+   "id": "el-59-wc_ur_isolator",
+   "type": "symbol",
+   "symbol_id": "wc_ur_isolator",
+   "symbol_name": "WC/UR Auto Sensing Isolator",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 1180,
+    "canvas_y": 700
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 39,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [],
+   "connected_pipe_ids": []
+  },
+  {
+   "id": "el-60-washing_machine",
+   "type": "symbol",
+   "symbol_id": "washing_machine",
+   "symbol_name": "Washing Machine",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 100,
+    "canvas_y": 820
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 35.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Supply",
+     "position": {
+      "canvas_x": 100,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-60",
+     "connects_to_element_id": "el-61-dishwasher",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-60"
+   ],
+   "fitting_type": "washing_machine",
+   "efficiency_rating": 3,
+   "backflow_requirement": "check_valve"
+  },
+  {
+   "id": "el-61-dishwasher",
+   "type": "symbol",
+   "symbol_id": "dishwasher",
+   "symbol_name": "Dishwasher",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 220,
+    "canvas_y": 820
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 35.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Supply",
+     "position": {
+      "canvas_x": 220,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-61",
+     "connects_to_element_id": "el-62-water_dispenser",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-60",
+    "pipe-61"
+   ],
+   "fitting_type": "dishwasher",
+   "efficiency_rating": 3,
+   "backflow_requirement": "check_valve"
+  },
+  {
+   "id": "el-62-water_dispenser",
+   "type": "symbol",
+   "symbol_id": "water_dispenser",
+   "symbol_name": "Water Dispenser / Fridge",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 340,
+    "canvas_y": 820
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 35.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Supply",
+     "position": {
+      "canvas_x": 340,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-61",
+     "connects_to_element_id": "el-61-dishwasher",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-61"
+   ],
+   "fitting_type": "water_dispenser",
+   "efficiency_rating": 3,
+   "backflow_requirement": "check_valve"
+  },
+  {
+   "id": "el-63-highest_direct_supply_fitting",
+   "type": "symbol",
+   "symbol_id": "highest_direct_supply_fitting",
+   "symbol_name": "Highest Direct Supply Fitting",
+   "node_type": "component",
+   "position": {
+    "canvas_x": 460,
+    "canvas_y": 820
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 35.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [],
+   "connected_pipe_ids": [],
+   "highest_fitting_elevation_m": 45.5
+  },
+  {
+   "id": "el-64-shower_head",
+   "type": "symbol",
+   "symbol_id": "shower_head",
+   "symbol_name": "Shower Head",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 580,
+    "canvas_y": 820
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 35.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Cold",
+     "position": {
+      "canvas_x": 560,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": null,
+     "connects_to_element_id": null,
+     "connects_to_port_index": null,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "upstream",
+     "label": "Hot",
+     "position": {
+      "canvas_x": 600,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-64",
+     "connects_to_element_id": "el-65-long_bath",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-64"
+   ],
+   "fitting_type": "shower_tap",
+   "efficiency_rating": 3,
+   "dual_supply": true
+  },
+  {
+   "id": "el-65-long_bath",
+   "type": "symbol",
+   "symbol_id": "long_bath",
+   "symbol_name": "Long Bath",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 700,
+    "canvas_y": 820
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 35.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Cold",
+     "position": {
+      "canvas_x": 680,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-64",
+     "connects_to_element_id": "el-64-shower_head",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "upstream",
+     "label": "Hot",
+     "position": {
+      "canvas_x": 720,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-65",
+     "connects_to_element_id": "el-66-shower_bath",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-64",
+    "pipe-65"
+   ],
+   "long_bath_capacity_l": 250,
+   "dual_supply": true
+  },
+  {
+   "id": "el-66-shower_bath",
+   "type": "symbol",
+   "symbol_id": "shower_bath",
+   "symbol_name": "Shower Bath",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 820,
+    "canvas_y": 820
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 35.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Cold",
+     "position": {
+      "canvas_x": 800,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-65",
+     "connects_to_element_id": "el-65-long_bath",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "upstream",
+     "label": "Hot",
+     "position": {
+      "canvas_x": 840,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-66",
+     "connects_to_element_id": "el-67-square_bath",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-65",
+    "pipe-66"
+   ],
+   "fitting_type": "shower_tap",
+   "efficiency_rating": 3,
+   "dual_supply": true
+  },
+  {
+   "id": "el-67-square_bath",
+   "type": "symbol",
+   "symbol_id": "square_bath",
+   "symbol_name": "Square Bath",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 940,
+    "canvas_y": 820
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 35.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Cold",
+     "position": {
+      "canvas_x": 920,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-66",
+     "connects_to_element_id": "el-66-shower_bath",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "upstream",
+     "label": "Hot",
+     "position": {
+      "canvas_x": 960,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-67",
+     "connects_to_element_id": "el-68-foot_bath",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-66",
+    "pipe-67"
+   ],
+   "dual_supply": true
+  },
+  {
+   "id": "el-68-foot_bath",
+   "type": "symbol",
+   "symbol_id": "foot_bath",
+   "symbol_name": "Foot Bath",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 1060,
+    "canvas_y": 820
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 35.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Cold",
+     "position": {
+      "canvas_x": 1040,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-67",
+     "connects_to_element_id": "el-67-square_bath",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "upstream",
+     "label": "Hot",
+     "position": {
+      "canvas_x": 1080,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-68",
+     "connects_to_element_id": "el-69-wash_basin_rectangular",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-67",
+    "pipe-68"
+   ],
+   "dual_supply": true
+  },
+  {
+   "id": "el-69-wash_basin_rectangular",
+   "type": "symbol",
+   "symbol_id": "wash_basin_rectangular",
+   "symbol_name": "Wash Basin (Rectangular)",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 1180,
+    "canvas_y": 820
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 35.4,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Cold",
+     "position": {
+      "canvas_x": 1160,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-68",
+     "connects_to_element_id": "el-68-foot_bath",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "upstream",
+     "label": "Hot",
+     "position": {
+      "canvas_x": 1200,
+      "canvas_y": 790
+     },
+     "mrl": {
+      "value": 36.3,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-69",
+     "connects_to_element_id": "el-70-sink",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-68",
+    "pipe-69"
+   ],
+   "fitting_type": "basin_tap",
+   "efficiency_rating": 3,
+   "dual_supply": true
+  },
+  {
+   "id": "el-70-sink",
+   "type": "symbol",
+   "symbol_id": "sink",
+   "symbol_name": "Sink",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 100,
+    "canvas_y": 940
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 31.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Cold",
+     "position": {
+      "canvas_x": 80,
+      "canvas_y": 910
+     },
+     "mrl": {
+      "value": 32.7,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-69",
+     "connects_to_element_id": "el-69-wash_basin_rectangular",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "upstream",
+     "label": "Hot",
+     "position": {
+      "canvas_x": 120,
+      "canvas_y": 910
+     },
+     "mrl": {
+      "value": 32.7,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-70",
+     "connects_to_element_id": "el-71-washing_machine",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-69",
+    "pipe-70"
+   ],
+   "fitting_type": "sink_tap",
+   "efficiency_rating": 3,
+   "dual_supply": true
+  },
+  {
+   "id": "el-71-washing_machine",
+   "type": "symbol",
+   "symbol_id": "washing_machine",
+   "symbol_name": "Washing Machine",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 220,
+    "canvas_y": 940
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 31.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Cold",
+     "position": {
+      "canvas_x": 200,
+      "canvas_y": 910
+     },
+     "mrl": {
+      "value": 32.7,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-70",
+     "connects_to_element_id": "el-70-sink",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "upstream",
+     "label": "Hot",
+     "position": {
+      "canvas_x": 240,
+      "canvas_y": 910
+     },
+     "mrl": {
+      "value": 32.7,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-71",
+     "connects_to_element_id": "el-72-dishwasher",
+     "connects_to_port_index": 0,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-70",
+    "pipe-71"
+   ],
+   "fitting_type": "washing_machine",
+   "efficiency_rating": 3,
+   "backflow_requirement": "check_valve",
+   "dual_supply": true
+  },
+  {
+   "id": "el-72-dishwasher",
+   "type": "symbol",
+   "symbol_id": "dishwasher",
+   "symbol_name": "Dishwasher",
+   "node_type": "water_fitting",
+   "position": {
+    "canvas_x": 340,
+    "canvas_y": 940
+   },
+   "width": 60,
+   "height": 60,
+   "elevation_m": 31.8,
+   "supply_mode": null,
+   "rotation_deg": 0,
+   "scale_x": 1,
+   "ports": [
+    {
+     "index": 0,
+     "role": "upstream",
+     "label": "Cold",
+     "position": {
+      "canvas_x": 320,
+      "canvas_y": 910
+     },
+     "mrl": {
+      "value": 32.7,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": "pipe-71",
+     "connects_to_element_id": "el-71-washing_machine",
+     "connects_to_port_index": 1,
+     "supply_mode": null
+    },
+    {
+     "index": 1,
+     "role": "upstream",
+     "label": "Hot",
+     "position": {
+      "canvas_x": 360,
+      "canvas_y": 910
+     },
+     "mrl": {
+      "value": 32.7,
+      "unit": "m AMSL"
+     },
+     "connected_pipe_id": null,
+     "connects_to_element_id": null,
+     "connects_to_port_index": null,
+     "supply_mode": null
+    }
+   ],
+   "connected_pipe_ids": [
+    "pipe-71"
+   ],
+   "fitting_type": "dishwasher",
+   "efficiency_rating": 3,
+   "backflow_requirement": "check_valve",
+   "dual_supply": true
+  }
+ ],
+ "pipes": [
+  {
+   "id": "pipe-2",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 370,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "end": {
+    "canvas_x": 430,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-2-gate_valve",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-3-globe_valve",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-2-gate_valve",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-3-globe_valve",
+   "flow_to_port_index": 0,
+   "length_px": 60,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-3",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 490,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "end": {
+    "canvas_x": 550,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-3-globe_valve",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-4-solenoid_valve",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-3-globe_valve",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-4-solenoid_valve",
+   "flow_to_port_index": 0,
+   "length_px": 60,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-4",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 610,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "end": {
+    "canvas_x": 670,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-4-solenoid_valve",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-5-motorised_valve",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-4-solenoid_valve",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-5-motorised_valve",
+   "flow_to_port_index": 0,
+   "length_px": 60,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-5",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 730,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "end": {
+    "canvas_x": 790,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-5-motorised_valve",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-6-multiport_valve",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-5-motorised_valve",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-6-multiport_valve",
+   "flow_to_port_index": 0,
+   "length_px": 60,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-6",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 820,
+    "canvas_y": 130,
+    "mrl": 56.1
+   },
+   "end": {
+    "canvas_x": 910,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-6-multiport_valve",
+   "start_port_index": 2,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-7-cap_off_valve",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-6-multiport_valve",
+   "flow_from_port_index": 2,
+   "flow_to_element_id": "el-7-cap_off_valve",
+   "flow_to_port_index": 0,
+   "length_px": 94.87,
+   "rotation_deg": -18.43
+  },
+  {
+   "id": "pipe-7",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 910,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "end": {
+    "canvas_x": 1030,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-7-cap_off_valve",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-8-pressure_gauge_cock",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-8-pressure_gauge_cock",
+   "flow_to_port_index": 0,
+   "length_px": 120,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-8",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 1090,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "end": {
+    "canvas_x": 1150,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-8-pressure_gauge_cock",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-9-water_meter",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-8-pressure_gauge_cock",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-9-water_meter",
+   "flow_to_port_index": 0,
+   "length_px": 60,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-9",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 1210,
+    "canvas_y": 100,
+    "mrl": 57
+   },
+   "end": {
+    "canvas_x": 70,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-9-water_meter",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-10-sub_meter",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-9-water_meter",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-10-sub_meter",
+   "flow_to_port_index": 0,
+   "length_px": 1146.3,
+   "rotation_deg": 173.99
+  },
+  {
+   "id": "pipe-10",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 130,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "end": {
+    "canvas_x": 190,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-10-sub_meter",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-11-flow_meter",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-10-sub_meter",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-11-flow_meter",
+   "flow_to_port_index": 0,
+   "length_px": 60,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-11",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 250,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "end": {
+    "canvas_x": 310,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-11-flow_meter",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-12-tee_junction",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-11-flow_meter",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-12-tee_junction",
+   "flow_to_port_index": 0,
+   "length_px": 60,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-12",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 340,
+    "canvas_y": 250,
+    "mrl": 52.5
+   },
+   "end": {
+    "canvas_x": 432.5,
+    "canvas_y": 192.5,
+    "mrl": 54.23
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-12-tee_junction",
+   "start_port_index": 2,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-13-elbow_bend",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-12-tee_junction",
+   "flow_from_port_index": 2,
+   "flow_to_element_id": "el-13-elbow_bend",
+   "flow_to_port_index": 0,
+   "length_px": 108.92,
+   "rotation_deg": -31.87
+  },
+  {
+   "id": "pipe-13",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 487.5,
+    "canvas_y": 247.5,
+    "mrl": 52.58
+   },
+   "end": {
+    "canvas_x": 550,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-13-elbow_bend",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-14-strainer",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-13-elbow_bend",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-14-strainer",
+   "flow_to_port_index": 0,
+   "length_px": 68.28,
+   "rotation_deg": -23.75
+  },
+  {
+   "id": "pipe-14",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 610,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "end": {
+    "canvas_x": 730,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-14-strainer",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-15-y_type_strainer",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-14-strainer",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-15-y_type_strainer",
+   "flow_to_port_index": 0,
+   "length_px": 120,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-15",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 670,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "end": {
+    "canvas_x": 790,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-15-y_type_strainer",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-16-sight_glass",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-15-y_type_strainer",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-16-sight_glass",
+   "flow_to_port_index": 0,
+   "length_px": 120,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-16",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 850,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "end": {
+    "canvas_x": 920,
+    "canvas_y": 245,
+    "mrl": 52.65
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-16-sight_glass",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-17-sampling_tap",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-16-sight_glass",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-17-sampling_tap",
+   "flow_to_port_index": 0,
+   "length_px": 74.33,
+   "rotation_deg": 19.65
+  },
+  {
+   "id": "pipe-17",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 962.5,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "end": {
+    "canvas_x": 1030,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-17-sampling_tap",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-18-flexible_connection",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-17-sampling_tap",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-18-flexible_connection",
+   "flow_to_port_index": 0,
+   "length_px": 67.5,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-18",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 1090,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "end": {
+    "canvas_x": 1150,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-18-flexible_connection",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-19-puddle_flange",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-18-flexible_connection",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-19-puddle_flange",
+   "flow_to_port_index": 0,
+   "length_px": 60,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-19",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 1210,
+    "canvas_y": 220,
+    "mrl": 53.4
+   },
+   "end": {
+    "canvas_x": 70,
+    "canvas_y": 340,
+    "mrl": 49.8
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-19-puddle_flange",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-20-pipe_blank_off",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-19-puddle_flange",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-20-pipe_blank_off",
+   "flow_to_port_index": 0,
+   "length_px": 1146.3,
+   "rotation_deg": 173.99
+  },
+  {
+   "id": "pipe-20",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 70,
+    "canvas_y": 340,
+    "mrl": 49.8
+   },
+   "end": {
+    "canvas_x": 202.5,
+    "canvas_y": 345,
+    "mrl": 49.65
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-20-pipe_blank_off",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-21-tap_point_schematic",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-21-tap_point_schematic",
+   "flow_to_port_index": 0,
+   "length_px": 132.59,
+   "rotation_deg": 2.16
+  },
+  {
+   "id": "pipe-21",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 202.5,
+    "canvas_y": 345,
+    "mrl": 49.65
+   },
+   "end": {
+    "canvas_x": 340,
+    "canvas_y": 370,
+    "mrl": 48.9
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-21-tap_point_schematic",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-22-water_hammer_absorber",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-22-water_hammer_absorber",
+   "flow_to_port_index": 0,
+   "length_px": 139.75,
+   "rotation_deg": 10.3
+  },
+  {
+   "id": "pipe-22",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 340,
+    "canvas_y": 370,
+    "mrl": 48.9
+   },
+   "end": {
+    "canvas_x": 430,
+    "canvas_y": 340,
+    "mrl": 49.8
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-22-water_hammer_absorber",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-23-prv_with_sensor",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-23-prv_with_sensor",
+   "flow_to_port_index": 0,
+   "length_px": 94.87,
+   "rotation_deg": -18.43
+  },
+  {
+   "id": "pipe-23",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 490,
+    "canvas_y": 340,
+    "mrl": 49.8
+   },
+   "end": {
+    "canvas_x": 595,
+    "canvas_y": 320,
+    "mrl": 50.4
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-23-prv_with_sensor",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-24-pressure_gauge_prv",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-23-prv_with_sensor",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-24-pressure_gauge_prv",
+   "flow_to_port_index": 0,
+   "length_px": 106.89,
+   "rotation_deg": -10.78
+  },
+  {
+   "id": "pipe-24",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 610,
+    "canvas_y": 340,
+    "mrl": 49.8
+   },
+   "end": {
+    "canvas_x": 670,
+    "canvas_y": 340,
+    "mrl": 49.8
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-24-pressure_gauge_prv",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-25-check_valve",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-24-pressure_gauge_prv",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-25-check_valve",
+   "flow_to_port_index": 0,
+   "length_px": 60,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-25",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 730,
+    "canvas_y": 340,
+    "mrl": 49.8
+   },
+   "end": {
+    "canvas_x": 820,
+    "canvas_y": 310,
+    "mrl": 50.7
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-25-check_valve",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-26-vacuum_breaker",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-25-check_valve",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-26-vacuum_breaker",
+   "flow_to_port_index": 0,
+   "length_px": 94.87,
+   "rotation_deg": -18.43
+  },
+  {
+   "id": "pipe-26",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 820,
+    "canvas_y": 370,
+    "mrl": 48.9
+   },
+   "end": {
+    "canvas_x": 940,
+    "canvas_y": 310,
+    "mrl": 50.7
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-26-vacuum_breaker",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-27-pressure_relief_valve",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-26-vacuum_breaker",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-27-pressure_relief_valve",
+   "flow_to_port_index": 0,
+   "length_px": 134.16,
+   "rotation_deg": -26.57
+  },
+  {
+   "id": "pipe-27",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 940,
+    "canvas_y": 370,
+    "mrl": 48.9
+   },
+   "end": {
+    "canvas_x": 1060,
+    "canvas_y": 370,
+    "mrl": 48.9
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-27-pressure_relief_valve",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-28-auto_air_relief_valve",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-27-pressure_relief_valve",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-28-auto_air_relief_valve",
+   "flow_to_port_index": 0,
+   "length_px": 120,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-28",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 1060,
+    "canvas_y": 370,
+    "mrl": 48.9
+   },
+   "end": {
+    "canvas_x": 1150,
+    "canvas_y": 340,
+    "mrl": 49.8
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-28-auto_air_relief_valve",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-29-ball_float_valve",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-29-ball_float_valve",
+   "flow_to_port_index": 0,
+   "length_px": 94.87,
+   "rotation_deg": -18.43
+  },
+  {
+   "id": "pipe-29",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 1150,
+    "canvas_y": 340,
+    "mrl": 49.8
+   },
+   "end": {
+    "canvas_x": 87.5,
+    "canvas_y": 460,
+    "mrl": 46.2
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-29-ball_float_valve",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-30-pump",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-30-pump",
+   "flow_to_port_index": 0,
+   "length_px": 1069.25,
+   "rotation_deg": 173.56
+  },
+  {
+   "id": "pipe-32",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 367.5,
+    "canvas_y": 490,
+    "mrl": 45.3
+   },
+   "end": {
+    "canvas_x": 430,
+    "canvas_y": 460,
+    "mrl": 46.2
+   },
+   "supply_mode": "indirect_supply",
+   "start_connects_to": "el-32-water_tank",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-33-cold_water_tank",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-32-water_tank",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-33-cold_water_tank",
+   "flow_to_port_index": 0,
+   "length_px": 69.33,
+   "rotation_deg": -25.64
+  },
+  {
+   "id": "pipe-33",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 490,
+    "canvas_y": 460,
+    "mrl": 46.2
+   },
+   "end": {
+    "canvas_x": 550,
+    "canvas_y": 460,
+    "mrl": 46.2
+   },
+   "supply_mode": "indirect_supply",
+   "start_connects_to": "el-33-cold_water_tank",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-34-water_heater",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-33-cold_water_tank",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-34-water_heater",
+   "flow_to_port_index": 0,
+   "length_px": 60,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-34",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 610,
+    "canvas_y": 460,
+    "mrl": 46.2
+   },
+   "end": {
+    "canvas_x": 670,
+    "canvas_y": 460,
+    "mrl": 46.2
+   },
+   "supply_mode": "indirect_supply",
+   "start_connects_to": "el-34-water_heater",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-35-instantaneous_water_heater",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-34-water_heater",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-35-instantaneous_water_heater",
+   "flow_to_port_index": 0,
+   "length_px": 60,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-35",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 730,
+    "canvas_y": 460,
+    "mrl": 46.2
+   },
+   "end": {
+    "canvas_x": 820,
+    "canvas_y": 490,
+    "mrl": 45.3
+   },
+   "supply_mode": "indirect_supply",
+   "start_connects_to": "el-35-instantaneous_water_heater",
+   "start_port_index": 1,
+   "start_port_role": "downstream",
+   "end_connects_to": "el-36-pressure_vessel_schematic",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": "el-35-instantaneous_water_heater",
+   "flow_from_port_index": 1,
+   "flow_to_element_id": "el-36-pressure_vessel_schematic",
+   "flow_to_port_index": 0,
+   "length_px": 94.87,
+   "rotation_deg": 18.43
+  },
+  {
+   "id": "pipe-36",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 820,
+    "canvas_y": 490,
+    "mrl": 45.3
+   },
+   "end": {
+    "canvas_x": 970,
+    "canvas_y": 460,
+    "mrl": 46.2
+   },
+   "supply_mode": "indirect_supply",
+   "start_connects_to": "el-36-pressure_vessel_schematic",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-37-vortex_inhibitor_schematic",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-37-vortex_inhibitor_schematic",
+   "flow_to_port_index": 0,
+   "length_px": 152.97,
+   "rotation_deg": -11.31
+  },
+  {
+   "id": "pipe-37",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 970,
+    "canvas_y": 460,
+    "mrl": 46.2
+   },
+   "end": {
+    "canvas_x": 1060,
+    "canvas_y": 490,
+    "mrl": 45.3
+   },
+   "supply_mode": "indirect_supply",
+   "start_connects_to": "el-37-vortex_inhibitor_schematic",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-38-water_tank_air_vent",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-38-water_tank_air_vent",
+   "flow_to_port_index": 0,
+   "length_px": 94.87,
+   "rotation_deg": 18.43
+  },
+  {
+   "id": "pipe-41",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 225,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "end": {
+    "canvas_x": 320,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-41-single_tap",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-42-single_tap_combined",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-42-single_tap_combined",
+   "flow_to_port_index": 0,
+   "length_px": 95,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-42",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 360,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "end": {
+    "canvas_x": 463.75,
+    "canvas_y": 555,
+    "mrl": 43.35
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-42-single_tap_combined",
+   "start_port_index": 1,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-43-twin_tap",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-43-twin_tap",
+   "flow_to_port_index": 0,
+   "length_px": 103.87,
+   "rotation_deg": 2.76
+  },
+  {
+   "id": "pipe-43",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 463.75,
+    "canvas_y": 555,
+    "mrl": 43.35
+   },
+   "end": {
+    "canvas_x": 550,
+    "canvas_y": 580,
+    "mrl": 42.6
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-43-twin_tap",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-44-bib_tap_cw_cap_and_lock_schematic",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-44-bib_tap_cw_cap_and_lock_schematic",
+   "flow_to_port_index": 0,
+   "length_px": 89.8,
+   "rotation_deg": 16.16
+  },
+  {
+   "id": "pipe-44",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 550,
+    "canvas_y": 580,
+    "mrl": 42.6
+   },
+   "end": {
+    "canvas_x": 700,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-44-bib_tap_cw_cap_and_lock_schematic",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-45-shower_head",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-45-shower_head",
+   "flow_to_port_index": 0,
+   "length_px": 152.97,
+   "rotation_deg": -11.31
+  },
+  {
+   "id": "pipe-45",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 700,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "end": {
+    "canvas_x": 820,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-45-shower_head",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-46-multiple_show_unit",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-46-multiple_show_unit",
+   "flow_to_port_index": 0,
+   "length_px": 120,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-46",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 820,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "end": {
+    "canvas_x": 940,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-46-multiple_show_unit",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-47-long_bath",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-47-long_bath",
+   "flow_to_port_index": 0,
+   "length_px": 120,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-47",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 940,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "end": {
+    "canvas_x": 1060,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-47-long_bath",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-48-shower_bath",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-48-shower_bath",
+   "flow_to_port_index": 0,
+   "length_px": 120,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-48",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 1060,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "end": {
+    "canvas_x": 1180,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-48-shower_bath",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-49-square_bath",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-49-square_bath",
+   "flow_to_port_index": 0,
+   "length_px": 120,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-49",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 1180,
+    "canvas_y": 550,
+    "mrl": 43.5
+   },
+   "end": {
+    "canvas_x": 100,
+    "canvas_y": 670,
+    "mrl": 39.9
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-49-square_bath",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-50-foot_bath",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-50-foot_bath",
+   "flow_to_port_index": 0,
+   "length_px": 1086.65,
+   "rotation_deg": 173.66
+  },
+  {
+   "id": "pipe-50",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 100,
+    "canvas_y": 670,
+    "mrl": 39.9
+   },
+   "end": {
+    "canvas_x": 216.25,
+    "canvas_y": 670,
+    "mrl": 39.9
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-50-foot_bath",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-51-wash_basin_rectangular",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-51-wash_basin_rectangular",
+   "flow_to_port_index": 0,
+   "length_px": 116.25,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-51",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 216.25,
+    "canvas_y": 670,
+    "mrl": 39.9
+   },
+   "end": {
+    "canvas_x": 340,
+    "canvas_y": 670,
+    "mrl": 39.9
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-51-wash_basin_rectangular",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-52-sink",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-52-sink",
+   "flow_to_port_index": 0,
+   "length_px": 123.75,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-52",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 340,
+    "canvas_y": 670,
+    "mrl": 39.9
+   },
+   "end": {
+    "canvas_x": 460,
+    "canvas_y": 670,
+    "mrl": 39.9
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-52-sink",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-53-water_closet",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-53-water_closet",
+   "flow_to_port_index": 0,
+   "length_px": 120,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-53",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 460,
+    "canvas_y": 670,
+    "mrl": 39.9
+   },
+   "end": {
+    "canvas_x": 582.5,
+    "canvas_y": 687.5,
+    "mrl": 39.38
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-53-water_closet",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-54-urinal_wall",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-54-urinal_wall",
+   "flow_to_port_index": 0,
+   "length_px": 123.74,
+   "rotation_deg": 8.13
+  },
+  {
+   "id": "pipe-54",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 582.5,
+    "canvas_y": 687.5,
+    "mrl": 39.38
+   },
+   "end": {
+    "canvas_x": 700,
+    "canvas_y": 670,
+    "mrl": 39.9
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-54-urinal_wall",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-55-drinking_fountain_pedestal",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-55-drinking_fountain_pedestal",
+   "flow_to_port_index": 0,
+   "length_px": 118.8,
+   "rotation_deg": -8.47
+  },
+  {
+   "id": "pipe-55",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 700,
+    "canvas_y": 670,
+    "mrl": 39.9
+   },
+   "end": {
+    "canvas_x": 820,
+    "canvas_y": 690,
+    "mrl": 39.3
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-55-drinking_fountain_pedestal",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-56-drinking_fountain_trough",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-56-drinking_fountain_trough",
+   "flow_to_port_index": 0,
+   "length_px": 121.66,
+   "rotation_deg": 9.46
+  },
+  {
+   "id": "pipe-56",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 820,
+    "canvas_y": 690,
+    "mrl": 39.3
+   },
+   "end": {
+    "canvas_x": 940,
+    "canvas_y": 690,
+    "mrl": 39.3
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-56-drinking_fountain_trough",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-57-drinking_fountain_wall",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-57-drinking_fountain_wall",
+   "flow_to_port_index": 0,
+   "length_px": 120,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-57",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 940,
+    "canvas_y": 690,
+    "mrl": 39.3
+   },
+   "end": {
+    "canvas_x": 1030,
+    "canvas_y": 700,
+    "mrl": 39
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-57-drinking_fountain_wall",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-58-bidet_spray",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-58-bidet_spray",
+   "flow_to_port_index": 0,
+   "length_px": 90.55,
+   "rotation_deg": 6.34
+  },
+  {
+   "id": "pipe-60",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 100,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "end": {
+    "canvas_x": 220,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-60-washing_machine",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-61-dishwasher",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-61-dishwasher",
+   "flow_to_port_index": 0,
+   "length_px": 120,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-61",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 220,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "end": {
+    "canvas_x": 340,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-61-dishwasher",
+   "start_port_index": 0,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-62-water_dispenser",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-62-water_dispenser",
+   "flow_to_port_index": 0,
+   "length_px": 120,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-64",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 600,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "end": {
+    "canvas_x": 680,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-64-shower_head",
+   "start_port_index": 1,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-65-long_bath",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-65-long_bath",
+   "flow_to_port_index": 0,
+   "length_px": 80,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-65",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 720,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "end": {
+    "canvas_x": 800,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-65-long_bath",
+   "start_port_index": 1,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-66-shower_bath",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-66-shower_bath",
+   "flow_to_port_index": 0,
+   "length_px": 80,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-66",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 840,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "end": {
+    "canvas_x": 920,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-66-shower_bath",
+   "start_port_index": 1,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-67-square_bath",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-67-square_bath",
+   "flow_to_port_index": 0,
+   "length_px": 80,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-67",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 960,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "end": {
+    "canvas_x": 1040,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-67-square_bath",
+   "start_port_index": 1,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-68-foot_bath",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-68-foot_bath",
+   "flow_to_port_index": 0,
+   "length_px": 80,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-68",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 1080,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "end": {
+    "canvas_x": 1160,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-68-foot_bath",
+   "start_port_index": 1,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-69-wash_basin_rectangular",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-69-wash_basin_rectangular",
+   "flow_to_port_index": 0,
+   "length_px": 80,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-69",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 1200,
+    "canvas_y": 790,
+    "mrl": 36.3
+   },
+   "end": {
+    "canvas_x": 80,
+    "canvas_y": 910,
+    "mrl": 32.7
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-69-wash_basin_rectangular",
+   "start_port_index": 1,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-70-sink",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-70-sink",
+   "flow_to_port_index": 0,
+   "length_px": 1126.41,
+   "rotation_deg": 173.88
+  },
+  {
+   "id": "pipe-70",
+   "type": "water_pipe",
+   "pipe_type": "cold",
+   "start": {
+    "canvas_x": 120,
+    "canvas_y": 910,
+    "mrl": 32.7
+   },
+   "end": {
+    "canvas_x": 200,
+    "canvas_y": 910,
+    "mrl": 32.7
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-70-sink",
+   "start_port_index": 1,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-71-washing_machine",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-71-washing_machine",
+   "flow_to_port_index": 0,
+   "length_px": 80,
+   "rotation_deg": 0
+  },
+  {
+   "id": "pipe-71",
+   "type": "water_pipe",
+   "pipe_type": "hot",
+   "start": {
+    "canvas_x": 240,
+    "canvas_y": 910,
+    "mrl": 32.7
+   },
+   "end": {
+    "canvas_x": 320,
+    "canvas_y": 910,
+    "mrl": 32.7
+   },
+   "supply_mode": null,
+   "start_connects_to": "el-71-washing_machine",
+   "start_port_index": 1,
+   "start_port_role": "upstream",
+   "end_connects_to": "el-72-dishwasher",
+   "end_port_index": 0,
+   "end_port_role": "upstream",
+   "flow_from_element_id": null,
+   "flow_from_port_index": null,
+   "flow_to_element_id": "el-72-dishwasher",
+   "flow_to_port_index": 0,
+   "length_px": 80,
+   "rotation_deg": 0
+  }
+ ],
+ "annotations": [
+  {
+   "id": "a1",
+   "type": "annotation",
+   "text": "note",
+   "position": {
+    "canvas_x": 5,
+    "canvas_y": 5
+   },
+   "mrl": {
+    "value": 59.85,
+    "unit": "m AMSL"
+   },
+   "font_size": 12,
+   "color": "#000",
+   "max_width": 60,
+   "height": 8
+  }
+ ],
+ "hydraulic_context": {
+  "flow_mode": "pump_assisted",
+  "source_element_id": "el-32-water_tank",
+  "source_mrl_m": 46.2,
+  "pump_element_ids": [
+   "el-30-pump"
+  ],
+  "lowest_outlet_mrl_m": null,
+  "gravity_head_available_m": null,
+  "gravity_head_sufficient": true,
+  "note": "Pump-assisted system (1 pump(s) detected). Pump provides pressure regardless of gravity head."
+ },
+ "summary": {
+  "total_elements": 73,
+  "total_pipes": 61,
+  "total_pipe_length_px": 10995.24
+ }
+}

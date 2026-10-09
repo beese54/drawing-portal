@@ -16,7 +16,7 @@ import traceback
 from dataclasses import asdict
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.agents.compliance_checks import (
     check_backflow_prevention,
@@ -31,6 +31,7 @@ from app.agents.section3_pipe_check import check_section3_pipes
 from app.agents.highest_fitting_check import check_highest_direct_supply_fitting
 from app.config import settings
 from app.services.image_annotator import annotate_schematic
+from app.services.metadata_schema import Metadata
 from app.services.upload_validation import is_allowed_image
 
 router = APIRouter()
@@ -94,6 +95,19 @@ def _validate_metadata(metadata: dict) -> None:
     for i, pipe in enumerate(pipes):
         if not isinstance(pipe, dict) or not pipe.get("id"):
             raise HTTPException(status_code=422, detail=f"metadata.pipes[{i}] is missing a non-empty 'id' field.")
+
+    # Nested types, checked after the size caps above so an oversized document
+    # is refused before any per-field work. See app/services/metadata_schema.py.
+    try:
+        Metadata.model_validate(metadata)
+    except ValidationError as e:
+        # The first few locations only, and never the offending input itself:
+        # echoing attacker-supplied values back is how reflection bugs start.
+        problems = "; ".join(
+            f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}"
+            for err in e.errors(include_input=False, include_url=False)[:3]
+        )
+        raise HTTPException(status_code=422, detail=f"metadata has invalid field types: {problems}")
 
 
 def _validate_image_upload(upload: UploadFile) -> None:
