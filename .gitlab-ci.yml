@@ -9,6 +9,7 @@
 #   test    → backend pytest, frontend typecheck + build + import-validation harness
 #   build   → one image, pushed to the GitLab Container Registry
 #   scan    → Trivy against the image just built  (opt-in; closes audit finding F6)
+#   dast    → GitLab DAST against a throwaway copy of the GovPaaS image (opt-in)
 #   publish → mirror the same digest to GHCR      (opt-in; GovPaaS pulls from GHCR)
 #   deploy  → trigger a GovPaaS rollout           (opt-in, manual)
 #
@@ -19,9 +20,11 @@
 # Settings → CI/CD → Variables, only for the opt-in jobs:
 #   ENABLE_BUILD         "true" to run the build stage at all. OFF BY DEFAULT:
 #                        this instance's runners cannot build container images
-#                        — uid 65533, CapEff 0000000000000000, read-only rootfs
-#                        (probed 2026-09-11), which blocks docker:dind (needs
-#                        privileged) and kaniko (needs root + writable /) alike.
+#                        — uid 65533, CapEff 0000000000000000 (probed 2026-09-11),
+#                        which blocks docker:dind (needs privileged) and kaniko
+#                        (needs root) alike. The probe's "touch /" failed with
+#                        "Permission denied", not "Read-only file system", so /
+#                        is non-root-owned rather than proven read-only.
 #                        No .gitlab-ci.yml change can lift that; it is a runner
 #                        config.toml decision for a GitLab admin. Until then the
 #                        image is built by GitHub Actions and published to GHCR,
@@ -29,7 +32,9 @@
 #                        "true" the day privileges are granted — no commit needed.
 #   BUILD_ENGINE         "docker" (default) or "kaniko" — see the build jobs
 #   ENABLE_SCAN          "true" to run the Trivy job
-#   GHCR_USER            GitHub username, if mirroring to GHCR
+#   ENABLE_DAST          "true" to run the DAST job (needs GitLab Ultimate)
+#   DAST_APP_IMAGE       image DAST scans; defaults to the GHCR :latest below
+#   GHCR_USER           GitHub username, if mirroring to GHCR
 #   GHCR_TOKEN           classic PAT with write:packages   (masked, protected)
 #   GOVPAAS_API_TOKEN    GovPaaS/Northflank API token      (masked, protected)
 #   GOVPAAS_RESTART_URL  the service's restart endpoint — see deploy:govpaas
@@ -39,8 +44,14 @@ stages:
   - test
   - build
   - scan
+  - dast
   - publish
   - deploy
+
+include:
+  # GitLab's own DAST job. The `dast` job below overrides the parts that matter
+  # here; everything else (analyzer image, report artifact) comes from this.
+  - template: Security/DAST.gitlab-ci.yml
 
 variables:
   # "docker" uses docker:dind and needs a PRIVILEGED runner. If your company's
@@ -55,6 +66,12 @@ variables:
   npm_config_cache: "$CI_PROJECT_DIR/.cache/npm"
   # Full history is never needed here; a shallow clone is markedly faster.
   GIT_DEPTH: "20"
+
+  # What the dast job scans: the image GovPaaS pulls. :latest rather than this
+  # commit's tag because GitHub's short-sha tags are 7 characters and
+  # $CI_COMMIT_SHORT_SHA is 8, and CI variables cannot slice a string. To pin a
+  # build, set this in the CI/CD variables to e.g. ghcr.io/beese54/drawing-portal:sha-79475a5
+  DAST_APP_IMAGE: "ghcr.io/beese54/drawing-portal:latest"
 
 default:
   # A newer commit on the same branch cancels this run rather than racing it.
@@ -228,6 +245,51 @@ scan:image:
     expire_in: 1 week
     paths:
       - gl-container-scanning-report.json
+
+# ──────────────────────────────────────────────────────────────── dast stage ──
+# Opt-in: set ENABLE_DAST=true. Overrides the template's `dast` job.
+#
+# The target is NOT the live GovPaaS URL. GitLab's DAST docs say outright "Do not
+# run DAST scans against a production server", and testing the live .code.run
+# host is PT-category activity on shared government infrastructure that still
+# needs GovPaaS's written authorisation. Instead the job starts the same image
+# GovPaaS runs as a sidecar in its own pod and attacks that copy over localhost:
+# full active scan, nothing leaves the runner, nothing in production is touched.
+#
+# Findings land in the pipeline's Security tab and the project's Vulnerability
+# Report. allow_failure (inherited from the template) is deliberate for the first
+# runs; enforcement belongs in a security policy once the baseline is triaged.
+
+dast:
+  stage: dast
+  # Needs no artifacts from earlier jobs; without this it would download them all.
+  dependencies: []
+  services:
+    - name: "$DAST_APP_IMAGE"
+      alias: portal
+  variables:
+    DAST_TARGET_URL: "http://portal:8000"
+    # Passive + active checks. Safe only because the target is a disposable copy.
+    DAST_FULL_SCAN: "true"
+    # uvicorn is up in ~2 s, but the sidecar image is pulled first (pull policy
+    # Always on these runners), so allow for the pull.
+    DAST_TARGET_CHECK_TIMEOUT: "180s"
+    # Defaults are 24h crawl + 3h active; the runner kills a pod at 1 h. The SPA
+    # is one page and five endpoints, so these bounds are generous, not tight.
+    DAST_CRAWL_TIMEOUT: "10m"
+    DAST_ACTIVE_SCAN_TIMEOUT: "35m"
+  timeout: 55m
+  # DAST starts an internal Squid proxy that writes under /run and /var/log; on a
+  # read-only root filesystem it dies with "Timed out waiting for Squid port"
+  # (reproduced locally 2026-10-09). This line says which case a failure is.
+  before_script:
+    - awk '$2 == "/" { print "rootfs mount options:", $4 }' /proc/mounts || true
+  rules:
+    - if: '$ENABLE_DAST != "true"'
+      when: never
+    # $GITLAB_FEATURES carries "dast" only on Ultimate — the same check the
+    # template makes. Without Ultimate this job silently never appears.
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GITLAB_FEATURES =~ /\bdast\b/'
 
 # ───────────────────────────────────────────────────────────── publish stage ──
 # GovPaaS currently pulls ghcr.io/beese54/drawing-portal, NOT the GitLab registry.
