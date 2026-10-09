@@ -64,14 +64,18 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
 
-    # Content-Security-Policy: img-src ONLY, deliberately.
+    # Content-Security-Policy: img-src and object-src ONLY, deliberately.
     #
-    # This is the browser-enforced half of the schematic-import stamp guard. The
+    # img-src is the browser-enforced half of the schematic-import stamp guard. The
     # three title-block stamp fields are assigned to img.src; the import path
     # already restricts them to data: URLs (frontend/src/utils/importValidation.ts),
     # but that is application code and application code can regress. This header
     # means a stamp pointing at a third-party URL is refused by the browser
     # regardless — no outbound request, no beacon.
+    #
+    # object-src 'none' blocks <object>/<embed> plugin content, which can run
+    # script. The frontend uses neither, so it costs nothing; GitLab DAST check
+    # 16.8 flagged its absence (2026-10-09).
     #
     # No other directive is set. A default-src or script-src would need the app's
     # inline styles and the injected <style> tag audited first, and shipping a
@@ -82,7 +86,7 @@ async def security_headers(request: Request, call_next):
     # covers stamps and the drag-ghost pixel. Every image source in the frontend
     # is one of those two. NOTE: if the split deployment is ever revived, the
     # backend origin must be added here or symbol images will be blocked.
-    response.headers["Content-Security-Policy"] = "img-src 'self' data:"
+    response.headers["Content-Security-Policy"] = "img-src 'self' data:; object-src 'none'"
     return response
 
 app.include_router(health.router, prefix="/api")
