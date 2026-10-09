@@ -30,11 +30,13 @@ from app.agents.hot_water_contamination_check import check_hot_water_contaminati
 from app.agents.section3_pipe_check import check_section3_pipes
 from app.agents.highest_fitting_check import check_highest_direct_supply_fitting
 from app.config import settings
+from app.services.form_limits import SizedFormRoute
 from app.services.image_annotator import annotate_schematic
 from app.services.metadata_schema import Metadata
 from app.services.upload_validation import is_allowed_image
 
-router = APIRouter()
+# SizedFormRoute: metadata_json can exceed Starlette's 1 MB per-field default.
+router = APIRouter(route_class=SizedFormRoute)
 
 
 # ---------------------------------------------------------------------------

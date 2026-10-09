@@ -27,6 +27,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.config import settings
+from app.services.form_limits import SizedFormRoute
 from app.services.upload_validation import is_allowed_image
 
 # Characters XML 1.0 cannot hold: C0 controls other than tab/LF/CR, the two
@@ -40,7 +41,8 @@ _XML_ILLEGAL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f￾￿\ud800-\udfff]")
 def _xml_safe(text: str) -> str:
     return _XML_ILLEGAL.sub("", text)
 
-router = APIRouter()
+# SizedFormRoute: manifest_json can exceed Starlette's 1 MB per-field default.
+router = APIRouter(route_class=SizedFormRoute)
 
 # The same set /api/evaluate accepts. Crops are canvas captures produced by the
 # frontend, which emits PNG.

@@ -255,6 +255,23 @@ def test_oversized_metadata_json_is_rejected_before_parsing():
     assert r.status_code == 413
 
 
+def test_large_legitimate_metadata_json_is_accepted():
+    """Starlette >= 0.40 caps form fields at 1 MB unless told otherwise, and a
+    drawing with title-block stamps exceeds that. app/services/form_limits.py
+    raises the cap; without it this returns 400."""
+    stamp = "A" * (5 * 1024 * 1024)
+    payload = json.dumps({"elements": [], "pipes": [], "title_block": {"stamp": stamp}})
+    r = client.post("/api/evaluate", data={"metadata_json": payload})
+    assert r.status_code == 200, r.text
+
+
+def test_field_beyond_the_streaming_cap_is_refused():
+    """Past cap + margin, Starlette refuses the part while it is still arriving."""
+    from app.services.form_limits import MAX_FORM_PART_BYTES
+    r = client.post("/api/evaluate", data={"metadata_json": "A" * (MAX_FORM_PART_BYTES + 1)})
+    assert r.status_code in (400, 413)
+
+
 def test_oversized_manifest_json_is_rejected_before_parsing():
     payload = '[{"text": "' + "A" * (settings.max_manifest_chars + 16) + '"}]'
     r = client.post("/api/export/docx", data={"manifest_json": payload})
