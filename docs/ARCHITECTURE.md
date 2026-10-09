@@ -59,7 +59,10 @@ as `.json` files by the user, not persisted server-side).
   element/pipe-adjacency graph builder used by several checks).
 - **`services/`** — `symbol_service.py` (resolves a symbol id to a file on
   disk), `image_annotator.py` (Pillow-based marker overlay on an uploaded
-  schematic JPEG for the evaluation report).
+  schematic JPEG for the evaluation report), `metadata_schema.py` (strict
+  type contract for `metadata_json`; type errors become 422, not 500),
+  `form_limits.py` (route class that sizes Starlette's per-field multipart
+  limit to the app's own caps).
 - **`schemas/manifest.py`** — read-only index of the symbol library
   (`symbols_dir/manifest.json`). Read at request time, never written.
 - **`models/symbol.py`**, **`config.py`** — Pydantic models and

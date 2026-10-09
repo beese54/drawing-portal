@@ -229,8 +229,11 @@ not by static code reading:
    mechanism itself isn't visible from source.
 6. **Actual dependency CVE status** — `requirements.txt`/`package.json`
    versions were read, but not checked against a live CVE feed as part of
-   this pass (see F6).
-7. **Dynamic/runtime behavior** — no fuzzing, no live scanning, and no
+   this pass (see F6). *Update 2026-10-09: backend Python deps audited and
+   fixed (see Remediation Log, F6 / R11); `package.json` still unaudited.*
+7. *Update 2026-10-09: automated DAST and property-based fuzzing now exist
+   (see Remediation Log, "Dynamic security testing"); the rest of this item
+   stands.* **Dynamic/runtime behavior** — no fuzzing, no live scanning, and no
    exploit attempts (including the plausible-but-unverified SVG XSS bypass
    in F4/Scenario B) were performed against the running deployment. Real
    penetration testing of a `pub.gov.sg` asset should go through a
@@ -266,6 +269,111 @@ Scenario A (Phase 3) is now stopped at this dependency. R1 status upgraded
 from MISSING to **ENFORCED** for the three mutating symbol routes; the
 other MISSING/PARTIAL rows (R2, R4, R5, R6, R7, R11, R13, R15) remain open
 pending fixes or explicit risk acceptance.
+
+### F9 — Unhandled exceptions on type-confused input — FIXED (2026-10-09)
+**New finding, not in the original audit.** `_validate_metadata` checked the
+top-level shape and the size caps, but not the types of nested fields. A
+document that is valid JSON with a wrong nested type (`"ports": "xy"`, an id
+given as a list, text where a number belongs) reached the compliance checks,
+which index, hash, compare and do arithmetic on those fields without guards,
+and returned **500**. Found in two steps: a hand probe found 5 such inputs on
+`POST /api/evaluate`. Property-based fuzzing (5,000 mutations of realistic
+documents per endpoint) then found **31 distinct crash sites**: 30 across
+`graph_utils.py` and the compliance checks, and 1 in `POST /api/export/docx`,
+where a control character in a row's text crashed python-docx. Severity Low:
+responses never leak a stack trace (see R9), and one failed request does not
+affect others. But any manual VAPT would find it in minutes.
+
+Fix:
+- `backend/app/services/metadata_schema.py`: a strict Pydantic schema of
+  every field the checks read. It validates only, with no coercion, so the
+  checks receive exactly the document that passed. Unread fields pass
+  through. Numbers are finite and bounded.
+- `evaluate.py` returns **422** on a type error, after the existing size caps.
+- `export.py` strips XML-illegal characters before writing.
+
+Verified:
+- `backend/tests/test_fuzz_inputs.py`: the 5 regression cases, plus
+  property tests asserting that no mutated document returns 5xx.
+- Without the fix, 7 of its tests fail.
+- After the fix, the exploration finds 0 crash sites in 5,000 fresh
+  mutations per endpoint, run on the pre-upgrade dependency set.
+- The CI fuzz tests (300 deterministic mutations per endpoint) also pass on
+  the upgraded set (F6 / R11 below).
+- A larger 20,000-mutation run was attempted but stopped before finishing
+  (the host ran low on memory). Its result is not claimed.
+- The schema does not reject real drawings: a payload built by the
+  frontend's own `metadataBuilder.ts` (all 64 symbols plus dual-supply
+  variants, every optional property filled) is kept as a test fixture and
+  must return 200. Regenerate it with
+  `tasks/repro/frontend_metadata_fixture.mjs`.
+
+### F6 / R11 — Dependency CVEs — FIXED for runtime Python deps (2026-10-09); CI gate still open
+`pip-audit` (in a clean `python:3.12-slim`) against the pinned
+`backend/requirements.txt` found **14 known vulnerabilities**, all in the two
+packages that parse the public POST endpoints' form bodies:
+- starlette 0.37.2: 7 vulnerabilities, including CVE-2024-47874 (unbounded
+  in-memory form fields) and CVE-2025-54121.
+- python-multipart 0.0.9: 7 vulnerabilities, including CVE-2024-53981.
+
+Most are denial-of-service. Fixed by upgrading:
+- fastapi 0.111.0 → 0.143.0
+- starlette → 1.7.0, now pinned directly
+- python-multipart → 0.0.32
+
+`pip-audit` now reports *No known vulnerabilities found*. Pillow,
+python-docx, uvicorn and pydantic were clean.
+
+Upgrade side effect, handled: Starlette ≥ 0.40 caps each form field at 1 MB
+by default. `metadata_json` legitimately exceeds that (base64 title-block
+stamps, allowed up to 20 MB).
+- `backend/app/services/form_limits.py` raises the cap to the largest app
+  limit + 1 MB, so the app's own 413s still apply.
+- A field larger than that is refused while it is still streaming.
+- Tests cover both directions. The large-drawing test fails if the route
+  class is removed.
+
+**Still open (R11 stays PARTIAL):** no CI step re-runs `pip-audit` or
+`npm audit`, so new advisories will not surface until someone runs them by
+hand. Frontend `package.json` not audited in this pass.
+
+### Dynamic security testing — coverage and known gap (2026-10-09)
+Automated dynamic testing now in place, and what it does **not** reach:
+
+- **GitLab DAST** (browser-based, v6, active checks; `.gitlab-ci.yml` job
+  `dast`, opt-in via `ENABLE_DAST`, weekly schedule). It scans a disposable
+  copy of the deployed image inside the CI job, never the live host. It
+  covers the SPA and every GET route the UI calls. First run: one Info
+  finding (CSP missing `object-src`), fixed in `63c8993` and resolved in
+  GitLab's Vulnerability Report.
+- **GitLab API Security Testing**: trialled, **not adopted**.
+  - From `/openapi.json` it loads 0 operations. FastAPI emits OpenAPI 3.1,
+    and the optional upload `UploadFile | None` becomes
+    `anyOf[binary, null]`, which api-security 6.16 rejects.
+  - From a recorded HAR it ran, but every payload was injected into
+    `metadata_json` as one opaque string. That broke the JSON, so requests
+    were rejected at `json.loads` and never reached the logic.
+  - "0 server errors" from that run was **not** evidence of robustness: F9
+    above was present at the time.
+- **Known gap.** No automated *black-box* scanner reaches the logic behind
+  `POST /api/evaluate` and `POST /api/export/docx`. Both take a JSON
+  document inside a multipart form field.
+- **Changing the API format to suit a scanner was considered and rejected.**
+  - A JSON request body still emits the same OpenAPI 3.1 nullable construct
+    for any optional field.
+  - FastAPI parses a JSON body before handler code runs, which would remove
+    the pre-parse 20 MB cap (R-01).
+  - Export carries binary image files, so it must stay multipart.
+- **Compensating controls:**
+  - strict typed validation (F9)
+  - property-based fuzz tests that feed mutated documents straight to both
+    endpoints on every pipeline (`backend/tests/test_fuzz_inputs.py`)
+  - the existing count and size caps
+  - the planned manual VAPT
+
+  **VAPT scope note:** direct manual testing at the JSON fields inside
+  `metadata_json` and `manifest_json`. That is where automated coverage is
+  thinnest.
 
 ### Platform-level options (GovPaaS/Northflank console) — not yet applied
 Cross-referenced against `govpaas_configuration_helper/GOVPAAS_PLATFORM_

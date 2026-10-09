@@ -139,9 +139,9 @@ can be declared acceptable and still be a gap — both are tracked.
 |---|---|---|---|
 | RA-01 | Source code security review performed | `tasks/security_audit.md`, 2026-07-31, static read-only, `file:line` cited throughout | **Implemented** — partially stale, see RA-06 |
 | RA-02 | System architecture documented | `docs/ARCHITECTURE.md` | **Implemented** — one factual defect, see RA-06 |
-| RA-03 | Live vulnerability assessment (dynamic scan) | Never performed | **Gap** |
+| RA-03 | Live vulnerability assessment (dynamic scan) | *2026-10-09:* GitLab DAST v6 (active checks) runs in CI, opt-in, weekly, against a disposable copy of the deployed image, **not** the live host. It covers the SPA and the GET routes. The POST bodies are covered instead by property-based fuzz tests. See `security_audit.md` Remediation Log, "Dynamic security testing" | **Partial**: automated, but not a live-environment VA |
 | RA-04 | Penetration test | Never performed. `pub.gov.sg` asset → requires a CSA-licensed provider under the Cybersecurity Act | **Gap** — cannot be closed by this project |
-| RA-05 | Dependency CVE status validated | `requirements.txt` pins `fastapi==0.111.0`, `python-multipart==0.0.9`, `uvicorn==0.30.1` (mid-2024). Never checked against a CVE feed | **Gap** — unquantified |
+| RA-05 | Dependency CVE status validated | *2026-10-09:* `pip-audit` found 14 known vulnerabilities (starlette 0.37.2 and python-multipart 0.0.9). All were fixed by upgrading; it now reports none. `package.json` is not yet audited, and there is no CI step to re-run the audit | **Partial**: backend validated and fixed; frontend and continuous checking still open |
 | RA-06 | Security documentation is current | `security_audit.md` predates removal of boundaries #3 and #11 (12 remain, not 14). `ARCHITECTURE.md:160-164` says 13 — accounts for the webhook but still counts the removed feedback endpoint. `ARCHITECTURE.md:120-123` asserts "no `print`, no `logger` call" — contradicted by `evaluate.py:223` | **Gap** — both defects corrected in `ARCHITECTURE.md` this pass |
 
 ## IR — Incident Response
