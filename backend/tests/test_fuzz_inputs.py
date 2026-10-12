@@ -92,9 +92,14 @@ def test_known_crash_inputs_are_rejected(metadata):
 # integer over 4,300 digits, and the decoder raises RecursionError on deep
 # nesting. Both escaped the routers' `except json.JSONDecodeError` as a 500.
 # Sent as raw text: json.dumps could not produce either for us.
+#
+# The depth at which the decoder gives up depends on the platform: Windows
+# CPython 3.12 fails at 3,000, Linux python:3.12-slim (the CI image) still
+# parses 8,000 and fails by 20,000. 3,000 passed here and failed in GitLab.
+# 100,000 is past every platform's limit.
 
 _HUGE_INT = "1" * 5000
-_DEEP = "[" * 3000 + "]" * 3000
+_DEEP = "[" * 100_000 + "]" * 100_000
 
 
 @pytest.mark.parametrize("value", [_HUGE_INT, _DEEP], ids=["huge_int", "deep_nesting"])

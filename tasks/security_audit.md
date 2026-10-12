@@ -314,8 +314,11 @@ fuzzing of the two POST endpoints. Both routers caught only
 `json.JSONDecodeError` around `json.loads`. Two inputs raise something else:
 - an integer literal over 4,300 digits: Python >= 3.11 raises a plain
   `ValueError` (the int-string conversion limit)
-- nesting deeper than the interpreter's recursion limit (1,000 levels
-  passes, 3,000 fails): `RecursionError`
+- nesting deeper than the decoder's recursion limit: `RecursionError`.
+  The limit depends on the platform. Windows CPython 3.12 fails at 3,000
+  levels; the production image (Linux, Python 3.12) still parses 8,000 and
+  fails by 20,000. So in production this needs roughly 10k+ levels, which
+  is about 20 KB of `[` and `]`.
 
 Each returned **500** on both `POST /api/evaluate` and
 `POST /api/export/docx`. Severity Low: both fail fast in the parser (no
