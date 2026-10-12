@@ -1,3 +1,130 @@
+# Plan — automate the remaining security checks
+
+Status: **A–C DONE 2026-10-12 (D: kept manual, user's call).** Protocol: Pattern AT.
+Asked: "can we automate the remaining four?" (dependency audit, container
+scan, secret detection, deploy).
+
+## Facts gathered (2026-10-12)
+- **pip-audit** on `backend/requirements.txt`: no known vulnerabilities.
+- **npm audit, runtime deps** (shipped to the browser):
+  - 4 findings: `axios` high (direct dependency), `form-data` high,
+    `follow-redirects` moderate, `dompurify` moderate
+  - all four have non-major fixes, so `npm audit fix` resolves them
+  - Most axios advisories concern its Node HTTP adapter or proxies, not the
+    browser, but a gate cannot tell which apply. Fix rather than argue.
+- **npm audit, dev/build-only deps**:
+  - 19 more findings, including vite and `@typescript-eslint`
+  - some need MAJOR upgrades (vite 8, typescript-eslint 8)
+  - build-time only: they never reach the shipped static files, but vite's
+    dev-server issues matter on a developer's machine
+- **The SAST High** (`pdfVectorExport.ts:62`, nodejs_scan SSRF) is a false
+  positive. The rule targets Node server code; this is a browser `fetch()`
+  to `${BASE_URL}/api/symbols/${symbolId}/image` (`client.ts:42`), a
+  same-origin path. It is dismissed in GitLab, but `symbolId` should still
+  be encoded (see A2).
+
+## A. Dependency audit (closes R11)
+- [x] **A1. Fix the 4 runtime npm findings** with `npm audit fix` (no
+  `--force`).
+  - Then `tsc`, the build, and the import-validation harness must pass.
+  - Run in `node:20-alpine` too, not only on Windows (lesson 2026-10-12).
+- [x] **A2. Encode `symbolId`** in `client.ts:42` with
+  `encodeURIComponent`. A symbol id from an imported JSON file could
+  otherwise carry `../` and steer the request to another same-origin path.
+  One-line hardening.
+- [x] **A3. `deps:audit` job** (test stage, every push **and** weekly).
+  New advisories appear without any code change, so the weekly run is what
+  catches them.
+  - `pip-audit -r backend/requirements.txt`: **blocks** on any known
+    vulnerability.
+  - `npm audit --omit=dev --audit-level=high`: **blocks** on high or
+    critical in runtime deps.
+  - `npm audit` (all deps): **reports only**, as an artifact plus log.
+    Dev-tool majors are tracked as their own task (A4), not by a red
+    pipeline that everyone learns to ignore.
+  - Exceptions: a reviewed `.audit-exceptions` list (advisory ID, reason,
+    expiry date). An expired entry fails the job, so nothing is waived
+    forever.
+- [ ] **A4. (Separate, later) dev-tool majors**: vite 5 → 8 and
+  typescript-eslint 8, as its own change with a full frontend regression
+  check. Not bundled here.
+
+## B. Container image scan (weekly)
+- [x] **B1.** GitLab Container Scanning (`Jobs/Container-Scanning`, Trivy
+  based) can scan a **remote** image, so the runners never need to build
+  one: `CS_IMAGE: $DAST_APP_IMAGE`, the GHCR image (public, no
+  credentials).
+  - Weekly schedule, next to DAST.
+  - Covers OS packages in `python:3.12-slim` plus the installed Python
+    packages, which is exactly what ships.
+- [x] **B2. Prove it runs as uid 65533** locally first, as was done for
+  Semgrep (which needed a HOME fix).
+- Gate: advisory at first. Base-image CVEs often have no fix yet. Findings
+  land in the Vulnerability Report. Revisit "block on critical with a fix
+  available" after the first baseline.
+
+## C. Secret detection
+- [x] **C1.** GitLab Secret Detection (`Jobs/Secret-Detection`) on every
+  push. Verify uid 65533 locally first.
+- [ ] **C2. GitHub push protection (your click, free for public repos).**
+  It *prevents* a secret reaching the repo, where GitLab's job can only
+  report one already pushed. GitHub repo → Settings → Advanced Security:
+  enable Secret scanning and Push protection.
+
+## D. Deploy automation — recommend NOT automating
+Technically possible: the tag build calls the GovPaaS (Northflank) API to
+set the new image tag and roll out. Recommended against:
+- a release becoming live should be a deliberate act, and it is one click
+  today
+- it needs a long-lived GovPaaS API token stored in GitHub, a new
+  credential that could deploy anything
+- the earlier choice for the sibling project was manual
+
+The "automated" part that matters is already done: tag → build →
+verifiable `/api/health`.
+
+## Verify (Pattern AT phase 5: a gate must be seen to fail)
+- `deps:audit` fails on the current lockfile (axios), and passes after A1.
+- Secret Detection flags a planted fake key in a throwaway local copy,
+  never committed.
+- Container Scanning produces a report against `:1.1.0`.
+- Full backend suite plus a frontend build in the CI images before the push.
+
+## Review
+**Commits:**
+- `f127c1c`: npm runtime fixes
+- `6cd50bc`: `symbolId` encoding
+- `30de31e`: `deps:audit` gate
+- then container scanning, secret detection and docs
+
+**Every gate was seen to fail before it was trusted to pass (uid 65533,
+real CI images):**
+- **deps:audit**: the pre-fix lockfile was blocked (13 advisories), and the
+  current one passes (5 dev-only reported).
+  - The simulation caught `pip-audit` landing off PATH as non-root, hence
+    `python -m pip_audit`.
+  - The gate fails on a tool error instead of reading it as 0 findings.
+- **container_scanning**: it crashed as uid 65533 (Trivy cache under
+  /home/gitlab). Fixed by linking the bundled DB into a writable
+  `CS_TRIVY_CACHE_DIR`, without copying 2.7 GB. It then scanned `:1.1.0`:
+  166 Debian base-image CVEs, 1 fixable, 0 in Python packages. Advisory.
+- **secret_detection**: works as uid 65533 unmodified: 0 findings clean,
+  and a planted fake GitHub token caught as Critical. `secret_detection:gate`
+  fails on planted, passes on clean, and fails on a missing report.
+- Frontend: tsc, build and harness 22/22 in node:20-alpine.
+
+**Left for the user:**
+- GitHub push protection (a click)
+- `DAST_APP_IMAGE` on the schedule
+- dismissing the SAST false positive
+- the first weekly run of `container_scanning`
+
+**Follow-ups:**
+- A4: vite 8 and typescript-eslint 8 majors
+- base-image refresh policy (liblzma5)
+
+---
+
 # Plan — release versioning, first release v1.1.0
 
 Status: **RELEASED v1.1.0 2026-10-12; GovPaaS switch is the user's.** Requested: "version control for

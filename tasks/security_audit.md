@@ -403,9 +403,40 @@ stamps, allowed up to 20 MB).
 - Tests cover both directions. The large-drawing test fails if the route
   class is removed.
 
-**Still open (R11 stays PARTIAL):** no CI step re-runs `pip-audit` or
+~~**Still open (R11 stays PARTIAL):** no CI step re-runs `pip-audit` or
 `npm audit`, so new advisories will not surface until someone runs them by
-hand. Frontend `package.json` not audited in this pass.
+hand. Frontend `package.json` not audited in this pass.~~
+
+**Update 2026-10-12: R11 CLOSED.**
+- **Frontend audited.** 4 advisories were in runtime (browser-shipped)
+  deps: axios and form-data (high), follow-redirects and dompurify
+  (moderate). All fixed in range with `npm audit fix`: runtime audit is 0.
+- **Dev/build-only advisories remain, reported but not blocking.** There
+  are 11 packages, in vite 5 and typescript-eslint 7, which need major
+  upgrades; tracked as their own task.
+- **CI gate `deps:audit` on every push and weekly** (`ci/audit_gate.py`):
+  - any pip-audit finding blocks
+  - npm high or critical in runtime deps blocks
+  - waivers need a reason and expiry date (`ci/audit-exceptions.json`)
+  - a tool error fails the job instead of reading as clean
+- **Verified to fail:** against the pre-fix lockfile it blocked on 13
+  advisories.
+- **Related: `symbolId` is now URL-encoded** in symbol image requests
+  (`client.ts`). This came from triaging the SAST SSRF false positive.
+
+### Secret detection and container scanning (2026-10-12)
+- **`secret_detection`** runs on every push. A gate job fails the
+  pipeline on any finding, because a secret on `main` is already public.
+  Verified: 0 findings on the repo; a planted fake GitHub token is caught
+  as Critical. GitHub push protection is the preventive control.
+- **`container_scanning`** (Trivy) scans the GHCR image weekly, and is
+  advisory. The first scan of 1.1.0 found 166 CVEs, all in Debian
+  base-image packages (44 High), with a fix available for only one
+  (liblzma5). No findings in Python packages.
+  - A blocking gate would be permanently red, so findings are triaged in
+    the Vulnerability Report.
+  - Picking up base-image fixes needs a rebuild on a refreshed
+    `python:3.12-slim`, or an `apt-get upgrade` layer. Not yet decided.
 
 ### Dynamic security testing — coverage and known gap (2026-10-09)
 Automated dynamic testing now in place, and what it does **not** reach:

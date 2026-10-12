@@ -41,15 +41,21 @@ version rules are at the top of [CHANGELOG.md](../CHANGELOG.md).
 6. **Verify live.** `GET https://<service host>/api/health` must return
    `"version": "X.Y.Z"` and the commit you tagged
    (`git rev-parse vX.Y.Z^{commit}`).
+7. **Point the weekly scans at it.** In GitLab, go to Build → Pipeline
+   schedules, edit the weekly schedule, and set the variable
+   `DAST_APP_IMAGE` to `ghcr.io/beese54/drawing-portal:X.Y.Z`. DAST,
+   `fuzz:blackbox` and `container_scanning` then test exactly what is live.
 
 ## Roll back
 
-Repeat step 5 with the previous version's tag, then step 6. Nothing is
+Repeat steps 5–7 with the previous version's tag. Nothing is
 rebuilt: every released image stays in GHCR under its version tag.
 
 ## Rules
 - Never move or delete a pushed `v*` tag. Fix forward with a new PATCH
   release. A GitHub tag ruleset protecting `v*` enforces this.
 - Never deploy `:latest` or a `:sha-` tag to GovPaaS. Only version tags.
-- Pushes to `main` without a tag publish `:latest` and `:sha-<commit>` only.
-  That is the release candidate the weekly scans test.
+- Pushes to `main` without a tag publish `:latest` and `:sha-<commit>` only:
+  release candidates. They are tested on every push (tests, SAST, dependency
+  audit, secret detection). The weekly image scans test whatever
+  `DAST_APP_IMAGE` names, which after step 7 is the live release.
