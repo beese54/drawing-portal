@@ -12,7 +12,11 @@ class Settings(BaseSettings):
     symbols_path: str = _DEFAULT_SYMBOLS_PATH
     static_path: str = _DEFAULT_STATIC_PATH
     allowed_origins: str = "http://localhost:3000,http://localhost:5173"
-    app_version: str = "1.0.0"
+    # Baked into the image at build time (Dockerfile ARGs, set by
+    # docker-publish.yml) and reported by /api/health, so the running pod can
+    # say exactly which build it is. Unset means a local or hand-built image.
+    app_version: str = "dev"
+    git_commit: str = "unknown"
 
     # ── Request limits ──────────────────────────────────────────────────────
     # /api/evaluate and /api/export/docx are unauthenticated and publicly

@@ -14,7 +14,6 @@ RUN npm run build
 
 # ---- Backend + combined runtime stage ----
 FROM python:3.12-slim
-LABEL version="1"
 
 WORKDIR /app
 
@@ -31,6 +30,13 @@ ENV ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 
 RUN groupadd --system app && useradd --system --gid app --home /app app \
     && chown -R app:app /app
+
+# Which build this is, reported by /api/health. docker-publish.yml passes the
+# release version (or "latest" for a main push) and the full commit SHA. Kept
+# this late so a new version only rebuilds this layer, not the pip install.
+ARG APP_VERSION=dev
+ARG GIT_COMMIT=unknown
+ENV APP_VERSION=${APP_VERSION} GIT_COMMIT=${GIT_COMMIT}
 USER app
 
 EXPOSE 8000
