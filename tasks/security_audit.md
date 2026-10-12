@@ -366,6 +366,18 @@ over-rejecting. All 11 pass with the fixes. The black-box suite then passed 7/7
 at 2,000 examples per test, with 0 server errors in the container log,
 against an image built from the fixed tree.
 
+### F7 — Version disclosure on `/api/health` — ACCEPTED, and extended (2026-10-12)
+Release versioning (`docs/RELEASING.md`) needs the running pod to say which
+build it is. `/api/health` now returns the release version *and* the git
+commit. Accepted because:
+- the repository is public, so the version and commit map to code anyone
+  can already read
+- dependency versions are pinned in that same public `requirements.txt`
+- an operator being able to prove what is deployed is worth more here than
+  hiding it
+
+Revisit if the repository is made private.
+
 ### F6 / R11 — Dependency CVEs — FIXED for runtime Python deps (2026-10-09); CI gate still open
 `pip-audit` (in a clean `python:3.12-slim`) against the pinned
 `backend/requirements.txt` found **14 known vulnerabilities**, all in the two

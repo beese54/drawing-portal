@@ -1,6 +1,117 @@
+# Plan — release versioning, first release v1.1.0
+
+Status: **APPROVED 2026-10-12; items 1-4 done, push + tag pending.** Requested: "version control for
+every minor and major change".
+
+## Where things stand (verified 2026-10-12)
+- Every build is already traceable to its commit:
+  - GitHub Actions tags each image `:sha-<7 chars>` as well as `:latest`
+  - each image carries the OCI label `org.opencontainers.image.revision`
+    with the full commit SHA
+  - GHCR keeps old images
+- The release mechanism exists but has never been used:
+  - `docker-publish.yml` already triggers on `v*.*.*` git tags and would
+    publish `:X.Y.Z` (`type=semver,pattern={{version}}`)
+  - **0 git tags exist**
+- The running app cannot say what it is:
+  - `/api/health` returns `app_version`, hardcoded `"1.0.0"` in
+    `backend/app/config.py`
+  - the Dockerfile has a stale `LABEL version="1"`
+  - `frontend/package.json` also says `1.0.0`
+- GovPaaS deploys `:latest`:
+  - which build is running is implicit
+  - a rollback means finding the right `sha-` tag by hand
+  - the sibling project rag-portal already deploys by an immutable commit
+    tag (govpaas_configuration_helper, 2026-08-17/22), so the console
+    supports it
+
+## Version policy (SemVer, written into CHANGELOG.md)
+- **MAJOR**: a breaking change for users or integrators:
+  - a removed or renamed API field or endpoint
+  - a metadata format the old frontend can't produce
+  - a compliance rule whose verdict changes for existing drawings
+- **MINOR**: something new that is backward-compatible:
+  - a new compliance check or symbol
+  - a new endpoint or a new export feature
+- **PATCH**: fixes only, including security fixes (F-numbers) and
+  dependency bumps, with no behaviour change for valid input.
+- Not every push is a release. Pushes to `main` still build `:latest` and
+  `:sha-xxxxxxx` (the release candidate, scanned weekly). A release is a
+  deliberate `vX.Y.Z` tag.
+
+## Tasks
+- [x] **1. Version and commit baked into the image (test first).**
+  - `config.py`: `app_version` defaults to `"dev"`; add
+    `git_commit: str = "unknown"`. Both come from env (`APP_VERSION`,
+    `GIT_COMMIT`), as pydantic-settings already does.
+  - `/api/health` returns `{"status", "version", "commit"}`.
+  - Dockerfile:
+    - `ARG APP_VERSION=dev` and `ARG GIT_COMMIT=unknown`, then the
+      matching `ENV`, in the runtime stage
+    - delete the stale `LABEL version="1"` (the workflow's OCI labels
+      replace it)
+  - Tests:
+    - the health endpoint reports both values from env
+    - the defaults are `dev`/`unknown`, so a local build never claims to
+      be a release
+- [x] **2. Workflow passes them in.** `docker-publish.yml` build step:
+  - `build-args: APP_VERSION=${{ steps.meta.outputs.version }}` and
+    `GIT_COMMIT=${{ github.sha }}`
+  - result: `:1.1.0` reports `1.1.0`; a main push reports `latest` plus
+    its exact commit
+  - Pin the actions to commit SHAs while here. That closes the SAST
+    agent's one new finding (mutable action tags), and it is the same
+    file.
+- [x] **3. CHANGELOG.md** (Keep a Changelog format)
+  - The policy above, plus a `1.1.0` entry drafted from `git log` since
+    the fork point.
+  - Grouped as Security (F1, F9–F12, CVE upgrades, CSP), Added (DAST,
+    black-box fuzzing, SAST, request limits) and Changed.
+  - I draft it; **you review the wording** (it may be read by PUB Cyber).
+- [x] **4. Release process doc**: a short `docs/RELEASING.md`.
+  1. Update the CHANGELOG and commit.
+  2. Run `git tag -a vX.Y.Z -m "..."` and `git push origin vX.Y.Z`.
+  3. Check GitHub Actions is green and `ghcr.io/...:X.Y.Z` exists.
+  4. In GovPaaS, set the image tag to `X.Y.Z`, then deploy/restart.
+  5. `GET /api/health` shows `X.Y.Z` and the commit.
+
+  Rollback: set the previous tag and restart, with no rebuild.
+- [ ] **5. Commit 1–4 and push (with your OK).** Then the release itself:
+  - tag `v1.1.0` on that commit (with your OK; it's a public, durable
+    action)
+  - push the tag
+  - verify the `:1.1.0` image and its `/api/health` locally
+- [ ] **6. Your console steps**:
+  - GovPaaS: set the service's image tag from `latest` to `1.1.0` →
+    deploy → check `/api/health`
+  - GitHub: Settings → Rules → Rulesets → New tag ruleset protecting
+    `v*`, blocking deletion and update, so a release tag can never be
+    moved to point at different code
+
+## Decisions folded in (say if you disagree)
+- **No floating `:1` or `:1.1` tags.** They move, which is the problem
+  being solved. Deploy exact `X.Y.Z` only.
+- **The frontend `package.json` version is left alone.** It's internal to
+  the build. `/api/health` is the single place to ask what's running.
+- **DAST and fuzzing keep scanning `:latest`.** That's the next release
+  candidate; releases are tags of code those weekly runs have already
+  seen. To scan exactly what's deployed instead, set `DAST_APP_IMAGE` to
+  the release tag in GitLab variables.
+
+## Out of scope
+- Automating the GovPaaS rollout. It stays a manual console step, as it is
+  today and as chosen for the sibling project.
+- Release automation tools (semantic-release etc.). Overkill for one
+  maintainer; the doc plus tag is enough.
+
+## Review
+(to be filled in after implementation)
+
+---
+
 # Plan — black-box fuzzing of the two POST endpoints (Option A)
 
-Status: **DONE locally 2026-10-12; push pending your OK.** Protocol: Pattern AT (DevSecOps).
+Status: **DONE, pushed 2026-10-12 (`4c53d58`).** Protocol: Pattern AT (DevSecOps).
 
 ## Goal
 Close the gap recorded in `tasks/security_audit.md` → "Dynamic security
