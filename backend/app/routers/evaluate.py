@@ -201,10 +201,12 @@ async def evaluate_schematic(
             detail=f"metadata_json is over the {settings.max_metadata_chars // (1024 * 1024)}MB limit.",
         )
 
-    # Parse metadata
+    # Parse metadata. Not just JSONDecodeError: an integer over 4,300 digits
+    # raises a plain ValueError (its parent class) and deep nesting raises
+    # RecursionError. Both were 500s until F10.
     try:
         metadata = json.loads(metadata_json)
-    except json.JSONDecodeError as e:
+    except (ValueError, RecursionError) as e:
         raise HTTPException(status_code=422, detail=f"Invalid JSON in metadata_json: {e}")
 
     _validate_metadata(metadata)

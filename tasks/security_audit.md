@@ -308,6 +308,28 @@ Verified:
   must return 200. Regenerate it with
   `tasks/repro/frontend_metadata_fixture.mjs`.
 
+### F10 — Unhandled JSON parser errors — FIXED (2026-10-12)
+**New finding, not in the original audit.** Found while planning black-box
+fuzzing of the two POST endpoints. Both routers caught only
+`json.JSONDecodeError` around `json.loads`. Two inputs raise something else:
+- an integer literal over 4,300 digits: Python >= 3.11 raises a plain
+  `ValueError` (the int-string conversion limit)
+- nesting deeper than the interpreter's recursion limit (1,000 levels
+  passes, 3,000 fails): `RecursionError`
+
+Each returned **500** on both `POST /api/evaluate` and
+`POST /api/export/docx`. Severity Low: both fail fast in the parser (no
+resource exhaustion), no stack trace is returned, and other requests are
+unaffected. F9's fuzzing missed it because its documents go through
+`json.dumps`, which never produces either input.
+
+Fix: both routers now catch `(ValueError, RecursionError)`, which covers
+JSONDecodeError (a ValueError subclass), and return **422**.
+
+Verified: 4 regression tests in `backend/tests/test_fuzz_inputs.py`
+(2 inputs x 2 endpoints, sent as raw text). They fail without the fix and
+pass with it. The full suite is 156/156.
+
 ### F6 / R11 — Dependency CVEs — FIXED for runtime Python deps (2026-10-09); CI gate still open
 `pip-audit` (in a clean `python:3.12-slim`) against the pinned
 `backend/requirements.txt` found **14 known vulnerabilities**, all in the two

@@ -200,6 +200,29 @@ def test_known_crash_inputs_are_rejected(metadata):
     assert r.status_code == 422, r.text
 
 
+# ── Regression: JSON the parser itself refuses without a JSONDecodeError ─────
+# Found 2026-10-12 (F10). Python >= 3.11 raises a plain ValueError for an
+# integer over 4,300 digits, and the decoder raises RecursionError on deep
+# nesting. Both escaped the routers' `except json.JSONDecodeError` as a 500.
+# Sent as raw text: json.dumps could not produce either for us.
+
+_HUGE_INT = "1" * 5000
+_DEEP = "[" * 3000 + "]" * 3000
+
+
+@pytest.mark.parametrize("value", [_HUGE_INT, _DEEP], ids=["huge_int", "deep_nesting"])
+def test_unparseable_metadata_is_rejected(value):
+    r = client.post("/api/evaluate",
+                    data={"metadata_json": '{"elements": [], "pipes": [], "x": ' + value + "}"})
+    assert r.status_code == 422, r.text
+
+
+@pytest.mark.parametrize("value", [_HUGE_INT, _DEEP], ids=["huge_int", "deep_nesting"])
+def test_unparseable_manifest_is_rejected(value):
+    r = client.post("/api/export/docx", data={"manifest_json": "[" + value + "]"})
+    assert r.status_code == 422, r.text
+
+
 # ── Property: no mutated document produces a server error ────────────────────
 
 @FUZZ

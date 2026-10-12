@@ -63,9 +63,11 @@ async def export_docx(
             detail=f"manifest_json is over the {settings.max_manifest_chars // (1024 * 1024)}MB limit.",
         )
 
+    # ValueError covers JSONDecodeError and the >4,300-digit integer limit;
+    # RecursionError is deep nesting. See evaluate.py and F10.
     try:
         rows: list[dict] = json.loads(manifest_json)
-    except json.JSONDecodeError as e:
+    except (ValueError, RecursionError) as e:
         raise HTTPException(status_code=422, detail=f"Invalid JSON in manifest_json: {e}")
     if not isinstance(rows, list):
         raise HTTPException(status_code=422, detail="manifest_json must be a JSON array.")
