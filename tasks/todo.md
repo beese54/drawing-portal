@@ -1,6 +1,6 @@
 # Plan — release versioning, first release v1.1.0
 
-Status: **APPROVED 2026-10-12; items 1-4 done, push + tag pending.** Requested: "version control for
+Status: **RELEASED v1.1.0 2026-10-12; GovPaaS switch is the user's.** Requested: "version control for
 every minor and major change".
 
 ## Where things stand (verified 2026-10-12)
@@ -76,7 +76,7 @@ every minor and major change".
   5. `GET /api/health` shows `X.Y.Z` and the commit.
 
   Rollback: set the previous tag and restart, with no rebuild.
-- [ ] **5. Commit 1–4 and push (with your OK).** Then the release itself:
+- [x] **5. Commit 1–4 and push (with your OK).** Then the release itself:
   - tag `v1.1.0` on that commit (with your OK; it's a public, durable
     action)
   - push the tag
@@ -105,7 +105,33 @@ every minor and major change".
   maintainer; the doc plus tag is enough.
 
 ## Review
-(to be filled in after implementation)
+**Outcome:**
+- `da51323` (health version/commit, Dockerfile ARGs, workflow build-args
+  plus SHA-pinned actions) and `cdda04d` (CHANGELOG, RELEASING, F7
+  accepted) pushed
+- GitLab push pipeline green (user-confirmed)
+- `v1.1.0` tagged on `cdda04d` (annotated tag object `faa876c`)
+- GitHub Actions run 38219956822 succeeded
+
+**Verified:**
+- `ghcr.io/beese54/drawing-portal:1.1.0` pulls anonymously (HTTP 200)
+- its labels say version 1.1.0 and revision `cdda04d…`
+- run locally, `/api/health` returns `{"status":"ok","version":"1.1.0",
+  "commit":"cdda04dd457c4f00b26b4eb6dac569bcd9c88308"}`
+
+**GitHub ruleset "Protect release tags"** (id 24914490) is active on
+`refs/tags/v*`: no deletion, no update, no bypass actors. Created via the
+API with the user's OK.
+
+**Decision recorded:**
+- 1.1.0 rather than 2.0.0, although the feedback form and the symbol write
+  API were removed (MAJOR under the rules). Reason: 1.0.0 was never
+  tagged, and the only client of those endpoints was the bundled frontend.
+
+**Gotcha:**
+- GovPaaS's "this image may be private" on an image path means the tag
+  could not be found, not that credentials are missing. The package is
+  public; `:1.1.0` was 404 until the tag build finished.
 
 ---
 
