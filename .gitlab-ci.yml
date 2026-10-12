@@ -8,6 +8,9 @@
 # Pipeline shape:
 #   test    → backend pytest, frontend typecheck + build + import-validation harness
 #             + semgrep-sast (GitLab SAST on the source; every push, advisory)
+#             + deps:audit (pip-audit + npm audit; every push and weekly; BLOCKS)
+#             + secret_detection (every push; its gate BLOCKS on any finding)
+#             + container_scanning (Trivy on the GHCR image; weekly, advisory)
 #   build   → one image, pushed to the GitLab Container Registry
 #   scan    → Trivy against the image just built  (opt-in; closes audit finding F6)
 #   dast    → GitLab DAST + black-box fuzzing of the two POST endpoints, both
@@ -61,6 +64,10 @@ include:
   # now a stub that includes this one. For this repo it creates exactly one job,
   # semgrep-sast (Python + TypeScript), in the test stage, on every branch pipeline.
   - template: Jobs/SAST.gitlab-ci.yml
+  # Creates container_scanning (Trivy) and secret_detection; both are adjusted
+  # below.
+  - template: Jobs/Container-Scanning.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
 
 variables:
   # "docker" uses docker:dind and needs a PRIVILEGED runner. If your company's
@@ -226,6 +233,67 @@ deps:audit:
     expire_in: 4 weeks
     paths:
       - pip-audit.json
+
+# Container image scan, weekly. GitLab's Container Scanning (Trivy) pulls the
+# image straight from GHCR (public), so these runners, which cannot build
+# images, never need to. It scans $DAST_APP_IMAGE, the same image DAST and
+# fuzz:blackbox test: whatever the schedule points it at. Schedule only: a push
+# pipeline would scan the image GitHub Actions has not rebuilt yet. Python
+# packages are covered on every push by deps:audit; this adds the Debian
+# packages of the base image.
+#
+# Advisory (allow_failure from the template). The first scan of 1.1.0 found
+# 166 Debian base-image CVEs and a fix existed for only one of them (liblzma5),
+# so a blocking gate would be permanently red with nothing to do. Findings go
+# to Secure → Vulnerability report.
+#
+# uid 65533 again: the scanner writes Trivy's cache under /home/gitlab and dies
+# with "mkdir /home/gitlab/.cache/trivy/…: permission denied". It ships a 2.7 GB
+# vulnerability DB there, so rather than copy it, link it into a writable cache
+# dir. ee is the DB used on Ultimate, ce otherwise, as the analyzer picks
+# (gcs lib/gcs/environment.rb). Reproduced and fixed locally 2026-10-12.
+container_scanning:
+  variables:
+    CS_IMAGE: "$DAST_APP_IMAGE"
+    CS_TRIVY_CACHE_DIR: "$CI_PROJECT_DIR/.trivy-cache"
+  before_script:
+    - id
+    - ED=ce; case ",$GITLAB_FEATURES," in *,container_scanning,*) ED=ee;; esac
+    - mkdir -p "$CS_TRIVY_CACHE_DIR" && ln -sfn "/home/gitlab/.cache/trivy/$ED/db" "$CS_TRIVY_CACHE_DIR/db"
+  rules:
+    - if: '$CONTAINER_SCANNING_DISABLED == "true"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# Secret detection, every push. secret_detection comes from the template
+# unchanged; it runs fine as uid 65533 (verified locally: 0 findings on this
+# repo, and a planted fake GitHub token was caught as Critical).
+#
+# The template only REPORTS. But a secret found on main is already public on
+# GitHub and must be rotated now, so the gate below turns it into a red
+# pipeline and an email. It prints the type, file and line, never the value.
+# For a false positive, put a `gitleaks:allow` comment on that line. The real
+# prevention is GitHub push protection, which refuses the push outright.
+secret_detection:gate:
+  stage: test
+  image: python:3.12-slim
+  needs: ["secret_detection"]
+  script:
+    - |
+      python - <<'EOF'
+      import json, sys
+      # A missing report raises here: a scan that did not run is not clean.
+      found = json.load(open("gl-secret-detection-report.json"))["vulnerabilities"]
+      for v in found:
+          loc = v["location"]
+          print(f"{v['severity']}: {v['name']} in {loc['file']}:{loc.get('start_line')}")
+      print(f"{len(found)} secret(s) found" if found else "no secrets found")
+      sys.exit(1 if found else 0)
+      EOF
+  rules:
+    - if: '$SECRET_DETECTION_DISABLED == "true"'
+      when: never
+    - if: $CI_COMMIT_BRANCH
 
 # ─────────────────────────────────────────────────────────────── build stage ──
 # Exactly one of these runs, chosen by $BUILD_ENGINE.
