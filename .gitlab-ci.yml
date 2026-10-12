@@ -177,6 +177,56 @@ semgrep-sast:
   before_script:
     - id; echo "HOME=$HOME"
 
+# Dependency audit (closes R11). Runs on every push AND on the weekly schedule:
+# new advisories are published against code that has not changed, so the
+# weekly run is what catches them. The rules live in ci/audit_gate.py:
+#   - any pip-audit finding in backend/requirements.txt         → fails
+#   - npm high/critical in runtime deps (shipped to browsers)   → fails
+#   - npm findings in dev/build-only deps                       → reported
+# Waivers go in ci/audit-exceptions.json, each with a reason and an expiry
+# date; an expired one fails the job. A report the tool failed to produce
+# (registry unreachable) also fails it: a scan that did not run is not clean.
+deps:npm-audit:
+  stage: test
+  image: node:20-alpine
+  dependencies: []
+  script:
+    - cd frontend
+    # Reads package-lock.json only; no install needed. npm exits non-zero when
+    # it finds anything, so the exit code is ignored and audit_gate decides.
+    - npm audit --omit=dev --json > "$CI_PROJECT_DIR/npm-runtime.json" || true
+    - npm audit --json > "$CI_PROJECT_DIR/npm-all.json" || true
+  artifacts:
+    when: always
+    expire_in: 4 weeks
+    paths:
+      - npm-runtime.json
+      - npm-all.json
+
+deps:audit:
+  stage: test
+  image: python:3.12-slim
+  needs: ["deps:npm-audit"]
+  cache:
+    key: deps-audit
+    paths:
+      - .cache/pip
+  script:
+    - pip install --quiet --root-user-action=ignore pip-audit==2.10.1 pytest
+    # The gate's own rules first: a broken gate would pass everything.
+    - python -m pytest -q -p no:cacheprovider ci/test_audit_gate.py
+    # As a module: as non-root, pip puts the script in ~/.local/bin, off PATH.
+    - python -m pip_audit -r backend/requirements.txt --progress-spinner off --format json --output pip-audit.json || true
+    - >
+      python ci/audit_gate.py --pip pip-audit.json
+      --npm-runtime npm-runtime.json --npm-all npm-all.json
+      --exceptions ci/audit-exceptions.json
+  artifacts:
+    when: always
+    expire_in: 4 weeks
+    paths:
+      - pip-audit.json
+
 # ─────────────────────────────────────────────────────────────── build stage ──
 # Exactly one of these runs, chosen by $BUILD_ENGINE.
 

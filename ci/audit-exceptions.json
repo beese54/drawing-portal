@@ -1,0 +1,4 @@
+{
+  "_readme": "Waivers for ci/audit_gate.py. Each entry: id (GHSA-/PYSEC- id as the report prints it), package, reason (why it is not exploitable here, or why the fix must wait), expires (YYYY-MM-DD, at most 90 days out). An expired entry fails the pipeline. Keep this list empty whenever possible.",
+  "exceptions": []
+}
