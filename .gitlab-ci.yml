@@ -7,6 +7,7 @@
 #
 # Pipeline shape:
 #   test    → backend pytest, frontend typecheck + build + import-validation harness
+#             + semgrep-sast (GitLab SAST on the source; every push, advisory)
 #   build   → one image, pushed to the GitLab Container Registry
 #   scan    → Trivy against the image just built  (opt-in; closes audit finding F6)
 #   dast    → GitLab DAST + black-box fuzzing of the two POST endpoints, both
@@ -56,6 +57,10 @@ include:
   # GitLab's own DAST job. The `dast` job below overrides the parts that matter
   # here; everything else (analyzer image, report artifact) comes from this.
   - template: Security/DAST.gitlab-ci.yml
+  # GitLab's SAST jobs. Jobs/ is the current path; Security/SAST.gitlab-ci.yml is
+  # now a stub that includes this one. For this repo it creates exactly one job,
+  # semgrep-sast (Python + TypeScript), in the test stage, on every branch pipeline.
+  - template: Jobs/SAST.gitlab-ci.yml
 
 variables:
   # "docker" uses docker:dind and needs a PRIVILEGED runner. If your company's
@@ -76,6 +81,19 @@ variables:
   # $CI_COMMIT_SHORT_SHA is 8, and CI variables cannot slice a string. To pin a
   # build, set this in the CI/CD variables to e.g. ghcr.io/beese54/drawing-portal:sha-79475a5
   DAST_APP_IMAGE: "ghcr.io/beese54/drawing-portal:latest"
+
+  # SAST. Unless told otherwise, the analyzer sends anonymous usage metrics to
+  # semgrep.dev. Source code is never sent either way, but there is no reason to
+  # call out.
+  SAST_SEMGREP_METRICS: "false"
+  # Advanced SAST (Ultimate) does cross-file taint analysis. When "true" it
+  # REPLACES semgrep-sast for every file in this repo, starts a new findings
+  # baseline, and wants ~4 GB RAM per core. Flip it in Settings → CI/CD →
+  # Variables once the Semgrep baseline is triaged; no commit needed.
+  GITLAB_ADVANCED_SAST_ENABLED: "false"
+  # SAST_EXCLUDED_PATHS is deliberately unset. The template's default (spec,
+  # test, tests, tmp) already skips backend/tests, and the analyzer's own
+  # ignore file skips node_modules/ and dist/. Setting it REPLACES the default.
 
 default:
   # A newer commit on the same branch cancels this run rather than racing it.
@@ -138,6 +156,26 @@ frontend:check:
     expire_in: 1 week
     paths:
       - frontend/dist
+
+# semgrep-sast comes from Jobs/SAST above; this only adjusts it. It scans the
+# committed source, so unlike DAST it never looks at a stale image, and it runs
+# on every push. allow_failure (from the template) keeps it advisory. That is
+# deliberate: code reaches main through the GitHub pull mirror, never through a
+# GitLab merge request, so there is no merge for a policy to block. Findings land
+# in the pipeline's Security tab and in Secure → Vulnerability report.
+#
+# Semgrep creates ~/.semgrep/semgrep.log at startup with no fallback. On these
+# runners (uid 65533, no passwd entry) ~ is "/", and the analyzer dies with
+# "Permission denied: '/.semgrep'". Both the crash and this fix were reproduced
+# locally as uid 65533 on 2026-10-12. Keep Semgrep's state in the build
+# directory instead; the analyzer's ignore file already skips .semgrep/.
+semgrep-sast:
+  variables:
+    SEMGREP_LOG_FILE: "$CI_PROJECT_DIR/.semgrep/semgrep.log"
+    SEMGREP_SETTINGS_FILE: "$CI_PROJECT_DIR/.semgrep/settings.yml"
+  # Says which case a failure is: who we run as, and where ~ resolves.
+  before_script:
+    - id; echo "HOME=$HOME"
 
 # ─────────────────────────────────────────────────────────────── build stage ──
 # Exactly one of these runs, chosen by $BUILD_ENGINE.
