@@ -151,12 +151,13 @@ def _validate_image_bytes(data: bytes) -> None:
 def _safe_dimension(canvas: object, key: str, default: int) -> int:
     """Coerce a canvas dimension without letting bad input raise an unhandled
     500 — int("abc") and int(None) both throw, canvas itself may not be a dict,
-    and all of it is attacker-supplied."""
+    and all of it is attacker-supplied. json.loads turns 1e999 into inf, and
+    int(inf) raises OverflowError (F12)."""
     if not isinstance(canvas, dict):
         return default
     try:
         return int(canvas.get(key, default))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return default
 
 
@@ -206,6 +207,11 @@ async def evaluate_schematic(
     # RecursionError. Both were 500s until F10.
     try:
         metadata = json.loads(metadata_json)
+        # A lone surrogate ("\ud800") is valid JSON but not valid Unicode. Element
+        # names are echoed back in check details, so it reached the response and
+        # failed UTF-8 encoding there, as a 500 (F11). The encode raises
+        # UnicodeEncodeError, a ValueError, so it is refused here instead.
+        json.dumps(metadata, ensure_ascii=False).encode("utf-8")
     except (ValueError, RecursionError) as e:
         raise HTTPException(status_code=422, detail=f"Invalid JSON in metadata_json: {e}")
 

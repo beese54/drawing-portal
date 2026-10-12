@@ -20,17 +20,24 @@ deterministic; raise max_examples locally to explore further.
 
 from __future__ import annotations
 
-import io
 import json
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from hypothesis import HealthCheck, given, settings, strategies as st
-from PIL import Image
 
 from app.main import app
-from tests.helpers import el, meta, pipe
+from tests.fuzz_strategies import (
+    RAW_PLACEHOLDER,
+    attack_strings,
+    mutated,
+    png,
+    raw_json_tokens,
+    seed_manifest,
+    seed_metadata,
+    with_raw_token,
+)
 
 client = TestClient(app, raise_server_exceptions=False)
 
@@ -42,130 +49,10 @@ FUZZ = settings(
 )
 
 
-# ── Seed documents: valid inputs that exercise every compliance check ────────
-
-def _port(x: float, y: float, connects_to: str | None = None) -> dict:
-    return {"index": 0, "role": "upstream", "position": {"canvas_x": x, "canvas_y": y},
-            "connects_to_element_id": connects_to}
-
-
-def _seed_metadata() -> dict:
-    tank = el("t1", "water_tank", node_type="source", elevation_m=30.0,
-              ports=[_port(10, 10, "pump1")], connected_pipe_ids=["p1"],
-              position={"canvas_x": 10, "canvas_y": 10},
-              tank_properties={
-                  "material": "FRP", "overflow_pipe_diameter_m": 0.1,
-                  "inlet_pipe_diameter_m": 0.08, "overflow_pipe_m_amsl": 30.0,
-                  "warning_pipe_m_amsl": 29.9, "inlet_pipe_m_amsl": 29.5,
-                  "outlet_pipe_diameter_m": 0.08, "distance_outlet_to_base_m": 0.08,
-                  "is_sunken_tank": False, "occupants": 4,
-                  "effective_capacity_l": 1000, "daily_demand_m3": 0.564,
-              })
-    elements = [
-        tank,
-        el("pump1", "pump", node_type="pressure_booster", pump_rated_head_m=20.0,
-           ports=[_port(12, 10), _port(40, 10)], connected_pipe_ids=["p1", "p2"]),
-        el("cv1", "check_valve", node_type="check_valve", ports=[_port(41, 10)]),
-        el("h1", "water_heater", node_type="heat_exchanger", supply_mode="direct_supply",
-           backflow_requirement="check_valve", connected_pipe_ids=["p2"]),
-        el("b1", "bidet", node_type="water_fitting", backflow_requirement="vacuum_breaker"),
-        el("s1", "shower_head", node_type="water_fitting", supply_mode="indirect_supply",
-           fitting_type="shower", efficiency_rating=2, elevation_m=12.5),
-        el("lb1", "long_bath", node_type="water_fitting", long_bath_capacity_l=250),
-        el("hf1", "highest_direct_supply_fitting", highest_fitting_elevation_m=15.0),
-    ]
-    pipes = [pipe("p1", "t1", "pump1"), pipe("p2", "pump1", "h1")]
-    pipes[0].update({"material": "copper", "supply_mode": "indirect_supply",
-                     "start": {"canvas_x": 10, "canvas_y": 10, "mrl": 30.0}})
-    return meta(
-        elements, pipes,
-        canvas={"width_px": 1200, "height_px": 800},
-        materials_acknowledged=True,
-        pump_discharge_material_acknowledged=True,
-        tank_position_acknowledged=True,
-        appliance_check_valve_acknowledged=True,
-        bidet_vacuum_breaker_acknowledged=True,
-    )
-
-
-def _seed_manifest() -> list:
-    return [
-        {"check_id": "REG28", "check_title": "Backflow", "status": "FAIL",
-         "text": "Missing check valve", "crop_index": 0},
-        {"check_id": "SEC221", "check_title": "Supply", "status": "PASS",
-         "text": "ok", "crop_index": None},
-    ]
-
-
-# ── Mutation strategy ────────────────────────────────────────────────────────
-
-def _paths(node, prefix=()):
-    """Every location in a JSON document, as a tuple of keys/indexes."""
-    yield prefix
-    if isinstance(node, dict):
-        for k, v in node.items():
-            yield from _paths(v, prefix + (k,))
-    elif isinstance(node, list):
-        for i, v in enumerate(node):
-            yield from _paths(v, prefix + (i,))
-
-
-def _replace(doc, path, value):
-    if not path:
-        return value
-    target = doc
-    for step in path[:-1]:
-        target = target[step]
-    target[path[-1]] = value
-    return doc
-
-
-json_values = st.recursive(
-    st.none() | st.booleans() | st.integers() | st.floats(allow_nan=False, allow_infinity=False)
-    | st.text(max_size=20),
-    lambda inner: st.lists(inner, max_size=4) | st.dictionaries(st.text(max_size=10), inner, max_size=4),
-    max_leaves=8,
-)
-
-
-def _mutated(seed_fn):
-    """A seed document with 1-3 locations replaced by arbitrary JSON values."""
-    paths = list(_paths(seed_fn()))
-
-    @st.composite
-    def build(draw):
-        doc = seed_fn()
-        for _ in range(draw(st.integers(1, 3))):
-            # Re-list paths each time: an earlier replacement may have removed some.
-            live = [p for p in paths if _exists(doc, p)]
-            doc = _replace(doc, draw(st.sampled_from(live)), draw(json_values))
-        return doc
-
-    return build()
-
-
-def _exists(doc, path):
-    node = doc
-    for step in path:
-        if isinstance(node, dict) and step in node:
-            node = node[step]
-        elif isinstance(node, list) and isinstance(step, int) and step < len(node):
-            node = node[step]
-        else:
-            return False
-    return True
-
-
-def _png() -> bytes:
-    buf = io.BytesIO()
-    Image.new("RGB", (8, 8), "white").save(buf, format="PNG")
-    return buf.getvalue()
-
-
 # ── The seeds themselves must be accepted, or the fuzzing proves nothing ─────
 
 def test_seed_metadata_is_accepted():
-    r = client.post("/api/evaluate", data={"metadata_json": json.dumps(_seed_metadata())})
+    r = client.post("/api/evaluate", data={"metadata_json": json.dumps(seed_metadata())})
     assert r.status_code == 200, r.text
 
 
@@ -180,8 +67,8 @@ def test_real_frontend_payload_is_accepted():
 
 
 def test_seed_manifest_is_accepted():
-    r = client.post("/api/export/docx", data={"manifest_json": json.dumps(_seed_manifest())},
-                    files=[("crops", ("c0.png", _png(), "image/png"))])
+    r = client.post("/api/export/docx", data={"manifest_json": json.dumps(seed_manifest())},
+                    files=[("crops", ("c0.png", png(), "image/png"))])
     assert r.status_code == 200, r.text
 
 
@@ -223,18 +110,84 @@ def test_unparseable_manifest_is_rejected(value):
     assert r.status_code == 422, r.text
 
 
+# ── Regression: a lone surrogate echoed back in the response ─────────────────
+# Found 2026-10-12 by the black-box suite (F11). "\ud800" is valid JSON but not
+# valid Unicode. It passed validation, came back in a check's detail text, and
+# the response could not be encoded as UTF-8: a 500. json.dumps writes it as
+# the ASCII escape the attacker would send.
+
+@pytest.mark.parametrize("surrogate", ["\ud800", "\udfff\ud800"], ids=["high", "reversed_pair"])
+def test_lone_surrogate_in_echoed_field_is_rejected(surrogate):
+    metadata = seed_metadata()
+    metadata["elements"][0]["symbol_name"] = surrogate
+    r = client.post("/api/evaluate", data={"metadata_json": json.dumps(metadata)})
+    assert r.status_code == 422, r.text
+
+
+@pytest.mark.parametrize("value", ["1e999", "-1e999", "Infinity", "NaN"])
+@pytest.mark.parametrize("key", ["width_px", "height_px"])
+def test_non_finite_canvas_dimension_does_not_500(key, value):
+    """F12, found 2026-10-12 by the black-box suite: 1e999 decodes to inf and
+    int(inf) raises OverflowError, which _safe_dimension did not catch. Sent as
+    raw text; json.dumps would write inf as Infinity, not 1e999."""
+    body = json.dumps(seed_metadata()).replace(
+        '"canvas": {"width_px": 1200, "height_px": 800}',
+        '"canvas": {"width_px": 1200, "height_px": 800, "%s": %s}' % (key, value))
+    assert value in body
+    r = client.post("/api/evaluate", data={"metadata_json": body})
+    assert r.status_code < 500, r.text
+
+
+def test_valid_surrogate_pair_is_accepted():
+    """The escaped pair \\ud83d\\ude00 is one emoji, not two lone halves."""
+    metadata = seed_metadata()
+    metadata["elements"][0]["symbol_name"] = "\U0001f600"
+    r = client.post("/api/evaluate", data={"metadata_json": json.dumps(metadata)})
+    assert r.status_code == 200, r.text
+
+
 # ── Property: no mutated document produces a server error ────────────────────
 
 @FUZZ
-@given(_mutated(_seed_metadata))
+@given(mutated(seed_metadata))
 def test_evaluate_never_500s(metadata):
     r = client.post("/api/evaluate", data={"metadata_json": json.dumps(metadata)})
     assert r.status_code < 500, (r.status_code, json.dumps(metadata)[:500])
 
 
 @FUZZ
-@given(_mutated(_seed_manifest))
+@given(mutated(seed_manifest))
 def test_export_never_500s(manifest):
     r = client.post("/api/export/docx", data={"manifest_json": json.dumps(manifest)},
-                    files=[("crops", ("c0.png", _png(), "image/png"))])
+                    files=[("crops", ("c0.png", png(), "image/png"))])
     assert r.status_code < 500, (r.status_code, json.dumps(manifest)[:500])
+
+
+# The black-box suite's hostile-input strategies, as a fixed 300-example sample
+# on every push. Breadth, not a guarantee: with the F11/F12 fixes removed, this
+# sample did not hit either; both need one value in one of ~100 fields. The
+# regression tests above pin what was found; the weekly random 2,000-example
+# run of test_blackbox_http.py is what finds new ones.
+
+@FUZZ
+@given(mutated(seed_metadata, values=attack_strings, where=lambda v: isinstance(v, str)))
+def test_evaluate_attack_strings_never_500(metadata):
+    r = client.post("/api/evaluate", data={"metadata_json": json.dumps(metadata)})
+    assert r.status_code < 500, (r.status_code, json.dumps(metadata)[:500])
+
+
+@FUZZ
+@given(mutated(seed_metadata, values=st.just(RAW_PLACEHOLDER)), raw_json_tokens)
+def test_evaluate_parser_extremes_never_500(metadata, token):
+    body = with_raw_token(metadata, token)
+    r = client.post("/api/evaluate", data={"metadata_json": body})
+    assert r.status_code < 500, (r.status_code, token[:100], body[:300])
+
+
+@FUZZ
+@given(mutated(seed_manifest, values=st.just(RAW_PLACEHOLDER)), raw_json_tokens)
+def test_export_parser_extremes_never_500(manifest, token):
+    body = with_raw_token(manifest, token)
+    r = client.post("/api/export/docx", data={"manifest_json": body},
+                    files=[("crops", ("c0.png", png(), "image/png"))])
+    assert r.status_code < 500, (r.status_code, token[:100], body[:300])
