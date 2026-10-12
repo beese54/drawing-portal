@@ -330,6 +330,39 @@ Verified: 4 regression tests in `backend/tests/test_fuzz_inputs.py`
 (2 inputs x 2 endpoints, sent as raw text). They fail without the fix and
 pass with it. The full suite is 156/156.
 
+### F11 — Lone surrogate echoed into the response — FIXED (2026-10-12)
+**New finding.** Found by the new black-box suite (`test_blackbox_http.py`)
+on a random 2,000-example run against a local server. An element's
+`symbol_name` set to `"\ud800"` is valid JSON but not valid Unicode. It passed
+validation, was echoed back in a compliance check's detail text, and the
+response then failed UTF-8 encoding: **500** on `POST /api/evaluate`.
+`/api/export/docx` was not affected: `_xml_safe` already strips surrogates.
+F9's fuzzing missed it because Hypothesis's default text strategy never
+generates surrogates. Severity Low (same reasoning as F9).
+
+Fix: `evaluate.py` re-encodes the parsed document as UTF-8 right after
+`json.loads`. A lone surrogate raises `UnicodeEncodeError` (a `ValueError`),
+which the F10 handler turns into **422**. A valid escaped pair
+(`😀`) decodes to one character and is still accepted (tested).
+Cost: one extra serialisation of the already size-capped document.
+
+### F12 — Infinite canvas dimension — FIXED (2026-10-12)
+**New finding.** Found by the black-box suite in the simulated CI job,
+against an image built from the F10/F11-fixed code. `"canvas": {"width_px":
+1e999}` decodes to `inf`. `_safe_dimension` calls `int()` on it and caught
+`TypeError`/`ValueError` but not `OverflowError`: **500**. The F9 schema
+bounds element numbers but does not cover `canvas`. Severity Low.
+
+Fix: `_safe_dimension` also catches `OverflowError` and falls back to the
+default, as it already did for text and `NaN`.
+
+Verified (F11 + F12): `test_fuzz_inputs.py` has 11 new regression tests.
+8 of them fail without the fixes. The other 3 (a valid surrogate pair, and
+`NaN` for each dimension) pass either way; they guard against the fix
+over-rejecting. All 11 pass with the fixes. The black-box suite then passed 7/7
+at 2,000 examples per test, with 0 server errors in the container log,
+against an image built from the fixed tree.
+
 ### F6 / R11 — Dependency CVEs — FIXED for runtime Python deps (2026-10-09); CI gate still open
 `pip-audit` (in a clean `python:3.12-slim`) against the pinned
 `backend/requirements.txt` found **14 known vulnerabilities**, all in the two
@@ -380,6 +413,25 @@ Automated dynamic testing now in place, and what it does **not** reach:
 - **Known gap.** No automated *black-box* scanner reaches the logic behind
   `POST /api/evaluate` and `POST /api/export/docx`. Both take a JSON
   document inside a multipart form field.
+  - *Update 2026-10-12: partly closed by our own black-box suite.*
+    `backend/tests/test_blackbox_http.py`, GitLab job `fuzz:blackbox`,
+    opt-in via `ENABLE_BLACKBOX_FUZZ`, weekly schedule. It runs against the
+    same disposable sidecar copy of the image as DAST and sends realistic
+    documents with hostile values *inside* them:
+    - wrong types
+    - attack strings: XSS, Office-XML breakers, control characters,
+      surrogates, bidi, format strings, template injection, path traversal
+    - parser extremes: huge integers, deep nesting, `1e999`, `NaN`,
+      duplicate keys
+
+    It fails on any 5xx, any response over 10 s, a missing `nosniff`, a
+    corrupt `.docx`, or export text that does not round-trip exactly.
+    Before it went into CI it found F11 and F12, and it catches F10 on the
+    pre-fix GHCR image.
+  - *Still uncovered:* authenticated or multi-step abuse, timing and
+    resource attacks beyond the 10 s bound, `schematic_image` and crop
+    payloads (fixed valid PNG only), and anything a human tester would
+    chain. The VAPT scope note below stands.
 - **Changing the API format to suit a scanner was considered and rejected.**
   - A JSON request body still emits the same OpenAPI 3.1 nullable construct
     for any optional field.

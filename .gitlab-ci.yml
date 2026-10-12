@@ -9,7 +9,8 @@
 #   test    → backend pytest, frontend typecheck + build + import-validation harness
 #   build   → one image, pushed to the GitLab Container Registry
 #   scan    → Trivy against the image just built  (opt-in; closes audit finding F6)
-#   dast    → GitLab DAST against a throwaway copy of the GovPaaS image (opt-in)
+#   dast    → GitLab DAST + black-box fuzzing of the two POST endpoints, both
+#             against a throwaway copy of the GovPaaS image (opt-in, weekly)
 #   publish → mirror the same digest to GHCR      (opt-in; GovPaaS pulls from GHCR)
 #   deploy  → trigger a GovPaaS rollout           (opt-in, manual)
 #
@@ -32,7 +33,10 @@
 #                        "true" the day privileges are granted — no commit needed.
 #   BUILD_ENGINE         "docker" (default) or "kaniko" — see the build jobs
 #   ENABLE_SCAN          "true" to run the Trivy job
-#   ENABLE_DAST          "true" to run the DAST job (needs GitLab Ultimate)
+#   ENABLE_DAST          "true" to run the DAST job (needs GitLab Ultimate).
+#                        Set it on the weekly pipeline SCHEDULE, not here: see
+#                        fuzz:blackbox for why push pipelines scan a stale image.
+#   ENABLE_BLACKBOX_FUZZ "true" to run fuzz:blackbox. Same: schedule only.
 #   DAST_APP_IMAGE       image DAST scans; defaults to the GHCR :latest below
 #   GHCR_USER           GitHub username, if mirroring to GHCR
 #   GHCR_TOKEN           classic PAT with write:packages   (masked, protected)
@@ -290,6 +294,74 @@ dast:
     # $GITLAB_FEATURES carries "dast" only on Ultimate — the same check the
     # template makes. Without Ultimate this job silently never appears.
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $GITLAB_FEATURES =~ /\bdast\b/'
+
+# Opt-in: set ENABLE_BLACKBOX_FUZZ=true. Fills the gap DAST leaves.
+#
+# DAST cannot reach the logic behind POST /api/evaluate and /api/export/docx:
+# each takes a JSON document inside one multipart form field, and scanners treat
+# that field as an opaque string, so their payloads break the JSON and are
+# refused at json.loads. This job sends realistic documents with hostile values
+# INSIDE them (wrong types, attack strings, parser extremes) to the same kind of
+# disposable sidecar copy of the image, never the live host. It fails on any
+# 5xx, any hang, a corrupt .docx, or a missing nosniff header
+# (backend/tests/test_blackbox_http.py).
+#
+# Put ENABLE_BLACKBOX_FUZZ on the weekly pipeline schedule, NOT in the project
+# variables. The sidecar is GHCR :latest, which GitHub Actions rebuilds AFTER a
+# push, so a push pipeline would fuzz the previous commit's image. Scheduled
+# runs use a fresh seed (the pipeline ID) and 2,000 examples per test, so each
+# week explores new inputs. Other runs are deterministic, with 300 examples.
+# Not allow_failure: a 5xx here is a real bug.
+
+fuzz:blackbox:
+  stage: dast
+  image: python:3.12-slim
+  dependencies: []
+  services:
+    - name: "$DAST_APP_IMAGE"
+      alias: portal
+  variables:
+    BLACKBOX_BASE_URL: "http://portal:8000"
+  cache:
+    key:
+      files:
+        - backend/requirements-dev.txt
+    paths:
+      - .cache/pip
+  timeout: 40m
+  script:
+    - pip install --quiet --root-user-action=ignore -r backend/requirements-dev.txt
+    - cd backend
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then
+        export FUZZ_SEED="$CI_PIPELINE_ID" FUZZ_EXAMPLES=2000
+      fi
+    # Printed so any failure can be replayed locally with the same inputs.
+    - echo "FUZZ_SEED=${FUZZ_SEED:-unset (deterministic)} FUZZ_EXAMPLES=${FUZZ_EXAMPLES:-300}"
+    # The sidecar image is pulled first; wait for it rather than failing preflight.
+    - |
+      python - <<'EOF'
+      import os, time, urllib.request
+      url = os.environ["BLACKBOX_BASE_URL"] + "/api/health"
+      for _ in range(90):
+          try:
+              urllib.request.urlopen(url, timeout=2)
+              break
+          except OSError:
+              time.sleep(2)
+      else:
+          raise SystemExit(f"{url} never became healthy")
+      EOF
+    - python -m pytest -v -p no:cacheprovider tests/test_blackbox_http.py --junitxml="$CI_PROJECT_DIR/report-blackbox.xml"
+  artifacts:
+    when: always
+    expire_in: 4 weeks
+    reports:
+      junit: report-blackbox.xml
+  rules:
+    - if: '$ENABLE_BLACKBOX_FUZZ != "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
 # ───────────────────────────────────────────────────────────── publish stage ──
 # GovPaaS currently pulls ghcr.io/beese54/drawing-portal, NOT the GitLab registry.
