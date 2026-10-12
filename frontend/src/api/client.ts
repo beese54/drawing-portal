@@ -39,5 +39,9 @@ export const exportApi = {
 
 export const symbolsApi = {
   list: () => apiClient.get('/api/symbols'),
-  getImageUrl: (symbolId: string) => `${BASE_URL}/api/symbols/${symbolId}/image`,
+  // Encoded: a symbolId can come from an imported drawing file, and unencoded
+  // "../" or "?" in it would steer the request to another same-origin path.
+  // All 64 shipped ids are URL-safe, so encoding changes none of them.
+  getImageUrl: (symbolId: string) =>
+    `${BASE_URL}/api/symbols/${encodeURIComponent(symbolId)}/image`,
 };
