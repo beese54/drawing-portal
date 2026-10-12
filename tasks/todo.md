@@ -1,3 +1,111 @@
+# Plan — resolve the 166 container CVEs (release 1.1.1)
+
+Status: **AWAITING APPROVAL** (2026-10-12). Protocol: Pattern AT (DevSecOps).
+
+## Diagnosis (measured 2026-10-12, GitLab's own Trivy + DB)
+- **All 166 come from the base image.** Bare `python:3.12-slim` scores
+  exactly 166 (44 High, 58 Medium, 61 Low, 3 Unknown); our layers add 0.
+- **They are Debian 13 packages**, most of which the app never runs:
+  `login`, `passwd`, `util-linux`/`mount`, `apt`, `bash`, `perl-base`,
+  `ncurses`, `tar`, `coreutils`.
+- **Debian has a fix for only 2 of them** (liblzma5). Patching cannot clear
+  them; shipping fewer packages can.
+
+| Base | Total | High | Fixable | Verdict |
+|---|---|---|---|---|
+| python:3.12-slim (now) | 166 | 44 | 2 | — |
+| python:3.13-slim | 166 | 44 | 2 | same Debian, no help |
+| distroless python3-debian13 | 166 | 31 | 0 | same Debian CVEs; also Python 3.13 and no shell |
+| **python:3.12-alpine** | **1** | **0** | **1** | **chosen**: official image, same Python 3.12, 84 MB vs 179 MB |
+| chainguard python | 0 | 0 | — | free tier is `:latest` only, so it can't be pinned; vendor trust question |
+
+**Feasibility checked:**
+- Every backend dependency installs on Alpine from prebuilt musllinux
+  wheels (`--only-binary=:all:`), with no compiler.
+- The imports work (Pillow 12.3, lxml 6.1, pydantic-core, uvloop).
+
+## Tasks
+- [ ] **1. Pin the floating backend deps.** `Pillow>=10.0.0`,
+  `python-docx>=1.1.0` and `python-dotenv>=1.0.0` change silently between
+  builds. Pin them exactly (`==`) at today's resolved versions, so an image
+  is reproducible from its commit. (pip-audit and Dependabot then manage
+  the bumps.)
+- [ ] **2. Runtime stage → `python:3.12-alpine`, pinned by digest.**
+  - `FROM python:3.12-alpine@sha256:…  # 3.12-alpine`
+  - `groupadd`/`useradd` → `addgroup -S` / `adduser -S -G` (busybox)
+  - `RUN apk upgrade --no-cache`, so each build takes Alpine's latest fixes
+    (that clears the 1 remaining fixable CVE). This trades byte-for-byte
+    reproducibility for security; the image digest still records exactly
+    what shipped.
+  - The frontend build stage is already `node:20-alpine`, so it is
+    unchanged.
+- [ ] **3. Prove the app behaves identically** (the risk is musl ≠ glibc):
+  - **Same answers:** the full `frontend_metadata_all_symbols.json`
+    fixture and the seed drawings through `/api/evaluate` on the old
+    (slim) and new (alpine) images. JSON responses must be identical.
+    `/api/export/docx` must open and contain the same rows.
+  - **Same safety:** run the black-box suite against the alpine image at
+    2,000 examples. Its deep-nesting and huge-input cases are exactly where
+    musl differs (smaller default thread stacks), so a crash, not a 422,
+    would show here.
+  - **The UI still serves:** `/`, the JS bundle, `/api/symbols` and a
+    symbol image.
+  - **Memory:** idle RSS and peak RSS under the large fixture, slim vs
+    alpine (GovPaaS gives 1024 Mi). musl's allocator behaves differently.
+  - The backend suite runs in `python:3.12-alpine` as uid 65533.
+- [ ] **4. CI parity.** `backend:test` and `fuzz:blackbox` move to
+  `python:3.12-alpine`, so the tests run on the same C library as
+  production. This avoids a repeat of the Windows/Linux nesting surprise.
+- [ ] **5. Scan the new image locally** with the GitLab analyzer as
+  uid 65533. Expected: 0, or the 1 fixable, now upgraded.
+- [ ] **6. Make container scanning a real gate.** With a near-zero
+  baseline, a gate can hold.
+  - Add `container_scanning:gate` (like `secret_detection:gate`). It fails
+    on **High/Critical that have a fix available**.
+  - Unfixed findings are still reported, not blocking: nothing can be done
+    about them until the distro ships a fix.
+  - A missing report fails.
+  - Verify it on the slim image (must fail on liblzma5 with the fix
+    available) and on the alpine image (must pass).
+- [ ] **7. Keep it near zero: Dependabot version updates**
+  (`.github/dependabot.yml`). Weekly PRs for:
+  - the base image digest (docker)
+  - pip and npm
+  - GitHub Actions (this also keeps today's SHA pins current)
+
+  Plus your click: **Dependabot security updates** on.
+- [ ] **8. Release 1.1.1** (PATCH: no behaviour change for valid input).
+  - CHANGELOG under Security: "base image Debian → Alpine; container CVEs
+    166 → N".
+  - Tag `v1.1.1`, then verify the image and `/api/health`.
+  - Then your steps: GovPaaS image path → `:1.1.1`, `DAST_APP_IMAGE` →
+    `:1.1.1`.
+  - Rollback is `:1.1.0`, unchanged.
+- [ ] **9. Close out the 166 in GitLab.**
+  - The next scheduled scan of 1.1.1 marks them **No longer detected**.
+  - Then: Secure → Vulnerability report → filter "Activity: No longer
+    detected" → select all → **Change status → Resolved**, with the comment
+    "Base image replaced in 1.1.1".
+
+## Risks
+- **musl vs glibc:** DNS, locale and allocator differences. The app uses
+  none of these unusually. Task 3 measures behaviour, safety and memory
+  rather than assuming.
+- **Future wheel gaps:** a new dependency without a musllinux wheel would
+  need a compiler at build time. Today every package has one.
+- **Python patch drift:** `3.12-alpine` gets new 3.12.x patches on digest
+  bumps via Dependabot. That's the point, and the tests gate each bump.
+
+## Out of scope
+- Chainguard/Wolfi (pinning and vendor questions).
+- Distroless (measured: no reduction).
+- Rebuilding Python from source.
+
+## Review
+(to be filled in after implementation)
+
+---
+
 # Plan — automate the remaining security checks
 
 Status: **A–C DONE 2026-10-12 (D: kept manual, user's call).** Protocol: Pattern AT.
