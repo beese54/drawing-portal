@@ -1,4 +1,23 @@
-# H2: full Content-Security-Policy + Permissions-Policy (2026-10-13), DONE locally → 1.1.5
+# Resume here (paused 2026-10-13)
+
+v1.1.5 is live on GovPaaS, and the DAST schedule is green against `:1.1.5`.
+The remaining hardening items are in "Next plan: application hardening"
+(under the 1.1.3 plan below):
+- **H4:** request logging: request id, route, status, duration, no
+  payloads.
+- **H5:** Python transitive lockfile with hashes.
+- **H6:** HSTS. GovPaaS's call, still unanswered.
+- **Small follow-up:** the GitHub release workflow's actions still target
+  Node 20, and GitHub forces them onto Node 24. Bump their versions. Also,
+  `ubuntu-latest` becomes Ubuntu 26 from 2026-10-19.
+
+Release flow, unchanged: push (with OK) → GitLab "Update now", green → tag
+(with OK) → verify the published image → the user switches GovPaaS and
+`DAST_APP_IMAGE` → run the schedule.
+
+---
+
+# H2: full Content-Security-Policy + Permissions-Policy (2026-10-13), RELEASED in v1.1.5
 
 **Inventory (measured):**
 - **Scripts:** only `/assets/*.js` from this origin. The bundle has no
@@ -56,7 +75,18 @@
   - the toast animation rule present
   - also: the CSP header on a symbol SVG opened directly
 - [x] Pre-push gates (Alpine uid 65533, node:24-alpine), fuzz, Trivy.
-- [ ] Release 1.1.5.
+- [x] Release 1.1.5 (2026-10-13):
+  - pushed `e256534..9633b94`; GitLab green (user)
+  - tag `v1.1.5` → `9633b94`; GitHub Actions run 38367286826 succeeded
+  - **published `:1.1.5` checked:**
+    - anonymous pull returns 200; health reports `1.1.5/9633b94`
+    - full CSP and `Permissions-Policy` present; nosniff, `DENY` and
+      `no-referrer` unchanged
+    - `/docs`, `/redoc` and `/openapi.json` return 404
+    - the served `index.html` has no inline code
+    - `docker diff` is empty; Trivy 0 (Alpine and Python packages)
+- [x] The user switched GovPaaS and `DAST_APP_IMAGE` to `:1.1.5`; the
+  schedule is green.
 
 **Review:**
 - **Tests:** the 4 new header tests failed on the old code.
@@ -122,8 +152,8 @@
     - evil-origin request gets no ACAO
     - writing code gives Permission denied; `docker diff` is empty
     - Trivy 0
-- [ ] The user switches GovPaaS and `DAST_APP_IMAGE` to `:1.1.4` and runs
-  the schedule.
+- [x] The user switched GovPaaS and `DAST_APP_IMAGE` to `:1.1.4`; the
+  schedule is green.
 
 # T1: make CI's type check real (2026-10-13), RELEASED in v1.1.4
 
@@ -296,7 +326,7 @@ type-checks **0 files**.
 Push (with OK) → GitLab green → tag `v1.1.3` (with OK) → verify the image →
 the user sets GovPaaS and `DAST_APP_IMAGE` to `:1.1.3` → run the schedule.
 
-## Next plan (separate, not started): application hardening
+## Next plan: application hardening (H1, H2 done; H4, H5 next)
 Measured on the 1.1.2 image:
 - **H1 (DONE, 1.1.4):** `/docs`, `/redoc` and `/openapi.json` all return
   200 in production. Turn them off by default, with an env flag to keep them on
