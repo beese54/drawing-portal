@@ -39,12 +39,20 @@ COPY --from=frontend-build /fe/dist/ ./static/
 
 # The application has no secrets. SYMBOLS_ADMIN_KEY was removed with the
 # symbol write API on 2026-08-04; nothing needs injecting at runtime.
-ENV ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+# ALLOWED_ORIGINS is deliberately unset: no cross-origin access (1.1.2, F3).
+
+# The code stays owned by root: the app user can read and run it but not
+# change it, so a code-execution bug cannot plant a backdoor in the app itself
+# (before 1.1.2 `chown -R app:app /app` let it). Bytecode is compiled here,
+# because the app could otherwise not write its own __pycache__ (and never
+# needs to: PYTHONDONTWRITEBYTECODE). At runtime the app writes only to /tmp
+# (Starlette spools uploads over 1 MB there), which is writable as usual.
+RUN python -m compileall -q /app/app
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # busybox equivalents of groupadd/useradd --system: a system user with no
 # password and no new home directory (/app already exists).
-RUN addgroup -S app && adduser -S -D -H -h /app -G app app \
-    && chown -R app:app /app
+RUN addgroup -S app && adduser -S -D -H -h /app -G app app
 
 # Which build this is, reported by /api/health. docker-publish.yml passes the
 # release version (or "latest" for a main push) and the full commit SHA. Kept
