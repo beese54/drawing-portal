@@ -27,6 +27,43 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-13
+
+A security-maintenance release. There is no behaviour change for valid
+input: the 1.1.0 and 1.1.1 images gave identical answers on 803 request
+pairs (the real all-symbols drawing, the seeds and generated hostile
+variations).
+
+### Security
+- **The runtime base image is now Alpine instead of Debian slim.** GitLab
+  container scanning of 1.1.0 found 172 known vulnerabilities, 166 of them
+  in Debian packages the app never uses. 1.1.1 has **0** (operating-system
+  and installed Python packages). The image is also smaller: 208 MB vs
+  304 MB.
+- `pip` is removed from the runtime image. The base image's pip 25.0.1
+  carried 6 CVEs, and the app never calls pip.
+- **Worker threads get an 8 MiB stack.** On Alpine (musl) the default is
+  128 KiB, and deeply nested JSON parsed in a worker thread could crash the
+  server process instead of returning 422. No current endpoint runs in a
+  worker thread; this closes the trap for future ones.
+- Frontend runtime dependencies were updated past 4 advisories: axios and
+  form-data (high), follow-redirects and dompurify (moderate).
+- Symbol image URLs encode the symbol id.
+
+### Changed
+- Every direct backend dependency is pinned to an exact version: Pillow,
+  python-docx and python-dotenv were floating.
+- The base image is pinned by digest.
+
+### Added (CI, not in the image)
+- **On every push:** a dependency audit (`deps:audit`: pip-audit and npm
+  audit, blocking), and secret detection with a blocking gate.
+- **Weekly:** container scanning that includes Python packages, with a
+  blocking gate on fixable High, Critical or unrated findings.
+- **Tests run on Alpine,** the same as production.
+- **Dependabot** opens weekly update PRs (base image digest, pip, npm,
+  GitHub Actions).
+
 ## [1.1.0] - 2026-10-12
 
 First tagged release. It covers everything since this deployment was forked
@@ -75,5 +112,6 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/beese54/drawing-portal/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/beese54/drawing-portal/releases/tag/v1.1.0

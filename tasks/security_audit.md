@@ -437,6 +437,64 @@ hand. Frontend `package.json` not audited in this pass.~~
     the Vulnerability Report.
   - Picking up base-image fixes needs a rebuild on a refreshed
     `python:3.12-slim`, or an `apt-get upgrade` layer. Not yet decided.
+  - *Correction, 2026-10-13: "No findings in Python packages" was wrong.*
+    GitLab's scanner skips installed Python packages by default. With
+    `CS_DISABLE_LANGUAGE_VULNERABILITY_SCAN: "false"` the 1.1.0 image shows
+    172, including 6 in the base image's own `pip` 25.0.1. pip-audit missed
+    them because it only checks `requirements.txt`.
+
+### Container CVEs resolved in 1.1.1 (2026-10-13)
+- **Cause:**
+  - All 166 OS findings come from `python:3.12-slim`; bare `slim` scores
+    exactly 166.
+  - The alternatives were measured with GitLab's Trivy and DB:
+    `3.13-slim` 166, distroless (Debian 13) 166, `3.12-alpine` 1,
+    Chainguard 0. Chainguard was rejected: its free tier is `:latest` only.
+- **Fix:**
+  - The runtime is `python:3.12-alpine`, pinned by digest, with
+    `apk upgrade`.
+  - `pip` is uninstalled after the dependency install.
+  - The candidate image scans at **0** (OS and Python packages), via
+    GitLab's analyzer as uid 65533 and a direct Trivy cross-check.
+- **Equivalence:**
+  - The 1.1.0 and Alpine images gave identical answers on 803 request
+    pairs: the all-symbols fixture, the seeds, type mutations, attack
+    strings, and parser extremes.
+  - The UI and symbol images are served by both.
+  - Peak memory was 138 MiB (Alpine) vs 148 MiB under that load.
+  - The black-box suite passed 7/7 at 2,000 examples, with 0 server errors.
+- **Gate:**
+  - `container_scanning:gate` fails when a fix exists and the severity is
+    High, Critical or Unknown.
+  - Verified: it fails on 1.1.0 (2 fixable liblzma5, Unknown), passes on
+    the candidate, and fails on a missing report.
+  - Dependabot proposes base-image digest bumps weekly.
+
+### F13 — Worker-thread stack overflow on Alpine — FIXED before release (2026-10-13)
+**New finding, introduced by the Alpine move and caught before release.**
+- **What happens:** musl gives a new thread a 128 KiB stack; glibc gives
+  8 MiB. JSON nested 100,000 deep, parsed in a worker thread, overflows the
+  C stack before CPython's recursion guard trips. The result is a
+  **segfault of the whole process**, not `RecursionError`.
+- **How it was found:** the backend suite in `python:3.12-alpine` died
+  mid-run (the test client runs the app in a thread).
+- **Production was not affected:** every endpoint is `async`, so request
+  handling runs on the main thread. The candidate image answered 422 at
+  nesting depths from 20,000 to 1,000,000.
+- **The latent risk:** anything run in Starlette's threadpool, such as a
+  future `def` endpoint, would turn one request into a server crash (DoS).
+
+Fix: `app/main.py` sets `threading.stack_size(8 MiB)` before any worker
+thread exists.
+
+Verified:
+- `tests/test_thread_stack.py` runs the probe in a subprocess, so a crash
+  fails the test rather than the whole run
+- without the fix it fails with exit -11 (SIGSEGV)
+- with the fix the full suite passes 174/174 on Alpine, Debian slim and
+  Windows
+- CI now runs the suite on Alpine, so a platform difference like this one
+  surfaces in CI, not production
 
 ### Dynamic security testing — coverage and known gap (2026-10-09)
 Automated dynamic testing now in place, and what it does **not** reach:

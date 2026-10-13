@@ -1,6 +1,6 @@
 # Plan — resolve the 166 container CVEs (release 1.1.1)
 
-Status: **AWAITING APPROVAL** (2026-10-12). Protocol: Pattern AT (DevSecOps).
+Status: **Tasks 1–7 DONE locally 2026-10-13; push + tag v1.1.1 await OK.** Protocol: Pattern AT.
 
 ## Diagnosis (measured 2026-10-12, GitLab's own Trivy + DB)
 - **All 166 come from the base image.** Bare `python:3.12-slim` scores
@@ -25,12 +25,12 @@ Status: **AWAITING APPROVAL** (2026-10-12). Protocol: Pattern AT (DevSecOps).
 - The imports work (Pillow 12.3, lxml 6.1, pydantic-core, uvloop).
 
 ## Tasks
-- [ ] **1. Pin the floating backend deps.** `Pillow>=10.0.0`,
+- [x] **1. Pin the floating backend deps.** `Pillow>=10.0.0`,
   `python-docx>=1.1.0` and `python-dotenv>=1.0.0` change silently between
   builds. Pin them exactly (`==`) at today's resolved versions, so an image
   is reproducible from its commit. (pip-audit and Dependabot then manage
   the bumps.)
-- [ ] **2. Runtime stage → `python:3.12-alpine`, pinned by digest.**
+- [x] **2. Runtime stage → `python:3.12-alpine`, pinned by digest.**
   - `FROM python:3.12-alpine@sha256:…  # 3.12-alpine`
   - `groupadd`/`useradd` → `addgroup -S` / `adduser -S -G` (busybox)
   - `RUN apk upgrade --no-cache`, so each build takes Alpine's latest fixes
@@ -39,7 +39,7 @@ Status: **AWAITING APPROVAL** (2026-10-12). Protocol: Pattern AT (DevSecOps).
     what shipped.
   - The frontend build stage is already `node:20-alpine`, so it is
     unchanged.
-- [ ] **3. Prove the app behaves identically** (the risk is musl ≠ glibc):
+- [x] **3. Prove the app behaves identically** (the risk is musl ≠ glibc):
   - **Same answers:** the full `frontend_metadata_all_symbols.json`
     fixture and the seed drawings through `/api/evaluate` on the old
     (slim) and new (alpine) images. JSON responses must be identical.
@@ -53,12 +53,12 @@ Status: **AWAITING APPROVAL** (2026-10-12). Protocol: Pattern AT (DevSecOps).
   - **Memory:** idle RSS and peak RSS under the large fixture, slim vs
     alpine (GovPaaS gives 1024 Mi). musl's allocator behaves differently.
   - The backend suite runs in `python:3.12-alpine` as uid 65533.
-- [ ] **4. CI parity.** `backend:test` and `fuzz:blackbox` move to
+- [x] **4. CI parity.** `backend:test` and `fuzz:blackbox` move to
   `python:3.12-alpine`, so the tests run on the same C library as
   production. This avoids a repeat of the Windows/Linux nesting surprise.
-- [ ] **5. Scan the new image locally** with the GitLab analyzer as
+- [x] **5. Scan the new image locally** with the GitLab analyzer as
   uid 65533. Expected: 0, or the 1 fixable, now upgraded.
-- [ ] **6. Make container scanning a real gate.** With a near-zero
+- [x] **6. Make container scanning a real gate.** With a near-zero
   baseline, a gate can hold.
   - Add `container_scanning:gate` (like `secret_detection:gate`). It fails
     on **High/Critical that have a fix available**.
@@ -67,7 +67,7 @@ Status: **AWAITING APPROVAL** (2026-10-12). Protocol: Pattern AT (DevSecOps).
   - A missing report fails.
   - Verify it on the slim image (must fail on liblzma5 with the fix
     available) and on the alpine image (must pass).
-- [ ] **7. Keep it near zero: Dependabot version updates**
+- [x] **7. Keep it near zero: Dependabot version updates**
   (`.github/dependabot.yml`). Weekly PRs for:
   - the base image digest (docker)
   - pip and npm
@@ -102,7 +102,32 @@ Status: **AWAITING APPROVAL** (2026-10-12). Protocol: Pattern AT (DevSecOps).
 - Rebuilding Python from source.
 
 ## Review
-(to be filled in after implementation)
+**Results:**
+- **Container findings: 172 → 0.** The plan said 166, but language
+  scanning revealed 6 more, all in `pip`, removed from the runtime image.
+- **Image size:** 304 → 208 MB.
+- **Behaviour:** identical answers on 803 request pairs, slim vs final
+  Alpine.
+- **Memory:** peak 138 vs 148 MiB.
+- **Safety:** fuzz 7/7 at 2,000 examples, 0 server errors.
+
+**Deviations from the plan (all found by the verification steps):**
+- **F13:** a segfault on Alpine in worker threads (the musl 128 KiB stack).
+  Production was unaffected (async endpoints), but it was a latent DoS.
+  Fixed with `threading.stack_size(8 MiB)`, test-first: exit -11 without,
+  174/174 with, on Alpine, Debian and Windows.
+- **Language scanning:** `CS_DISABLE_LANGUAGE_VULNERABILITY_SCAN=false`
+  added after a direct Trivy cross-check found the 6 pip CVEs that GitLab's
+  default config hid. The audit's "no findings in Python packages"
+  (2026-10-12) is corrected.
+- **The gate rule includes severity Unknown:** the only fixable findings
+  on 1.1.0 (liblzma5) are unrated, and a High/Critical-only rule would have
+  passed them. Verified: it fails on 1.1.0, passes on the candidate, and
+  fails on a missing report.
+
+**Heads-up:** once this is pushed, the weekly schedule still points at
+`:1.1.0`, so `container_scanning:gate` will go red until `DAST_APP_IMAGE`
+is `:1.1.1`. Release first.
 
 ---
 
