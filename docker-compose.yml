@@ -1,3 +1,13 @@
+# LEGACY as of 1.1.2 (2026-10-13): do not run this file on its own.
+# On its own it starts the old split stack, with the frontend as a separate nginx
+# container on :3000 calling the API cross-origin on :8000. That stack is
+# unused (deployment is the combined root Dockerfile) and already broken:
+# nginx listens on 3000 but this maps 3000:80. It only works because the
+# backend opts in through ALLOWED_ORIGINS below.
+# What IS used: `docker compose up`, which merges docker-compose.override.yml
+# (Vite dev server, /api proxied, same-origin), and start.sh. Folding the
+# override into a single dev compose file and deleting the split stack
+# (frontend/Dockerfile, frontend/nginx.conf) is a pending cleanup.
 version: "3.9"
 
 services:
