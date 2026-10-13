@@ -1,6 +1,6 @@
 # Plan — dev toolchain upgrade, legacy compose cleanup, Dependabot security updates (release 1.1.3)
 
-Status: **BUILT and verified locally 2026-10-13; commit, push and tag await OK.** Read-only root filesystem is
+Status: **DONE: v1.1.3 tagged and image verified 2026-10-13; GovPaaS switch + Dependabot click pending (user).** Read-only root filesystem is
 dropped by the user's decision; the immutable code from 1.1.2 stands in for it.
 
 ## 1. Dependabot security updates (the user's click, after step 2 is pushed)
@@ -129,6 +129,18 @@ type-checks **0 files**.
   tsconfig.app.json`).
 
 ## Release 1.1.3 (PATCH: same behaviour, rebuilt bundle and tooling)
+**Released 2026-10-13:**
+- Pushed `6c051f4..d3ee323`; the GitLab push pipeline is green (user).
+- Tag `v1.1.3` is on `d3ee323`; GitHub Actions run 38354172879 succeeded.
+- **Published `:1.1.3` checked:**
+  - an anonymous pull returns 200
+  - health reports `1.1.3` / `d3ee323…`
+  - the bundle is `index-CfXybVn7.js`, the same hash as the build checked in
+    Chrome
+  - an evil-origin request gets no ACAO, and its preflight returns 400
+  - writing code gives Permission denied; `docker diff` is empty
+  - Trivy 0
+
 Push (with OK) → GitLab green → tag `v1.1.3` (with OK) → verify the image →
 the user sets GovPaaS and `DAST_APP_IMAGE` to `:1.1.3` → run the schedule.
 
