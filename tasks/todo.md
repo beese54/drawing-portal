@@ -1,6 +1,31 @@
+# T1: make CI's type check real (2026-10-13), DONE locally, to ship with H1
+
+- [x] Fix the 5 latent errors (4 app, 1 vite config), with no runtime
+  behaviour change.
+  - The `'outlet'` branch was dead since upstream v2 (`d1aec91`) removed
+    that node type together with the fire hydrant and sump manhole. Water
+    fittings were never counted.
+  - `hydraulic_context` is not read by the backend at all. Not changed to
+    `'water_fitting'`, which would be a behaviour change.
+- [x] `npm run typecheck` checks both configs; `frontend:check` uses it.
+  Seen to fail (exit 2) on an injected error in each config.
+- [x] node:24-alpine as uid 65533: audit 0, typecheck OK, lint 0 errors,
+  build OK, harness 22/22.
+- [x] **Chrome differential, 1.1.3 versus the T1 build,** with browser
+  storage cleared on both:
+  - 5 symbols placed, then export: normalized hash `fc931fb2…` on both
+  - then an import with `fitting_type: null` and `efficiency_rating: 3`,
+    and a re-export: `695d2a33…` on both
+  - re-imported fields identical
+  - evaluate returns 200 on both (the response hash varies per run because
+    of the random element IDs; the backend is unchanged)
+  - no file was downloaded
+
+---
+
 # Plan — dev toolchain upgrade, legacy compose cleanup, Dependabot security updates (release 1.1.3)
 
-Status: **DONE: v1.1.3 tagged and image verified 2026-10-13; GovPaaS switch + Dependabot click pending (user).** Read-only root filesystem is
+Status: **DONE: v1.1.3 live on GovPaaS, schedule green, Dependabot security updates on (user, 2026-10-13).** Read-only root filesystem is
 dropped by the user's decision; the immutable code from 1.1.2 stands in for it.
 
 ## 1. Dependabot security updates (the user's click, after step 2 is pushed)

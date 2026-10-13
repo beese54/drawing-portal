@@ -72,8 +72,8 @@ function parseSchematic(data: DrawingMetadata): { elements: CanvasElement[]; pip
       // without it there is no drawing. Rotation is not: 0 is a coherent fallback.
       rotation: safeNumber(el.rotation_deg) ?? 0,
       ...(safeNumber(el.scale_x) !== undefined && el.scale_x !== 1 && { scaleX: el.scale_x }),
-      ...(el.fitting_type !== undefined && { fittingType: el.fitting_type }),
-      ...(el.efficiency_rating !== undefined && { efficiencyRating: el.efficiency_rating }),
+      ...(el.fitting_type != null && { fittingType: el.fitting_type }),
+      ...(el.efficiency_rating != null && { efficiencyRating: el.efficiency_rating }),
       ...(el.long_bath_capacity_l != null && { longBathCapacityL: el.long_bath_capacity_l }),
       ...(el.tank_properties !== undefined && { tankProperties: importTankProperties(el.tank_properties) }),
       ...(el.upstream_port_indices !== undefined && { upstreamPortIndices: el.upstream_port_indices }),

@@ -153,8 +153,10 @@ frontend:check:
   script:
     - cd frontend
     - npm ci --prefer-offline --no-audit --fund=false
-    # tsc first: it fails faster and more legibly than the bundler does.
-    - npx tsc --noEmit
+    # Type-check first: it fails faster and more legibly than the bundler does.
+    # Not `npx tsc --noEmit`: the root tsconfig.json only lists references, so
+    # that checked 0 files and always passed (T1, 2026-10-13).
+    - npm run typecheck
     # Errors fail the job; warnings (hook dependency lists) are reported only.
     - npm run lint
     - npm run build

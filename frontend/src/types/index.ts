@@ -592,9 +592,9 @@ export interface ExportedElement {
   /** Flat list of all connected pipe IDs (convenience — same info as ports[].connected_pipe_id). */
   connected_pipe_ids: string[];
   /** Fitting sub-type — only present on water_fittings elements (e.g. "shower_tap", "basin_tap"). */
-  fitting_type?: string;
-  /** WELS tick rating — only present on water_fittings elements. Appliances use 1-4; other fixtures use 2-3. */
-  efficiency_rating?: 1 | 2 | 3 | 4;
+  fitting_type?: string | null;
+  /** WELS tick rating — only present on water_fittings elements. Appliances use 1-4; other fixtures use 2-3. null when not yet set. */
+  efficiency_rating?: 1 | 2 | 3 | 4 | null;
   /** Fluid type flowing through this element — only present on tee_junction and elbow_bend. */
   pipe_type?: PipeType | null;
   /** Tank-specific properties — only present on water_tank elements. */

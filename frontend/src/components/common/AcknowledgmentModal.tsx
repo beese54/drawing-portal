@@ -67,9 +67,15 @@ export function AcknowledgmentModal({ elements, onConfirm, onCancel }: Props) {
 
   const applicableItems = items.filter((i) => i.applicable);
 
-  const initialState = Object.fromEntries(
-    items.map((i) => [i.key, false])
-  ) as AcknowledgmentFlags;
+  // Spelled out so adding a flag to AcknowledgmentFlags is a type error here
+  // until it gets a starting value.
+  const initialState: AcknowledgmentFlags = {
+    materialsAcknowledged: false,
+    pumpDischargeMaterialAcknowledged: false,
+    applianceCheckValveAcknowledged: false,
+    bidetVacuumBreakerAcknowledged: false,
+    tankPositionAcknowledged: false,
+  };
 
   const [checks, setChecks] = useState<AcknowledgmentFlags>(initialState);
 

@@ -27,6 +27,28 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+### Fixed
+- **CI's frontend type check now checks the code** (T1). `npx tsc --noEmit`
+  ran against a root `tsconfig.json` that only lists references, so it
+  checked 0 files and always passed.
+  - It is replaced by `npm run typecheck`, which checks both
+    `tsconfig.app.json` and `tsconfig.node.json`. It was seen to fail on an
+    injected error in each.
+  - It found five latent errors, all fixed without changing what the app
+    sends or shows:
+    - `ExportedElement.fitting_type` / `efficiency_rating` now allow
+      `null`, which is what the export has always sent. JSON import
+      treats `null` as unset, like its neighbouring fields.
+    - The selected-annotation group passes `isEditing={false}` explicitly.
+    - The acknowledgment flags' initial state is spelled out instead of
+      cast.
+    - The hydraulic context's dead `node_type === 'outlet'` branch is
+      removed. That node type went away in v2, and nothing reads the
+      value.
+    - `@types/node` added for `vite.config.ts`.
+  - Checked in Chrome: 1.1.3 and this build export identical normalized
+    metadata, before and after a JSON import containing nulls.
+
 ## [1.1.3] - 2026-10-13
 
 Tooling and housekeeping. There is no behaviour change for the app:

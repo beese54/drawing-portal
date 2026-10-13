@@ -161,9 +161,9 @@ function buildHydraulicContext(
     if (pipe.start_connects_to === null) outletMrls.push(pipe.start.mrl);
     if (pipe.end_connects_to   === null) outletMrls.push(pipe.end.mrl);
   }
-  for (const el of exportedElements) {
-    if (el.node_type === 'outlet') outletMrls.push(el.elevation_m);
-  }
+  // Elements used to count too, via node_type 'outlet' (fire hydrant, sump
+  // manhole). Those symbols and that node type were removed in v2 (d1aec91),
+  // so only open pipe ends remain. No other check reads this context.
 
   const lowest_outlet_mrl_m = outletMrls.length > 0
     ? Math.round(Math.min(...outletMrls) * 100) / 100

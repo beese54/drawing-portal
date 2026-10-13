@@ -405,7 +405,7 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
           })}
           {/* Selected annotations — non-draggable (the group handles dragging) */}
           {selectedAnnotations.map((ann) => (
-            <AnnotationNode key={ann.id} ann={ann} isSelected draggable={false} selectDisabled onDblClick={onAnnotationDblClick} />
+            <AnnotationNode key={ann.id} ann={ann} isSelected isEditing={false} draggable={false} selectDisabled onDblClick={onAnnotationDblClick} />
           ))}
         </Group>
       )}
