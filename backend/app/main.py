@@ -58,8 +58,8 @@ async def security_headers(request: Request, call_next):
     # nosniff is the one that matters for this service specifically:
     # /api/symbols/{id}/image serves image/svg+xml, and an SVG rendered as a
     # DOCUMENT (direct navigation, not via <img>) executes script in this
-    # origin. The CSP below is img-src only, so it does not constrain that path
-    # at all. The symbol library is baked into the container image and the
+    # origin. Since 1.1.5 the CSP below also forbids script in that document;
+    # nosniff stays as the first layer. The symbol library is baked into the container image and the
     # write API was removed on 2026-08-04, so this guards against a future
     # committed SVG rather than a live exposure.
     #
@@ -72,28 +72,34 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
 
-    # Content-Security-Policy: img-src and object-src ONLY, deliberately.
-    #
-    # img-src is the browser-enforced half of the schematic-import stamp guard. The
-    # three title-block stamp fields are assigned to img.src; the import path
-    # already restricts them to data: URLs (frontend/src/utils/importValidation.ts),
-    # but that is application code and application code can regress. This header
-    # means a stamp pointing at a third-party URL is refused by the browser
-    # regardless — no outbound request, no beacon.
-    #
-    # object-src 'none' blocks <object>/<embed> plugin content, which can run
-    # script. The frontend uses neither, so it costs nothing; GitLab DAST check
-    # 16.8 flagged its absence (2026-10-09).
-    #
-    # No other directive is set. A default-src or script-src would need the app's
-    # inline styles and the injected <style> tag audited first, and shipping a
-    # broad policy untested is how CSP gets rolled back. Widening this is tracked
-    # as the remaining part of AS-9 / R-17.
-    #
-    # 'self' covers /api/symbols/{id}/image and the two SVGs in public/; data:
-    # covers stamps and the drag-ghost pixel. Every image source in the frontend
-    # is one of those two.
-    response.headers["Content-Security-Policy"] = "img-src 'self' data:; object-src 'none'"
+    # Content-Security-Policy: the browser refuses anything this page did not
+    # come with (H2, 1.1.5; before that only img-src and object-src were set).
+    # - script-src / style-src 'self': only the bundled files. No inline code,
+    #   no eval, no CDN. The frontend's two inline <style> blocks moved to
+    #   src/index.css, and an ESLint rule keeps JSX <style> out. React's
+    #   style={{}} props go through the CSSOM, which CSP does not restrict.
+    # - img-src 'self' data: is the browser-enforced half of the import stamp
+    #   guard. The three title-block stamps are assigned to img.src and the
+    #   import path restricts them to data: URLs
+    #   (frontend/src/utils/importValidation.ts); this holds even if that code
+    #   regresses. 'self' covers /api/symbols/{id}/image and public/*.svg.
+    # - connect-src 'self': fetch/XHR only to this API.
+    # - object-src 'none', base-uri 'none', form-action 'none' and
+    #   frame-ancestors 'none' (which X-Frame-Options DENY also covers for old
+    #   browsers): no plugins, no <base> rewriting, no form posts, no framing.
+    # The policy also covers an SVG opened directly as a document.
+    # Pinned in tests/test_security_headers.py.
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self'; style-src 'self'; "
+        "img-src 'self' data:; font-src 'self'; connect-src 'self'; "
+        "object-src 'none'; base-uri 'none'; form-action 'none'; "
+        "frame-ancestors 'none'"
+    )
+    # The app uses none of these browser features, so nothing on this origin
+    # (including injected code) may ask for them.
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    )
     return response
 
 app.include_router(health.router, prefix="/api")

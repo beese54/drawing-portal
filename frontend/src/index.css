@@ -1,0 +1,13 @@
+/* Global CSS. It lives here rather than in <style> blocks because the
+   Content-Security-Policy (backend main.py) allows style only from this
+   origin's files, not inline. Component styling stays in style={{}} props. */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; overflow: hidden; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; }
+
+/* ToastNotification.tsx */
+@keyframes slideInToast {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

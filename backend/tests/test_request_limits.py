@@ -282,13 +282,12 @@ def test_oversized_manifest_json_is_rejected_before_parsing():
 
 def test_security_headers_are_set():
     """nosniff matters here specifically: /api/symbols/{id}/image serves
-    image/svg+xml, and the CSP sets only img-src and object-src, so it does not
-    cover an SVG fetched as a document."""
+    image/svg+xml. Content-Security-Policy and Permissions-Policy are pinned in
+    tests/test_security_headers.py."""
     r = client.get("/api/health")
     assert r.headers["X-Content-Type-Options"] == "nosniff"
     assert r.headers["X-Frame-Options"] == "DENY"
     assert r.headers["Referrer-Policy"] == "no-referrer"
-    assert r.headers["Content-Security-Policy"] == "img-src 'self' data:; object-src 'none'"
 
 # CORS (including the removed fallback this file used to test) is covered by
 # tests/test_cors.py.

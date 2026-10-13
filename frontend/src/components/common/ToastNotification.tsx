@@ -81,13 +81,6 @@ export function ToastNotification() {
       gap: 10,
       animation: 'slideInToast 0.2s ease-out',
     }}>
-      <style>{`
-        @keyframes slideInToast {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>💡</span>
         <div>

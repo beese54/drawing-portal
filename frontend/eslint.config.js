@@ -25,6 +25,13 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       // A leading underscore marks a parameter kept for its position.
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      // The Content-Security-Policy (backend main.py) has no 'unsafe-inline', so a
+      // <style> element rendered by React is refused by the browser. CSS goes in
+      // src/index.css; style={{}} props are fine (CSSOM, not inline markup).
+      'no-restricted-syntax': ['error', {
+        selector: "JSXOpeningElement[name.name='style']",
+        message: 'Inline <style> is blocked by the CSP. Put the CSS in src/index.css.',
+      }],
     },
   },
 )
