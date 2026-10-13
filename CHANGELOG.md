@@ -27,6 +27,47 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-10-13
+
+Tooling and housekeeping. There is no behaviour change for the app:
+- In Chrome against the built image, all 66 symbol images load, and
+  evaluate, DOCX export and PDF export work.
+- The PDF export matches 1.1.2's: one page, 44 vector paths, and a size
+  differing by one byte (the timestamp).
+
+### Security
+- **Frontend build tools upgraded**, which clears all 11 `npm audit`
+  findings (10 high, 1 moderate). None of them shipped in the image.
+  - Vite 5 → 8
+  - @vitejs/plugin-react 4 → 6
+  - ESLint 8 → 10
+  - typescript-eslint 7 → 8
+  - esbuild is now an explicit dev dependency
+- **The frontend build runs on Node 24 LTS.** Node 20 reached end of life
+  on 2026-04-30.
+- **The Vite dev server's host check is back on.** `allowedHosts: true`
+  was removed, so a request with a foreign `Host` header gets 403 instead
+  of the page. This affects local development only.
+
+### Changed
+- `npm run lint` works: there was no ESLint config before. CI runs it in
+  `frontend:check`, where errors fail the job and warnings are reported.
+  - The ten errors it found were unused code, now removed.
+  - The rules are the recommended sets plus the two classic React hook
+    rules.
+- `docker-compose.yml` is now the single local-development file (hot
+  reload; Vite on :5173 proxies `/api`). The dev backend runs on Alpine,
+  like production.
+
+### Removed
+- **The retired split stack:**
+  - `frontend/Dockerfile`
+  - `frontend/nginx.conf`
+  - `backend/Dockerfile`
+  - `docker-compose.override.yml`
+  - the root `.env.example`, which configured that stack's cross-origin
+    setup
+
 ## [1.1.2] - 2026-10-13
 
 Security hardening. There is no behaviour change for the app itself: it

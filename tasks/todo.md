@@ -1,6 +1,162 @@
+# Plan — dev toolchain upgrade, legacy compose cleanup, Dependabot security updates (release 1.1.3)
+
+Status: **BUILT and verified locally 2026-10-13; commit, push and tag await OK.** Read-only root filesystem is
+dropped by the user's decision; the immutable code from 1.1.2 stands in for it.
+
+## 1. Dependabot security updates (the user's click, after step 2 is pushed)
+- [ ] GitHub → repo **Settings → Advanced Security** → *Dependabot alerts*:
+  Enable, then *Dependabot security updates*: Enable.
+- Do it after the step 2 push, so Dependabot does not open PRs for the 11
+  advisories this plan removes anyway.
+- GitLab `deps:audit` stays the gate. Dependabot only proposes fixes.
+
+## 2. A4: frontend dev toolchain (closes all 11 `npm audit` findings: 10 high, 1 moderate)
+Measured 2026-10-13. All 11 are dev or build tools; nothing ships in the
+image. The causes are esbuild ≤0.24 (via vite 5) and braces (via
+typescript-eslint 7).
+- [x] vite 5.4 → 8.x and @vitejs/plugin-react 4 → 6 (Vite 8 requires it).
+- [x] esbuild becomes an explicit devDependency (^0.28):
+  - Vite 8 no longer installs it
+  - `tasks/repro/import_validation.repro.mjs`, run in CI by `frontend:check`,
+    imports it from node_modules
+- [x] eslint 8 (end of life) → 9 and typescript-eslint 7 → 8 (the unified
+  `typescript-eslint` package), with react-hooks and react-refresh plugins
+  on releases that support flat config.
+- [x] **Add `eslint.config.js`.** Today `npm run lint` fails: there is no
+  ESLint config at all, although the code carries `eslint-disable` comments
+  for react-hooks rules.
+  - Start from recommended rules only.
+  - Fix real errors. If there are many, report the count first rather than
+    rewrite code.
+- [x] Node for the build: `node:20-alpine` → `node:24-alpine`.
+  - Node 20 reached end of life on 2026-04-30.
+  - Vite 8 needs Node ≥20.19.
+  - Local development already runs Node 24.11.
+  - Change it in the root Dockerfile stage, the `frontend:check` and
+    `deps:npm-audit` jobs, and `frontend/Dockerfile.dev`.
+- [x] `vite.config.ts`: drop `allowedHosts: true`.
+  - It switches off the dev server's DNS-rebinding guard, the same family
+    as the esbuild advisory.
+  - It arrived with the initial push, with no recorded reason.
+  - Development through localhost works without it.
+- Out of scope: runtime majors (React 19, konva 10, zustand 5) and
+  TypeScript 7.
+
+## 3. Legacy compose cleanup
+- [x] Delete the split stack: `frontend/Dockerfile`, `frontend/nginx.conf`,
+  `backend/Dockerfile`. Nothing in CI or deployment builds them.
+- [x] Fold `docker-compose.override.yml` into `docker-compose.yml` as the
+  single dev compose, then delete the override.
+  - Backend: hot reload with source mounts.
+  - Frontend: Vite on :5173, with `/api` proxied (same-origin, no
+    `ALLOWED_ORIGINS`).
+  - Drop the obsolete `version:` key.
+- [x] `backend/Dockerfile.dev`: python:3.12-slim → python:3.12-alpine, so
+  development runs on the same libc as production (F13 only showed on musl).
+- [x] Update the docs that point at the removed files:
+  - README run instructions and file tree
+  - `main.py` comments (static mount, CSP note)
+  - `backend/.env.example`
+  - CHANGELOG
+
+## Verify (each item must be seen working, not assumed)
+- [x] `npm audit` with all dependencies: 0. `npx tsc --noEmit`, `npm run build`
+  and `npm run lint` pass. The repro harness passes in `node:24-alpine`.
+- [x] Built image:
+  - backend suite 180/180 in python:3.12-alpine as uid 65533
+  - local Trivy 0
+  - `docker diff` empty
+- [x] Chrome against the built image repeats the 1.1.2 check:
+  - the app loads, with no console errors
+  - all 66 symbols render
+  - evaluate, DOCX export and PDF export work
+- [x] Dev paths:
+  - `start.sh`: Vite on 5173, `/api` proxied
+  - `docker compose up --build`: same; a source edit reloads
+  - `docker compose config` is valid
+
+## Review (2026-10-13)
+**Deviations from the plan:**
+- **ESLint went to 10, not 9:** ESLint 9 was already marked end of life
+  at install. react-hooks moved to 7, but only its two classic rules are
+  enabled; the React Compiler rules are off.
+- **Lint now runs in CI** (`frontend:check`).
+  - It found 10 errors, all unused code, now removed.
+  - 15 warnings are left as warnings: changing hook dependency lists could
+    change canvas behaviour.
+- **The root `.env.example` was also removed.** It configured the split
+  stack and still set `ALLOWED_ORIGINS` to localhost origins, contradicting
+  1.1.2.
+
+**Evidence:**
+- **node:24-alpine as uid 65533:**
+  - `npm audit` 0 (all and runtime), tsc OK, lint 0 errors
+  - build OK; import harness 22/22
+- **python:3.12-alpine as uid 65533:** backend 180 passed, 7 skipped; ci
+  gate 9 passed.
+- **Built image:**
+  - black-box fuzz 7/7, `docker diff` empty, static files not writable
+  - GitLab's Trivy shows 0 for both 1.1.2 and 1.1.3
+- **Chrome:**
+  - no console errors on load
+  - 66/66 images
+  - crossOrigin image leaves the canvas readable
+  - evaluate 200; DOCX 200 (36,814 bytes)
+  - PDF export via the real button gives `%PDF-1.3`, 1 page, 44 paths,
+    12,457 bytes, versus 12,458 on 1.1.2
+- **Dev compose:**
+  - the backend runs on Alpine
+  - the `/api` proxy works
+  - a foreign `Host` header gets 403 (it got 200 before)
+  - a backend edit reloads, and a frontend edit gives an HMR update
+- **Host dev:** Vite 8.3.4 is ready on :5173, the `/api` proxy works, and
+  `stop.sh` stops both servers.
+- **Side effect:** the first PDF test saved
+  `Downloads/schematic_2026-10-13-05-41-37.pdf`, because jsPDF saves via
+  `dispatchEvent`, which the in-page capture missed. The user was told.
+
+**Found, not fixed (new item T1):** the CI step `npx tsc --noEmit`
+type-checks **0 files**.
+- The root `tsconfig.json` is solution-style (`files: []` plus
+  references), so the step always passes.
+- `tsc -p tsconfig.app.json` reports 4 errors that were already in main:
+  - `ElementsLayer.tsx:408`: missing `isEditing` prop
+  - `AcknowledgmentModal.tsx:70`: cast
+  - `metadataBuilder.ts:165`: a comparison with `'outlet'` that can
+    never be true, so possibly a logic bug
+  - `metadataBuilder.ts:428`: `fitting_type` can be `null`
+- Fix: correct the 4, then change CI to `tsc -b` (or `-p
+  tsconfig.app.json`).
+
+## Release 1.1.3 (PATCH: same behaviour, rebuilt bundle and tooling)
+Push (with OK) → GitLab green → tag `v1.1.3` (with OK) → verify the image →
+the user sets GovPaaS and `DAST_APP_IMAGE` to `:1.1.3` → run the schedule.
+
+## Next plan (separate, not started): application hardening
+Measured on the 1.1.2 image:
+- **H1:** `/docs`, `/redoc` and `/openapi.json` all return 200 in
+  production. Turn them off by default, with an env flag to keep them on
+  in development.
+  - **Not secrecy:** the repo is public.
+  - **Why it's worth doing:** Swagger UI runs CDN script on our origin
+    (removing it lets H2 use `script-src 'self'`); it offers a live
+    "Try it out" console; and scanners ingest `/openapi.json`
+    automatically.
+- **H2:** full CSP (AS-9/R-17): `default-src`, `script-src`, `style-src`
+  (needs an inline-style audit), `frame-ancestors`, `base-uri`,
+  `form-action`. Add `Permissions-Policy` alongside.
+- **H3:** rate limiting (F2 remainder). **Decided 2026-10-13: platform
+  level** (the user's call), so no app change.
+- **H4:** request logging (F5 remainder): request id, route, status,
+  duration, no payloads.
+- **H5:** Python transitive lockfile with hashes (supply chain).
+- **H6:** HSTS. GovPaaS's call, still unanswered.
+
+---
+
 # Plan — close CORS (F3) and make the app's code immutable (release 1.1.2)
 
-Status: **DONE: v1.1.2 tagged and image verified 2026-10-13; GovPaaS switch pending (user).** Both are PATCH-level hardening
+Status: **DONE: v1.1.2 tagged and image verified 2026-10-13; live on GovPaaS, schedule green (user, 2026-10-13).** Both are PATCH-level hardening
 with no behaviour change for the real app.
 
 ## A. CORS (audit F3)
@@ -92,7 +248,7 @@ with no behaviour change for the real app.
 ## C. Release 1.1.2
 - [x] Changelog under Security, pre-push suite on Alpine, push (with OK),
   GitLab green, tag `v1.1.2` (with OK), verify the image.
-- [ ] The user switches GovPaaS and `DAST_APP_IMAGE` to `:1.1.2`, then runs
+- [x] The user switches GovPaaS and `DAST_APP_IMAGE` to `:1.1.2`, then runs
   the schedule.
 - [x] Audit: F3 → FIXED. Refresh the stale findings summary (F2, F4, F5
   and F8 are superseded or fixed).
@@ -335,7 +491,7 @@ scan, secret detection, deploy).
   - Exceptions: a reviewed `.audit-exceptions` list (advisory ID, reason,
     expiry date). An expired entry fails the job, so nothing is waived
     forever.
-- [ ] **A4. (Separate, later) dev-tool majors**: vite 5 → 8 and
+- [x] **A4. (Done in 1.1.3) dev-tool majors**: vite 5 → 8 and
   typescript-eslint 8, as its own change with a full frontend regression
   check. Not bundled here.
 
