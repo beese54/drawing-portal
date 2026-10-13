@@ -27,6 +27,17 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+### Security
+- **The interactive API docs are off in production** (H1). `/docs`,
+  `/redoc` and `/openapi.json` now return 404 unless `ENABLE_API_DOCS=1`.
+  - This is not about secrecy: the repo is public.
+  - Swagger UI and ReDoc ran script from a third-party CDN on the app's
+    origin.
+  - `/docs` was a ready-made console for sending requests to production.
+  - Scanners pick up `/openapi.json` automatically.
+  - `docker compose up` and `start.sh` keep the docs on for local
+    development.
+
 ### Fixed
 - **CI's frontend type check now checks the code** (T1). `npx tsc --noEmit`
   ran against a root `tsconfig.json` that only lists references, so it

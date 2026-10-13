@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     # say exactly which build it is. Unset means a local or hand-built image.
     app_version: str = "dev"
     git_commit: str = "unknown"
+    # /docs, /redoc and /openapi.json. Off unless asked for (H1, 1.1.4): they
+    # run third-party CDN script on this origin and give anyone a ready-made
+    # console against production. Development turns them on (docker-compose.yml,
+    # start.sh). See tests/test_api_docs.py.
+    enable_api_docs: bool = False
 
     # ── Request limits ──────────────────────────────────────────────────────
     # /api/evaluate and /api/export/docx are unauthenticated and publicly

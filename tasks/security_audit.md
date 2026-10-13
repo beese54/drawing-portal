@@ -199,6 +199,7 @@ the Remediation Log further down.
 | F7: version disclosed on `/api/health` | **Accepted**, and extended with the commit (the repo is public). |
 | F8: dead API-key references in `.env.example` | **Fixed.** Removed (`d5094e7`); none remain. |
 | F9–F13 | **Fixed** (see the Remediation Log). |
+| H1: interactive API docs public in production (found 2026-10-13) | **Fixed in 1.1.4.** `/docs`, `/redoc` and `/openapi.json` returned 200 on the live image. Swagger UI and ReDoc load script from a CDN on this origin, and `/docs` is a live request console. Now off unless `ENABLE_API_DOCS=1` (development only); `tests/test_api_docs.py`. |
 
 **CRITICAL**
 - **F1 — No authentication/authorization on any endpoint, including destructive ones.** Category: authn/authz. Files: `backend/app/routers/symbols.py:47-79`, `backend/app/main.py` (no auth middleware anywhere). Attack scenario: A. Remediation: add an auth layer (API key, JWT, or SSO depending on intended users) in front of at minimum `POST/PATCH/DELETE /api/symbols`, enforced via FastAPI `Depends()`; alternatively use a GovPaaS/Northflank path-based access policy restricting just those methods/path (this exact fix was already identified in an earlier session and never implemented).

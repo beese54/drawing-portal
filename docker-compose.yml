@@ -22,6 +22,7 @@ services:
         required: false
     environment:
       - SYMBOLS_PATH=/app/symbols
+      - ENABLE_API_DOCS=1
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\""]

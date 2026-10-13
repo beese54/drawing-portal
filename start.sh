@@ -65,7 +65,8 @@ if [ "${BACKEND_RELOAD:-0}" = "1" ]; then
   RELOAD_FLAG="--reload"
   echo "  (--reload enabled via BACKEND_RELOAD=1)"
 fi
-PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m uvicorn app.main:app $RELOAD_FLAG --port 8000 > "$PROJECT_DIR/backend.log" 2>&1 &
+# API docs (/docs) are off by default and on for local development.
+ENABLE_API_DOCS="${ENABLE_API_DOCS:-1}" PYTHONDONTWRITEBYTECODE=1 "$PYTHON" -m uvicorn app.main:app $RELOAD_FLAG --port 8000 > "$PROJECT_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 
 # Wait for backend to be ready

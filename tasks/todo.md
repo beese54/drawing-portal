@@ -1,3 +1,22 @@
+# H1: API docs off in production (2026-10-13), DONE locally, ships as 1.1.4 with T1
+
+- [x] `tests/test_api_docs.py` written first. 4 tests failed on the old
+  code (`/docs`, `/redoc`, `/openapi.json` and `/docs/oauth2-redirect`
+  returned 200).
+- [x] `ENABLE_API_DOCS` (default off) → `docs_url`, `redoc_url` and
+  `openapi_url` are `None`. Turned on in `docker-compose.yml` and
+  `start.sh`; documented in `.env.example` and the README.
+- [x] Alpine as uid 65533: 188 passed, 7 skipped; ci 9 passed.
+- [x] **Built image:**
+  - all 4 docs paths return 404, while `/`, `/api/health` and
+    `/api/symbols` return 200
+  - with `ENABLE_API_DOCS=1`, `/docs` and `/openapi.json` return 200
+  - fuzz 7/7, `docker diff` empty, Trivy 0
+- [x] Dev compose: `/docs` and `/openapi.json` return 200, and the app is
+  served through Vite.
+- [ ] Release 1.1.4: push (OK) → GitLab green → tag (OK) → verify → the
+  user switches GovPaaS and `DAST_APP_IMAGE`.
+
 # T1: make CI's type check real (2026-10-13), DONE locally, to ship with H1
 
 - [x] Fix the 5 latent errors (4 app, 1 vite config), with no runtime
@@ -171,8 +190,8 @@ the user sets GovPaaS and `DAST_APP_IMAGE` to `:1.1.3` → run the schedule.
 
 ## Next plan (separate, not started): application hardening
 Measured on the 1.1.2 image:
-- **H1:** `/docs`, `/redoc` and `/openapi.json` all return 200 in
-  production. Turn them off by default, with an env flag to keep them on
+- **H1 (DONE, 1.1.4):** `/docs`, `/redoc` and `/openapi.json` all return
+  200 in production. Turn them off by default, with an env flag to keep them on
   in development.
   - **Not secrecy:** the repo is public.
   - **Why it's worth doing:** Swagger UI runs CDN script on our origin

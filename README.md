@@ -104,6 +104,7 @@ This is the same combined image CI builds and GovPaaS runs.
 | Variable | Required | Description |
 |---|---|---|
 | `SYMBOLS_PATH` | No (default: `/app/symbols`) | Path to symbols directory inside container |
+| `ENABLE_API_DOCS` | No (default: off) | Serves `/docs`, `/redoc` and `/openapi.json`. Leave off in production. `docker compose up` and `start.sh` turn it on for local development. |
 | `ALLOWED_ORIGINS` | No (default: empty) | Comma-separated origins allowed to call the API cross-origin. Leave empty: the app is same-origin in every supported setup, and empty means no other website may read API responses. |
 
 ### Frontend (build-time)

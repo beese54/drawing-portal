@@ -16,7 +16,16 @@ from app.routers import health, symbols, evaluate, export
 # address space, not memory. See tests/test_thread_stack.py.
 threading.stack_size(8 * 1024 * 1024)
 
-app = FastAPI(title="Schematic Drawing Portal API", version=settings.app_version)
+# None removes the route entirely, so the request falls through to the static
+# mount and gets its 404. Development sets ENABLE_API_DOCS=1 (see config.py).
+_docs = settings.enable_api_docs
+app = FastAPI(
+    title="Schematic Drawing Portal API",
+    version=settings.app_version,
+    docs_url="/docs" if _docs else None,
+    redoc_url="/redoc" if _docs else None,
+    openapi_url="/openapi.json" if _docs else None,
+)
 
 # Cross-origin access is OFF unless a deployment lists origins in
 # ALLOWED_ORIGINS (empty by default; audit F3, fixed in 1.1.2). The app does
