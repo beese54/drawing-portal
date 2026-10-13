@@ -67,7 +67,7 @@ can be declared acceptable and still be a gap — both are tracked.
 | ID | Control | Evidence | As-built |
 |---|---|---|---|
 | SC-01 | TLS in transit | Platform edge | **[UNVERIFIED]** |
-| SC-02 | CORS restricted to known origins | `main.py:14` `allow_origins=["*"]`; `main.py:24-32` `force_cors` unconditionally overwrites to `*` on **every** response; `config.py:39-40` `origins_list` defined and never referenced | **Gap** |
+| SC-02 | CORS restricted to known origins | `main.py:14` `allow_origins=["*"]`; `main.py:24-32` `force_cors` unconditionally overwrites to `*` on **every** response; `config.py:39-40` `origins_list` defined and never referenced | **Gap** → **Implemented in 1.1.2** (2026-10-13): `allow_origins=settings.origins_list`, empty by default; the `*` fallback was removed; `tests/test_cors.py`. See security_audit F3. |
 | SC-03 | Security response headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options) | None set in `main.py`; no header middleware beyond `force_cors` | **Gap** |
 | SC-04 | Rate limiting / throttling | No rate-limit library in `requirements.txt`; no throttling code. Not documented as a GovPaaS console option | **Gap** |
 | SC-05 | No unnecessary outbound egress | No HTTP client in `requirements.txt` (`httpx` removed with the Slack webhook, commit `4bc8c39`) | **Implemented** |

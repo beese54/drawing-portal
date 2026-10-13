@@ -27,6 +27,26 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-13
+
+Security hardening. There is no behaviour change for the app itself: it
+was verified in Chrome against the built image.
+
+### Security
+- **No other website may read the API's responses any more** (audit F3).
+  - Cross-origin access is off unless a deployment lists origins in
+    `ALLOWED_ORIGINS`.
+  - The `Access-Control-Allow-Origin: *` fallback is removed.
+  - Only GET and POST may be preflighted.
+- **The running app can no longer modify its own code.** The code is
+  root-owned, and bytecode is precompiled at build. At runtime the app
+  writes only to `/tmp`.
+
+### Changed
+- `ALLOWED_ORIGINS` now defaults to empty, and blank entries are ignored.
+- The base `docker-compose.yml` split stack is marked legacy. Use
+  `docker compose up` (with the override) or `start.sh`.
+
 ## [1.1.1] - 2026-10-13
 
 A security-maintenance release. There is no behaviour change for valid
@@ -112,6 +132,7 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/beese54/drawing-portal/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/beese54/drawing-portal/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/beese54/drawing-portal/releases/tag/v1.1.0

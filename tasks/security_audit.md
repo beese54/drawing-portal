@@ -184,6 +184,22 @@ no auth or rate limit required.
 
 ### Findings, ranked by severity
 
+**Current status (refreshed 2026-10-13).** The list below is the original
+2026-07-31 audit text. Here is where each finding stands now; details are in
+the Remediation Log further down.
+
+| Finding | Status |
+|---|---|
+| F1: no auth on destructive endpoints | **Resolved.** An admin key was added (2026-07-31), then the symbol write API was removed entirely (`01c1265`). No state-changing endpoint remains. |
+| F2: unbounded compute endpoints (DoS) | **Mitigated.** Request, field, image, crop and row-count caps (`c73cd7e`, `1e55132`), the pre-parse size cap (R-01), F9–F13. Rate limiting is still platform-side and not configured. |
+| F3: open CORS, dead config | **Fixed in 1.1.2.** Cross-origin access is off unless `ALLOWED_ORIGINS` lists an origin, the `*` fallback is deleted, and methods are limited to GET/POST. Browser-verified. |
+| F4: SVG upload blocklist sanitiser | **Moot.** The upload API was removed (`01c1265`); symbols ship in the image. `nosniff` still guards a future committed SVG. |
+| F5: no audit logging / identity model | **Open, reduced.** No state-changing actions remain to attribute. Access logging is uvicorn's default only. |
+| F6: no dependency scanning in CI | **Fixed.** `deps:audit` on every push and weekly (R11 closed), plus container scanning of OS and Python packages. |
+| F7: version disclosed on `/api/health` | **Accepted**, and extended with the commit (the repo is public). |
+| F8: dead API-key references in `.env.example` | **Fixed.** Removed (`d5094e7`); none remain. |
+| F9–F13 | **Fixed** (see the Remediation Log). |
+
 **CRITICAL**
 - **F1 — No authentication/authorization on any endpoint, including destructive ones.** Category: authn/authz. Files: `backend/app/routers/symbols.py:47-79`, `backend/app/main.py` (no auth middleware anywhere). Attack scenario: A. Remediation: add an auth layer (API key, JWT, or SSO depending on intended users) in front of at minimum `POST/PATCH/DELETE /api/symbols`, enforced via FastAPI `Depends()`; alternatively use a GovPaaS/Northflank path-based access policy restricting just those methods/path (this exact fix was already identified in an earlier session and never implemented).
 
@@ -469,6 +485,68 @@ hand. Frontend `package.json` not audited in this pass.~~
   - Verified: it fails on 1.1.0 (2 fixable liblzma5, Unknown), passes on
     the candidate, and fails on a missing report.
   - Dependabot proposes base-image digest bumps weekly.
+
+### F3 — Open CORS — FIXED in 1.1.2 (2026-10-13)
+- **Two problems:**
+  - `CORSMiddleware(allow_origins=["*"])`
+  - a fallback in the security-headers middleware that re-added
+    `Access-Control-Allow-Origin: *` to every response without one. That
+    included the very origins CORSMiddleware refused, so narrowing the
+    allowlist alone would have been a no-op.
+- **Why it was low-risk but worth fixing:**
+  - **Low-risk:** no cookies or logins, so CORS protected no session.
+  - **Abuse:** any website could still make its visitors' browsers drive
+    heavy evaluations (distributed load).
+  - **A trap for the future:** a hazard the moment authentication is
+    added.
+  - **A VAPT finding.**
+- **Fix:**
+  - `allow_origins=settings.origins_list` from `ALLOWED_ORIGINS`, empty by
+    default, so no cross-origin access; `origins_list` drops blanks
+  - the fallback is deleted
+  - methods are limited to GET and POST
+  - the production Dockerfile no longer sets localhost origins
+- **Nothing current is cross-origin:**
+  - production serves the page and the API from one origin
+  - development proxies `/api` through Vite
+  - the legacy split compose stack (unused, already broken) is marked for
+    removal
+- **Verified:**
+  - `tests/test_cors.py` (7 tests, all failing before the fix):
+    - another origin gets no ACAO on GET and POST
+    - its preflight gets 400
+    - same-origin requests need no headers
+    - a listed origin is echoed exactly, never `*`, and can preflight only
+      GET and POST
+  - **in Chrome** against the built image:
+    - the app loads, all 66 symbol images render, and there are no
+      console errors
+    - the `crossOrigin='anonymous'` image path is not tainted
+    - the PDF-export SVG fetch, evaluate and the DOCX export all return
+      200
+  - from another origin's page, a `fetch()` of 1.1.2 is **blocked** by the
+    browser, while the same fetch of 1.1.1 **reads** the response
+
+### App code immutable at runtime — 1.1.2 (2026-10-13)
+A read-only root filesystem is not mandated by GovPaaS, but its main benefit
+can be had from the image alone.
+- **The problem:** `docker diff` on 1.1.1 under the fuzz suite showed the
+  app writes only `__pycache__` and `/tmp`. Yet `/app` was owned by the app
+  user, which could rewrite its own code (a backdoor after any
+  code-execution bug).
+- **Fix:**
+  - the code stays root-owned (no `chown`)
+  - bytecode is precompiled at build
+  - `PYTHONDONTWRITEBYTECODE=1`
+- **Verified:**
+  - as `app`, writing `main.py` or creating a new file gives *Permission
+    denied*
+  - `docker diff` after the fuzz suite and a 2.3 MB upload: **no
+    changes**
+  - fuzz 7/7
+- **Full read-only rootfs** is proven compatible if `/tmp` is writable;
+  whether to enable it is pending GovPaaS (see
+  govpaas_configuration_helper).
 
 ### F13 — Worker-thread stack overflow on Alpine — FIXED before release (2026-10-13)
 **New finding, introduced by the Alpine move and caught before release.**

@@ -1,3 +1,135 @@
+# Plan — close CORS (F3) and make the app's code immutable (release 1.1.2)
+
+Status: **A + B DONE locally 2026-10-13; push + tag v1.1.2 await OK.** Both are PATCH-level hardening
+with no behaviour change for the real app.
+
+## A. CORS (audit F3)
+
+### Facts (verified 2026-10-13)
+- **Today any website may read API responses** in a visitor's browser:
+  `main.py` sets `CORSMiddleware(allow_origins=["*"])`.
+- **A second trap:** the `security_headers` middleware adds
+  `Access-Control-Allow-Origin: *` to *any* response that lacks one.
+  Narrowing `allow_origins` alone would change nothing, because a
+  disallowed origin gets no header from CORSMiddleware and the fallback
+  then adds `*`.
+- **Nothing current is cross-origin:**
+  - production: one container serves the page and the API, same origin
+  - `start.sh` and `docker compose up` (with the override): the Vite dev
+    server proxies `/api`, so same origin
+  - the only cross-origin setup is the legacy split stack (base
+    `docker-compose.yml` + `frontend/Dockerfile`, from Airbase). It is
+    already broken: nginx listens on 3000, but compose maps port 80.
+- **The fallback existed for that split stack:** a symbol image cached
+  from a plain `<img>` was reused for a `crossOrigin='anonymous'` request
+  and blocked. Same-origin requests never need CORS headers, so production
+  doesn't need the fallback.
+- `ALLOWED_ORIGINS`/`settings.origins_list` exists but is unused (dead
+  config). An empty value would currently parse as `['']`.
+
+### Tasks
+- [x] **A1. Tests first** (`tests/test_cors.py`). With the default config:
+  - a request with `Origin: https://evil.example` to `GET /api/health`
+    and `POST /api/evaluate` gets **no** `Access-Control-Allow-Origin`
+  - a preflight `OPTIONS` from that origin is refused, with no ACAO
+  - a same-origin request (no Origin header) still works
+  - with `ALLOWED_ORIGINS=http://localhost:3000`, that origin gets exactly
+    its own value echoed (not `*`), and `evil.example` still gets nothing
+
+  Watch them fail on today's code.
+- [x] **A2. Fix:**
+  - `allow_origins=settings.origins_list`
+  - default `ALLOWED_ORIGINS` becomes **empty**, so no cross-origin
+    access unless a deployment opts in
+  - `origins_list` drops empty entries
+  - methods narrowed to `GET, POST`, the only ones the API has
+  - **the `*` fallback is deleted**
+  - the production Dockerfile's `ENV ALLOWED_ORIGINS=localhost…` line is
+    removed
+  - the existing `test_cors_fallback…` test is replaced (it asserts `*`)
+- [x] **A3. Real-browser check** of the built image in Chrome, on the same
+  origin. With no CORS errors in the console:
+  - the app loads
+  - symbols render in the palette and on the canvas
+  - title-block stamp images load (the `crossOrigin='anonymous'` path)
+  - evaluate runs
+  - the DOCX export and PDF vector export (`fetch` of symbol SVGs) work
+
+  Plus a page served from a *different* origin trying `fetch()` against
+  the app must be blocked by the browser.
+- [x] **A4. Legacy split stack:** add a comment in `docker-compose.yml`
+  that it is legacy and needs `ALLOWED_ORIGINS` (it already sets it).
+  Don't repair it now. **Ask the user** whether it is still used; if not,
+  delete it in a later cleanup.
+
+## B. App code not writable by the app (read-only-filesystem benefit, no platform change)
+
+### Facts (verified 2026-10-13, `docker diff` on 1.1.1 under the fuzz suite)
+- **At runtime the app writes only:**
+  - Python bytecode caches (`/app/app/**/__pycache__/*.pyc`)
+  - upload spool files in `/tmp` (deleted after each request)
+- **`/app` is owned by the `app` user**, which can modify its own code
+  (`touch /app/app/main.py` succeeds). A code-execution bug could plant a
+  persistent backdoor in the app until the next restart.
+
+### Tasks
+- [x] **B1.** Dockerfile:
+  - **stop `chown -R app:app /app`**, so the code stays root-owned and
+    readable, but not writable by `app`
+  - precompile bytecode at build (`python -m compileall -q /app/app`)
+  - set `PYTHONDONTWRITEBYTECODE=1`
+  - `/tmp` stays writable, as it is for every user
+- [x] **B2. Verify:**
+  - as `app`, writing to `/app/app/main.py` fails
+  - `docker diff` after the fuzz suite shows **no changes outside /tmp**
+  - a 2.3 MB upload still returns 200
+  - the full suite passes, and the fuzz suite passes at 2,000 examples
+  - the image still scans at 0
+- Read-only root filesystem itself remains a GovPaaS question. If the
+  platform offers it, add a writable `/tmp` (emptyDir) and enable it; the
+  app is proven compatible.
+
+## C. Release 1.1.2
+- [ ] Changelog under Security, pre-push suite on Alpine, push (with OK),
+  GitLab green, tag `v1.1.2` (with OK), verify the image, then the user
+  switches GovPaaS and `DAST_APP_IMAGE` to `:1.1.2`.
+- [ ] Audit: F3 → FIXED. Refresh the stale findings summary (F2, F4, F5
+  and F8 are superseded or fixed).
+
+## Review
+**A (CORS):**
+- 7 new tests, all failing before the fix.
+- The suite is 180 passed (the old `*`-asserting fallback test was
+  removed).
+- **In Chrome against the built image:**
+  - the app loads, all 66 symbol images render, and there are no console
+    errors
+  - a `crossOrigin='anonymous'` image leaves the canvas readable
+  - the SVG fetch for the PDF export, evaluate and the DOCX export all
+    work
+- **The cross-site demo:** from an `http://127.0.0.1:8097` page, `fetch`
+  of 1.1.1 READ the response, while 1.1.2 was BLOCKED.
+- **The legacy split compose is marked;** the user confirmed it is not
+  used. Merging the override into a single dev compose is a pending
+  cleanup.
+
+**B (immutable code):**
+- As `app`, writing `main.py` or a new file gives Permission denied.
+- `docker diff` after the fuzz suite and a 2.3 MB upload: empty.
+- Fuzz 7/7; the large upload returns 200.
+- **Workflow unaffected (the user asked):**
+  - `start.sh` and `docker compose up` run the source directly
+  - only the built production image is locked
+
+**Docs:**
+- the audit gets a status table for F1–F13, plus F3 and immutable-code
+  entries
+- `README.md` describes `ALLOWED_ORIGINS`
+- `doc_audit.md` SC-02 is marked implemented
+- CHANGELOG 1.1.2
+
+---
+
 # Plan — resolve the 166 container CVEs (release 1.1.1)
 
 Status: **DONE — v1.1.1 released and live 2026-10-13.** Protocol: Pattern AT.
