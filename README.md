@@ -74,21 +74,26 @@ cp backend/.env.example backend/.env
 ### 3. Run (development — hot reload)
 
 ```bash
-docker-compose up --build
+docker compose up --build
 
-# Frontend (Vite dev server):  http://localhost:5173
+# Frontend (Vite dev server):  http://localhost:5173  (proxies /api to the backend)
 # Backend API:                 http://localhost:8000
 # API docs (Swagger):          http://localhost:8000/docs
 ```
 
-### 4. Run (production build)
+Without Docker, `./start.sh` runs the same two dev servers from your local
+Python venv and Node install (`./stop.sh` stops them).
+
+### 4. Run (production image)
 
 ```bash
-docker-compose -f docker-compose.yml up --build
+docker build -t drawing-portal .
+docker run --rm -p 8000:8000 drawing-portal
 
-# Frontend (Nginx):  http://localhost:3000
-# Backend API:       http://localhost:8000
+# App (frontend + API, one origin):  http://localhost:8000
 ```
+
+This is the same combined image CI builds and GovPaaS runs.
 
 ---
 
@@ -173,16 +178,14 @@ external API call in the evaluation path.
 ```
 schematic-drawing-portal/
 ├── .gitignore
-├── .env.example                      # Root env template
-├── docker-compose.yml                # Production orchestration
-├── docker-compose.override.yml       # Dev hot-reload overrides
+├── Dockerfile                        # Production: the single combined image
+├── docker-compose.yml                # Local development (hot reload)
 ├── README.md
 ├── start.sh / stop.sh                # Convenience scripts
 │
 ├── backend/
-│   ├── .env.example                  # API key template — copy to .env
-│   ├── Dockerfile                    # Production image (Python 3.12-slim)
-│   ├── Dockerfile.dev                # Dev image with --reload
+│   ├── .env.example                  # Optional overrides — copy to .env
+│   ├── Dockerfile.dev                # Dev image with --reload (Python 3.12 Alpine, as production)
 │   ├── requirements.txt              # Python dependencies
 │   └── app/
 │       ├── main.py                   # FastAPI entry point
@@ -198,9 +201,7 @@ schematic-drawing-portal/
 │       └── manifest.json             # Symbol registry
 │
 ├── frontend/
-│   ├── Dockerfile                    # Production (Node 20 → Nginx multi-stage)
 │   ├── Dockerfile.dev                # Dev (Vite dev server)
-│   ├── nginx.conf                    # Nginx reverse proxy config
 │   ├── package.json
 │   ├── vite.config.ts
 │   └── src/

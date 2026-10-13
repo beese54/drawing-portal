@@ -142,8 +142,8 @@ all. That was wrong — corrected 2026-08-03 during the risk assessment.)
 ## 5. Deployment topology
 
 - **Build:** a single root-level multi-stage `Dockerfile` — stage 1
-  (`node:20-alpine`) builds the frontend with `VITE_API_BASE_URL=""` baked
-  in (relative paths); stage 2 (`python:3.12-slim`, non-root `app` user)
+  (`node:24-alpine`) builds the frontend with `VITE_API_BASE_URL=""` baked
+  in (relative paths); stage 2 (`python:3.12-alpine`, non-root `app` user)
   copies the backend + built frontend `dist/` into `./static/`.
 - **CI/CD:** `.github/workflows/docker-publish.yml` builds and pushes to
   `ghcr.io/beese54/drawing-portal` on every push to `main` or a `v*.*.*`

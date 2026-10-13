@@ -1,29 +1,28 @@
-# LEGACY as of 1.1.2 (2026-10-13): do not run this file on its own.
-# On its own it starts the old split stack, with the frontend as a separate nginx
-# container on :3000 calling the API cross-origin on :8000. That stack is
-# unused (deployment is the combined root Dockerfile) and already broken:
-# nginx listens on 3000 but this maps 3000:80. It only works because the
-# backend opts in through ALLOWED_ORIGINS below.
-# What IS used: `docker compose up`, which merges docker-compose.override.yml
-# (Vite dev server, /api proxied, same-origin), and start.sh. Folding the
-# override into a single dev compose file and deleting the split stack
-# (frontend/Dockerfile, frontend/nginx.conf) is a pending cleanup.
-version: "3.9"
+# Local development only: `docker compose up --build`.
+# Deployment uses the combined root Dockerfile, never this file.
+#
+# The browser talks to the Vite dev server on :5173, which proxies /api to the
+# backend, so every request is same-origin and ALLOWED_ORIGINS stays unset
+# (as in production). Source is bind-mounted, so edits reload without a rebuild.
+# Until 1.1.3 this file also defined a split production stack (nginx frontend
+# on :3000 calling the API cross-origin); that stack was retired.
 
 services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "8000:8000"
     volumes:
+      - ./backend/app:/app/app
       - ./backend/symbols:/app/symbols
     env_file:
-      - ./backend/.env
+      - path: ./backend/.env
+        required: false
     environment:
       - SYMBOLS_PATH=/app/symbols
-      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://frontend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\""]
       interval: 10s
@@ -34,11 +33,17 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
-      - "3000:80"
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
     depends_on:
       backend:
         condition: service_healthy
+    command: npm run dev -- --host 0.0.0.0
     environment:
-      - VITE_API_BASE_URL=http://localhost:8000
+      - VITE_API_BASE_URL=
+      - BACKEND_URL=http://backend:8000

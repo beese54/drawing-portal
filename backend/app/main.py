@@ -83,8 +83,7 @@ async def security_headers(request: Request, call_next):
     #
     # 'self' covers /api/symbols/{id}/image and the two SVGs in public/; data:
     # covers stamps and the drag-ghost pixel. Every image source in the frontend
-    # is one of those two. NOTE: if the split deployment is ever revived, the
-    # backend origin must be added here or symbol images will be blocked.
+    # is one of those two.
     response.headers["Content-Security-Policy"] = "img-src 'self' data:; object-src 'none'"
     return response
 
@@ -94,8 +93,8 @@ app.include_router(evaluate.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
 
 # Only present in the combined image (root Dockerfile copies the built
-# frontend into ./static/) — the split backend/Dockerfile never creates this
-# directory, so it stays an API-only service there. Mounted last so it can
+# frontend into ./static/). In development the Vite dev server serves the
+# frontend instead, so this directory is absent and the backend is API-only. Mounted last so it can
 # never shadow the /api/* routes or FastAPI's own /docs, /openapi.json, etc.
 if settings.static_dir.is_dir():
     app.mount("/", StaticFiles(directory=str(settings.static_dir), html=True), name="static")
