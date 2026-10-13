@@ -27,6 +27,14 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-10-13
+
+A security fix plus a CI fix. There is no behaviour change for the app.
+- Removing the docs pages is a PATCH, not a MAJOR: they describe the
+  API but are not part of it. No frontend code or integration calls
+  them.
+- Every `/api/*` route is unchanged.
+
 ### Security
 - **The interactive API docs are off in production** (H1). `/docs`,
   `/redoc` and `/openapi.json` now return 404 unless `ENABLE_API_DOCS=1`.
