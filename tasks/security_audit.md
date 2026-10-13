@@ -199,6 +199,7 @@ the Remediation Log further down.
 | F7: version disclosed on `/api/health` | **Accepted**, and extended with the commit (the repo is public). |
 | F8: dead API-key references in `.env.example` | **Fixed.** Removed (`d5094e7`); none remain. |
 | F9–F13 | **Fixed** (see the Remediation Log). |
+| H2: CSP covered images and plugins only (AS-9 / R-17) | **Fixed in 1.1.5.** Full policy: script/style/connect `'self'` only, no inline code or eval, no plugins, `<base>`, form posts or framing; plus `Permissions-Policy`. Every feature was exercised in Chrome with zero violations; an injected inline script/style and `eval` were refused. `tests/test_security_headers.py`. |
 | H1: interactive API docs public in production (found 2026-10-13) | **Fixed in 1.1.4.** `/docs`, `/redoc` and `/openapi.json` returned 200 on the live image. Swagger UI and ReDoc load script from a CDN on this origin, and `/docs` is a live request console. Now off unless `ENABLE_API_DOCS=1` (development only); `tests/test_api_docs.py`. |
 
 **CRITICAL**

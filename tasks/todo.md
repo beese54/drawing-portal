@@ -1,3 +1,101 @@
+# H2: full Content-Security-Policy + Permissions-Policy (2026-10-13), DONE locally → 1.1.5
+
+**Inventory (measured):**
+- **Scripts:** only `/assets/*.js` from this origin. The bundle has no
+  `eval` or `new Function` and no workers. Since H1 there is no CDN script.
+- **Inline `<style>`:** two blocks, which must move to a CSS file:
+  - `index.html` (base reset)
+  - `ToastNotification.tsx` (`@keyframes slideInToast`)
+- **React `style={{}}`** sets styles through the CSSOM, which CSP does not
+  restrict. This holds across the whole canvas UI.
+- **Libraries:**
+  - svg2pdf builds `<style>` inside a detached
+    `document.implementation.createHTMLDocument`, which is outside the page
+    policy (to be confirmed by the PDF test).
+  - jsPDF's html2canvas, DOMPurify and canvg chunks load only for
+    `.html()` / `addSvgAsImage`, which the app doesn't use.
+- **Symbol SVGs:** none of the 70 contains `<style>` or `style=`.
+- **Images:** `'self'` plus `data:` (stamps, drag ghost), as today.
+- **Network:** fetch and XHR go to `/api` only.
+
+**Policy:**
+
+    default-src 'self'; script-src 'self'; style-src 'self';
+    img-src 'self' data:; font-src 'self'; connect-src 'self';
+    object-src 'none'; base-uri 'none'; form-action 'none';
+    frame-ancestors 'none'
+
+- `Permissions-Policy: camera=(), microphone=(), geolocation=(),
+  payment=(), usb=()`
+- Not included:
+  - `upgrade-insecure-requests`: TLS is the edge's job, and the directive
+    breaks plain-http local testing.
+  - HSTS: H6, which is GovPaaS's call.
+
+**Tasks:**
+- [x] Tests first:
+  - the exact header plus a "no unsafe-inline / unsafe-eval" assertion
+  - `Permissions-Policy`
+  - the update to `test_request_limits` that pins the old CSP string
+- [x] Move both inline style blocks into `src/index.css`, imported from
+  `main.tsx`.
+- [x] Add an ESLint `no-restricted-syntax` rule against JSX `<style>`, so
+  the inline block cannot come back.
+- [x] Set the headers in `main.py`.
+- [x] **Verify in Chrome against the built image, with console tracking on
+  before load and a `securitypolicyviolation` listener.** Zero violations
+  across:
+  - load
+  - symbols render
+  - template
+  - stamp image (`data:`)
+  - JSON import and export
+  - evaluate and report modal
+  - DOCX export
+  - PDF export with stamps
+  - the toast animation rule present
+  - also: the CSP header on a symbol SVG opened directly
+- [x] Pre-push gates (Alpine uid 65533, node:24-alpine), fuzz, Trivy.
+- [ ] Release 1.1.5.
+
+**Review:**
+- **Tests:** the 4 new header tests failed on the old code.
+  - Backend: 193 passed, 7 skipped; 200 passed with the black-box fuzz
+    against the image.
+  - ci: 9 passed.
+- **Frontend:**
+  - audit 0, typecheck OK, lint 0 errors, harness 22/22
+  - the lint rule was seen to reject a JSX `<style>` probe
+  - the built `index.html` has no inline code: one script, one stylesheet
+- **Built image:** `docker diff` empty, Trivy 0. Dev compose serves
+  `/src/index.css`.
+- **Chrome on the built image, under the enforced policy:**
+  - page load:
+    - 76 requests, all same-origin or `data:`, all 200/304
+    - body background and box-sizing from `index.css` apply
+    - `slideInToast` keyframes present; 66/66 images
+  - with a `securitypolicyviolation` listener running, zero violations
+    across:
+    - symbol placement
+    - JSON export
+    - import with three PNG `data:` stamps (re-encoded, kept on re-export)
+    - the pre-evaluation checklist, then evaluate (report modal)
+    - Export to Word (66,918-byte docx)
+    - PDF export with stamps (1 page, 1 image XObject)
+  - **positive control:** an injected inline `<script>` did not run, an
+    injected `<style>` was not applied, `eval` threw `EvalError`, and the
+    listener recorded both violations
+  - a symbol SVG opened directly renders under the policy
+- **Instrument caveats (now in lessons):**
+  - The Chrome console tool does not show CSP reports.
+  - ReportingObserver(buffered) caught nothing, not even the control.
+  - So load-time evidence is the network list plus the inline-free
+    `index.html`.
+  - A test patch on `HTMLInputElement.prototype.click` swallowed checkbox
+    clicks; it was mistaken for an app bug until diagnosed.
+
+---
+
 # H1: API docs off in production (2026-10-13), RELEASED in v1.1.4 with T1
 
 - [x] `tests/test_api_docs.py` written first. 4 tests failed on the old
@@ -208,7 +306,7 @@ Measured on the 1.1.2 image:
     (removing it lets H2 use `script-src 'self'`); it offers a live
     "Try it out" console; and scanners ingest `/openapi.json`
     automatically.
-- **H2:** full CSP (AS-9/R-17): `default-src`, `script-src`, `style-src`
+- **H2 (DONE, 1.1.5):** full CSP (AS-9/R-17): `default-src`, `script-src`, `style-src`
   (needs an inline-style audit), `frame-ancestors`, `base-uri`,
   `form-action`. Add `Permissions-Policy` alongside.
 - **H3:** rate limiting (F2 remainder). **Decided 2026-10-13: platform

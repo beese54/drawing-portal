@@ -27,6 +27,39 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-10-13
+
+Security hardening. There is no behaviour change for the app: every
+feature was exercised in Chrome under the new policy with zero violations.
+
+### Security
+- **Full Content-Security-Policy** (H2). Until now it set only `img-src`
+  and `object-src`. The new policy:
+
+  ```
+  default-src 'self'; script-src 'self'; style-src 'self';
+  img-src 'self' data:; font-src 'self'; connect-src 'self';
+  object-src 'none'; base-uri 'none'; form-action 'none';
+  frame-ancestors 'none'
+  ```
+
+  - **Scripts and styles:** only the app's own files load. Inline code
+    and `eval` are refused.
+  - **Network:** requests may go only to this API.
+  - **Blocked outright:** plugins, `<base>` tags, form submissions and
+    framing.
+  - **Verified in Chrome:** an injected inline script did not run, an
+    injected `<style>` was not applied, and `eval` threw `EvalError`.
+- **`Permissions-Policy`:**
+  - camera, microphone, geolocation, payment and USB are disabled
+  - the app uses none of them, so no injected code can ask for them
+
+### Changed
+- The base page styles (from `index.html`) and the toast animation moved
+  from inline `<style>` blocks into `src/index.css`.
+- A lint rule now rejects a JSX `<style>` element, so the CSP can't be
+  broken by accident.
+
 ## [1.1.4] - 2026-10-13
 
 A security fix plus a CI fix. There is no behaviour change for the app.
