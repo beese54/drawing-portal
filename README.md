@@ -99,7 +99,7 @@ docker-compose -f docker-compose.yml up --build
 | Variable | Required | Description |
 |---|---|---|
 | `SYMBOLS_PATH` | No (default: `/app/symbols`) | Path to symbols directory inside container |
-| `ALLOWED_ORIGINS` | No | Comma-separated CORS origins |
+| `ALLOWED_ORIGINS` | No (default: empty) | Comma-separated origins allowed to call the API cross-origin. Leave empty: the app is same-origin in every supported setup, and empty means no other website may read API responses. |
 
 ### Frontend (build-time)
 

@@ -11,7 +11,9 @@ class Settings(BaseSettings):
 
     symbols_path: str = _DEFAULT_SYMBOLS_PATH
     static_path: str = _DEFAULT_STATIC_PATH
-    allowed_origins: str = "http://localhost:3000,http://localhost:5173"
+    # Origins (comma-separated) allowed to call the API cross-origin. Empty by
+    # default: the app is same-origin everywhere it runs, so none are needed.
+    allowed_origins: str = ""
     # Baked into the image at build time (Dockerfile ARGs, set by
     # docker-publish.yml) and reported by /api/health, so the running pod can
     # say exactly which build it is. Unset means a local or hand-built image.
@@ -82,7 +84,8 @@ class Settings(BaseSettings):
 
     @property
     def origins_list(self) -> list[str]:
-        return [o.strip() for o in self.allowed_origins.split(",")]
+        # Drops blanks: "" must mean "no origins", not [""].
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
 
 settings = Settings()

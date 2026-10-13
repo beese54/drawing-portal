@@ -290,21 +290,5 @@ def test_security_headers_are_set():
     assert r.headers["Referrer-Policy"] == "no-referrer"
     assert r.headers["Content-Security-Policy"] == "img-src 'self' data:; object-src 'none'"
 
-
-def test_cors_fallback_still_fills_the_gap_when_middleware_is_silent():
-    """The split-deployment fix this fallback exists for: CORSMiddleware emits
-    nothing on a request with no Origin header, and symbol images were observed
-    failing for exactly that reason. Making the fallback conditional must not
-    have removed the behaviour it was added for.
-
-    Note what this canNOT assert while allow_origins is ["*"]: that the fallback
-    DEFERS to CORSMiddleware. Starlette answers "*" rather than echoing the
-    origin under a wildcard allowlist, so both paths produce the same header and
-    the override case is indistinguishable here. It becomes assertable the
-    moment allow_origins is narrowed to settings.origins_list at go-live —
-    at which point this test should be extended to send a disallowed Origin and
-    assert the header is ABSENT. That is the regression the conditional exists
-    to prevent.
-    """
-    r = client.get("/api/health")
-    assert r.headers["access-control-allow-origin"] == "*"
+# CORS (including the removed fallback this file used to test) is covered by
+# tests/test_cors.py.

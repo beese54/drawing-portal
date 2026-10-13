@@ -18,16 +18,18 @@ threading.stack_size(8 * 1024 * 1024)
 
 app = FastAPI(title="Schematic Drawing Portal API", version=settings.app_version)
 
-# Wildcard for now. The allowlist to narrow to at go-live already exists and is
-# wired to the ALLOWED_ORIGINS env var — settings.origins_list (config.py) —
-# it is simply not referenced here yet. Note the app is same-origin in the
-# combined image (the frontend is served by this process, see the static mount
-# below), so CORS is not load-bearing for normal operation.
+# Cross-origin access is OFF unless a deployment lists origins in
+# ALLOWED_ORIGINS (empty by default; audit F3, fixed in 1.1.2). The app does
+# not need any: this process serves the frontend too (the static mount below),
+# and in development the Vite server proxies /api, so every request the app
+# makes is same-origin, and browsers never apply CORS to those. A listed origin
+# is echoed back exactly, never "*". Only GET and POST exist, so only those
+# may be preflighted. See tests/test_cors.py.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.origins_list,
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -36,24 +38,12 @@ app.add_middleware(
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
 
-    # ── CORS fallback ────────────────────────────────────────────────────────
-    # Fills the header in only when CORSMiddleware did not set one. On an
-    # earlier split deployment, requests for symbol images (loaded via
-    # <img crossorigin> so Konva can rasterize them) were observed missing
-    # Access-Control-Allow-Origin even with CORSMiddleware configured above —
-    # restored after a prior cleanup (commit d99ab4e) removed this and
-    # reintroduced the exact "blocked by CORS policy" failure it fixed.
-    #
-    # Conditional, deliberately. Setting it unconditionally made this
-    # middleware silently override CORSMiddleware on EVERY response: narrowing
-    # allow_origins above would then have had no effect whatsoever, because
-    # this line re-forced "*" afterwards. That is a trap for whoever tightens
-    # CORS at go-live, and it is why the two must be changed together — or,
-    # as now, why this one defers to the other.
-    if "access-control-allow-origin" not in response.headers:
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
+    # A CORS fallback used to sit here, adding Access-Control-Allow-Origin: *
+    # whenever CORSMiddleware had not. It served the retired split deployment
+    # (frontend and API on different origins, where a symbol image cached
+    # without CORS headers was reused for an <img crossorigin> load). Removed
+    # in 1.1.2: same-origin requests need no CORS headers, and it re-added "*"
+    # for exactly the origins CORSMiddleware had refused.
 
     # ── Security headers ─────────────────────────────────────────────────────
     # nosniff is the one that matters for this service specifically:
