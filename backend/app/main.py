@@ -1,3 +1,4 @@
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -6,6 +7,14 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.routers import health, symbols, evaluate, export
+
+# The image runs on Alpine (musl), which gives a new thread a 128 KiB stack;
+# glibc gives 8 MiB, and CPython's recursion guard assumes the larger one. With
+# the musl default, deeply nested input parsed in a worker thread (Starlette's
+# threadpool) overflows the C stack and segfaults the whole server instead of
+# raising RecursionError. Set before any worker thread exists. It reserves
+# address space, not memory. See tests/test_thread_stack.py.
+threading.stack_size(8 * 1024 * 1024)
 
 app = FastAPI(title="Schematic Drawing Portal API", version=settings.app_version)
 
