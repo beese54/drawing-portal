@@ -1,6 +1,6 @@
 # Plan — resolve the 166 container CVEs (release 1.1.1)
 
-Status: **Tasks 1–7 DONE locally 2026-10-13; push + tag v1.1.1 await OK.** Protocol: Pattern AT.
+Status: **DONE — v1.1.1 released and live 2026-10-13.** Protocol: Pattern AT.
 
 ## Diagnosis (measured 2026-10-12, GitLab's own Trivy + DB)
 - **All 166 come from the base image.** Bare `python:3.12-slim` scores
@@ -74,14 +74,14 @@ Status: **Tasks 1–7 DONE locally 2026-10-13; push + tag v1.1.1 await OK.** Pro
   - GitHub Actions (this also keeps today's SHA pins current)
 
   Plus your click: **Dependabot security updates** on.
-- [ ] **8. Release 1.1.1** (PATCH: no behaviour change for valid input).
+- [x] **8. Release 1.1.1** (PATCH: no behaviour change for valid input).
   - CHANGELOG under Security: "base image Debian → Alpine; container CVEs
     166 → N".
   - Tag `v1.1.1`, then verify the image and `/api/health`.
   - Then your steps: GovPaaS image path → `:1.1.1`, `DAST_APP_IMAGE` →
     `:1.1.1`.
   - Rollback is `:1.1.0`, unchanged.
-- [ ] **9. Close out the 166 in GitLab.**
+- [x] **9. Close out the 166 in GitLab.**
   - The next scheduled scan of 1.1.1 marks them **No longer detected**.
   - Then: Secure → Vulnerability report → filter "Activity: No longer
     detected" → select all → **Change status → Resolved**, with the comment
@@ -125,7 +125,21 @@ Status: **Tasks 1–7 DONE locally 2026-10-13; push + tag v1.1.1 await OK.** Pro
   passed them. Verified: it fails on 1.1.0, passes on the candidate, and
   fails on a missing report.
 
-**Heads-up:** once this is pushed, the weekly schedule still points at
+**Release:**
+- `d65aeb3` was pushed and GitLab was green.
+- `v1.1.1` was tagged; GitHub Actions run 38334880469 succeeded.
+- **The released image was verified:**
+  - health reports 1.1.1 / d65aeb3
+  - Alpine 3.24.2
+  - no pip
+  - an 8 MiB thread stack
+  - GitLab container scan (with language packages): **0**
+- **What the user did:**
+  - GovPaaS and `DAST_APP_IMAGE` set to `:1.1.1`
+  - the scheduled run was all green
+  - every old finding set to Resolved
+
+**Heads-up (resolved):** once this is pushed, the weekly schedule still points at
 `:1.1.0`, so `container_scanning:gate` will go red until `DAST_APP_IMAGE`
 is `:1.1.1`. Release first.
 
