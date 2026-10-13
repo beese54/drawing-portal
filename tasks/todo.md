@@ -1,6 +1,6 @@
 # Plan — close CORS (F3) and make the app's code immutable (release 1.1.2)
 
-Status: **A + B DONE locally 2026-10-13; push + tag v1.1.2 await OK.** Both are PATCH-level hardening
+Status: **DONE: v1.1.2 tagged and image verified 2026-10-13; GovPaaS switch pending (user).** Both are PATCH-level hardening
 with no behaviour change for the real app.
 
 ## A. CORS (audit F3)
@@ -90,10 +90,11 @@ with no behaviour change for the real app.
   app is proven compatible.
 
 ## C. Release 1.1.2
-- [ ] Changelog under Security, pre-push suite on Alpine, push (with OK),
-  GitLab green, tag `v1.1.2` (with OK), verify the image, then the user
-  switches GovPaaS and `DAST_APP_IMAGE` to `:1.1.2`.
-- [ ] Audit: F3 → FIXED. Refresh the stale findings summary (F2, F4, F5
+- [x] Changelog under Security, pre-push suite on Alpine, push (with OK),
+  GitLab green, tag `v1.1.2` (with OK), verify the image.
+- [ ] The user switches GovPaaS and `DAST_APP_IMAGE` to `:1.1.2`, then runs
+  the schedule.
+- [x] Audit: F3 → FIXED. Refresh the stale findings summary (F2, F4, F5
   and F8 are superseded or fixed).
 
 ## Review
@@ -127,6 +128,16 @@ with no behaviour change for the real app.
 - `README.md` describes `ALLOWED_ORIGINS`
 - `doc_audit.md` SC-02 is marked implemented
 - CHANGELOG 1.1.2
+
+**Release (2026-10-13):**
+- Pushed `d65aeb3..6c051f4`; the GitLab push pipeline is green (user).
+- Tag `v1.1.2` is on `6c051f4`; the GitHub Actions run 38350336884 succeeded.
+- **Published `:1.1.2` checked:**
+  - an anonymous GHCR manifest fetch returns 200
+  - health reports `1.1.2` and commit `6c051f4…`
+  - an evil-origin GET has no ACAO, and the evil preflight returns 400
+  - as uid 100 `app`, writing code gives Permission denied
+  - `docker diff` is empty
 
 ---
 
