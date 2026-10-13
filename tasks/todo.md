@@ -1,4 +1,4 @@
-# H1: API docs off in production (2026-10-13), DONE locally, ships as 1.1.4 with T1
+# H1: API docs off in production (2026-10-13), RELEASED in v1.1.4 with T1
 
 - [x] `tests/test_api_docs.py` written first. 4 tests failed on the old
   code (`/docs`, `/redoc`, `/openapi.json` and `/docs/oauth2-redirect`
@@ -14,10 +14,20 @@
   - fuzz 7/7, `docker diff` empty, Trivy 0
 - [x] Dev compose: `/docs` and `/openapi.json` return 200, and the app is
   served through Vite.
-- [ ] Release 1.1.4: push (OK) → GitLab green → tag (OK) → verify → the
-  user switches GovPaaS and `DAST_APP_IMAGE`.
+- [x] Release 1.1.4 (2026-10-13):
+  - pushed `d3ee323..e256534`; GitLab green (user)
+  - tag `v1.1.4` → `e256534`; GitHub Actions run 38357090844 succeeded
+  - **published `:1.1.4` checked:**
+    - anonymous pull returns 200; health reports `1.1.4/e256534`
+    - `/docs`, `/redoc` and `/openapi.json` return 404; `/` and
+      `/api/symbols` return 200
+    - evil-origin request gets no ACAO
+    - writing code gives Permission denied; `docker diff` is empty
+    - Trivy 0
+- [ ] The user switches GovPaaS and `DAST_APP_IMAGE` to `:1.1.4` and runs
+  the schedule.
 
-# T1: make CI's type check real (2026-10-13), DONE locally, to ship with H1
+# T1: make CI's type check real (2026-10-13), RELEASED in v1.1.4
 
 - [x] Fix the 5 latent errors (4 app, 1 vite config), with no runtime
   behaviour change.
