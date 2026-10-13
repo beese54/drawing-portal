@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import { svg2pdf } from 'svg2pdf.js';
 import { useCanvasStore } from '../store/canvasStore';
 import { useUiStore } from '../store/uiStore';
-import type { CanvasElement, PipeElement as PipeElementType, PipeType, FloorLevel, AnnotationElement } from '../types';
+import type { CanvasElement, PipeElement as PipeElementType, FloorLevel, AnnotationElement } from '../types';
 import { PAPER_SIZES_MM, SHEET_PX_PER_MM, AXIS_WIDTH, HIGHEST_FITTING_LABEL_FONT_SIZE, HIGHEST_FITTING_LABEL_COLOR } from '../types';
 import { getGridMrlValues, mrlToPixel } from './mrlMapping';
 import {

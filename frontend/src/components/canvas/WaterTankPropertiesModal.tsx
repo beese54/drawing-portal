@@ -549,19 +549,6 @@ const COL_HDR: React.CSSProperties = {
   textTransform: 'uppercase', letterSpacing: '0.04em',
 };
 
-function OutputCard({ title, accent, bg, border, children }: {
-  title: string; accent: string; bg: string; border: string; children: React.ReactNode;
-}) {
-  return (
-    <div style={{ padding: '10px 12px', background: bg, border: `1px solid ${border}`, borderRadius: 7 }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: accent, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-        {title}
-      </div>
-      {children}
-    </div>
-  );
-}
-
 function Alert({ color, bg, border, children }: {
   color: string; bg: string; border: string; children: React.ReactNode;
 }) {

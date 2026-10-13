@@ -7,7 +7,7 @@ import { useUiStore } from '../../store/uiStore';
 import { SYMBOL_PORTS, getElementPorts, getPortPosition, getScaledPortOffset, rotateOffset } from '../../utils/symbolPorts';
 import { closestPointOnSegment } from '../../utils/geometry';
 import { inferFluidAtPoint } from '../../utils/fluidInference';
-import type { PipeType, PipeElement } from '../../types';
+import type { PipeType } from '../../types';
 import { SCHEMATIC_SYMBOL_PX, isBackflowRiskElement, NEVER_MIRROR_IMAGE_SYMBOL_IDS } from '../../types';
 
 const FLUID_MATCH = 5; // px — slightly above CANVAS_SNAP_THRESHOLD so drag-snapped connections are always detected
@@ -112,7 +112,7 @@ function buildTeeJunctionHitPath(ctx: Konva.Context, width: number, height: numb
  *  below are wider than tall, so without this their ink would land in the wrong place). */
 function svgViewBoxMapper(
   vbMinX: number, vbMinY: number, vbW: number, vbH: number,
-  declaredSize: number, width: number, height: number,
+  declaredSize: number, width: number, _height: number,
 ) {
   const scale = Math.min(declaredSize / vbW, declaredSize / vbH);
   const translateX = (declaredSize - vbW * scale) / 2 - vbMinX * scale;

@@ -21,7 +21,7 @@ import { useUiStore } from '../../store/uiStore';
 import { useCanvasStore } from '../../store/canvasStore';
 import { useCanvasInteraction } from '../../hooks/useCanvasInteraction';
 import { useClampToViewport } from '../../hooks/useClampToViewport';
-import { CanvasElement, PipeElement as PipeElementType, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, PAPER_SIZES_MM, SHEET_PX_PER_MM, SCHEMATIC_SYMBOL_PX, AXIS_WIDTH, TITLE_BLOCK_MM, getSymbolSizePx, FIXTURE_MWELS_CATEGORY, isBackflowRiskElement } from '../../types';
+import { CanvasElement, ROTATABLE_SYMBOL_IDS, FLIP_ONLY_SYMBOL_IDS, PAPER_SIZES_MM, SHEET_PX_PER_MM, AXIS_WIDTH, TITLE_BLOCK_MM, getSymbolSizePx, FIXTURE_MWELS_CATEGORY, isBackflowRiskElement } from '../../types';
 import { symbolsApi } from '../../api/client';
 import { closestPointOnSegment, distance } from '../../utils/geometry';
 import { inferFluidAtPoint } from '../../utils/fluidInference';
@@ -270,7 +270,6 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   tankModalOpenRef.current = !!tankModalId;
 
   const setSelected = useCanvasStore((s) => s.setSelected);
-  const setSelectedIds = useCanvasStore((s) => s.setSelectedIds);
   const appendTemplate = useCanvasStore((s) => s.appendTemplate);
   const setMultiSelection = useCanvasStore((s) => s.setMultiSelection);
   const addElement = useCanvasStore((s) => s.addElement);

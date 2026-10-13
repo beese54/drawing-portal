@@ -225,7 +225,7 @@ export function PipeElement({
           exactly one segment, i.e. one plain Line spanning the whole pipe. The flow-
           direction arrowhead is drawn separately, at the pipe's midpoint rather than
           terminating this line (AutoCAD-style flow arrow) — see getPipeMidpointArrow. */}
-      {segments.map((seg, i) => {
+      {segments.map((seg) => {
         const flatPoints = seg.points.flatMap((p) => [p.x, p.y]);
         const segDash = seg.isArcBulge ? undefined : dash;
         // Keyed by the segment's own physical location (not array index) — jump-arc

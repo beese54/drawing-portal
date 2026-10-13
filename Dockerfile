@@ -1,5 +1,7 @@
 # ---- Frontend build stage ----
-FROM node:20-alpine AS frontend-build
+# Node 24 LTS (1.1.3): Node 20 reached end of life on 2026-04-30, and Vite 8
+# needs Node 20.19 or later. Only the built files leave this stage.
+FROM node:24-alpine AS frontend-build
 WORKDIR /fe
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci

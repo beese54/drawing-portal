@@ -143,7 +143,7 @@ backend:test:
 
 frontend:check:
   stage: test
-  image: node:20-alpine
+  image: node:24-alpine
   cache:
     key:
       files:
@@ -155,6 +155,8 @@ frontend:check:
     - npm ci --prefer-offline --no-audit --fund=false
     # tsc first: it fails faster and more legibly than the bundler does.
     - npx tsc --noEmit
+    # Errors fail the job; warnings (hook dependency lists) are reported only.
+    - npm run lint
     - npm run build
     # The import boundary's own harness. It compiles importValidation.ts with the
     # esbuild already in node_modules, so it needs frontend/node_modules present —
@@ -197,7 +199,7 @@ semgrep-sast:
 # (registry unreachable) also fails it: a scan that did not run is not clean.
 deps:npm-audit:
   stage: test
-  image: node:20-alpine
+  image: node:24-alpine
   dependencies: []
   script:
     - cd frontend
