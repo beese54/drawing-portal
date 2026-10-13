@@ -13,12 +13,25 @@ ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN npm run build
 
 # ---- Backend + combined runtime stage ----
-FROM python:3.12-slim
+# Alpine, not Debian slim (1.1.1): measured with GitLab's container scanner on
+# 2026-10-12, python:3.12-slim carried 166 OS-package CVEs (44 High, 2
+# fixable) and python:3.12-alpine carried 1. Every backend dependency ships a
+# musllinux wheel, so nothing is compiled here.
+# Pinned by digest so a build is reproducible; Dependabot proposes the bumps.
+FROM python:3.12-alpine@sha256:1b668429b3511ab407d8e00648891631b0b1a4d7e15e3ca70f38ab5b91ad4ab4
+
+# Take Alpine's security fixes released since the base image was published.
+# The image digest still records exactly what shipped.
+RUN apk upgrade --no-cache
 
 WORKDIR /app
 
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# pip is a build tool: once the dependencies are in, the app never calls it.
+# Removing it drops 6 CVEs the base image's pip 25.0.1 carried (found
+# 2026-10-13 by scanning installed Python packages, not just requirements.txt).
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip uninstall --yes pip
 
 COPY backend/app/ ./app/
 COPY backend/symbols/ ./symbols/
@@ -28,7 +41,9 @@ COPY --from=frontend-build /fe/dist/ ./static/
 # symbol write API on 2026-08-04; nothing needs injecting at runtime.
 ENV ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 
-RUN groupadd --system app && useradd --system --gid app --home /app app \
+# busybox equivalents of groupadd/useradd --system: a system user with no
+# password and no new home directory (/app already exists).
+RUN addgroup -S app && adduser -S -D -H -h /app -G app app \
     && chown -R app:app /app
 
 # Which build this is, reported by /api/health. docker-publish.yml passes the

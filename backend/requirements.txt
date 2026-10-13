@@ -1,3 +1,9 @@
+# Every direct dependency is pinned exactly (2026-10-13): the versions below
+# are the ones the released 1.1.0 image runs, so a rebuild of the same commit
+# installs the same code. Bumps arrive as Dependabot PRs and pass the
+# deps:audit gate. Transitive packages (lxml, pydantic, ...) still resolve
+# freely within these pins' own constraints.
+
 # Core API
 # fastapi, starlette and python-multipart were bumped together on 2026-10-09:
 # pip-audit found 7 known vulnerabilities in each of starlette 0.37.2 and
@@ -10,10 +16,10 @@ starlette==1.7.0
 uvicorn[standard]==0.30.1
 python-multipart==0.0.32
 pydantic-settings==2.3.0
-python-dotenv>=1.0.0
+python-dotenv==1.2.4
 
 # Image annotation (backflow check annotated image)
-Pillow>=10.0.0
+Pillow==12.3.0
 
 # Word (.docx) compliance report export
-python-docx>=1.1.0
+python-docx==1.2.0
