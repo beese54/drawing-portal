@@ -1,0 +1,45 @@
+# Dependabot version updates: one PR per update, opened weekly, so pinned
+# versions and digests do not silently go stale. Every PR runs the full GitLab
+# pipeline (via the pull mirror), including the deps:audit gate, so a bump is
+# tested before anyone merges it. Merging is still a human decision.
+#
+# Major upgrades are ignored here on purpose. They are planned work with their
+# own regression check (e.g. vite 5 → 8, tasks/todo.md A4), not a weekly PR.
+# The runtime base image stays on Python 3.12 until that is a decision; only
+# its digest (Alpine and 3.12.x security patches) moves.
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  - package-ecosystem: pip
+    directory: "/backend"
+    schedule:
+      interval: weekly
+      day: monday
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: "/frontend"
+    schedule:
+      interval: weekly
+      day: monday
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # Keeps the SHA-pinned actions in docker-publish.yml current; Dependabot
+  # updates the SHA and the "# vX.Y.Z" comment together.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday

@@ -121,7 +121,9 @@ default:
 
 backend:test:
   stage: test
-  image: python:3.12-slim
+  # Same OS and C library (Alpine, musl) as the production image, so a
+  # platform-dependent result shows up here, not in production.
+  image: python:3.12-alpine
   cache:
     key:
       files:
@@ -256,10 +258,45 @@ container_scanning:
   variables:
     CS_IMAGE: "$DAST_APP_IMAGE"
     CS_TRIVY_CACHE_DIR: "$CI_PROJECT_DIR/.trivy-cache"
+    # Also scan the Python packages actually installed in the image, not only
+    # OS packages. Off by default; with it off, 6 CVEs in the base image's own
+    # pip went unreported while pip-audit (requirements.txt only) saw nothing.
+    CS_DISABLE_LANGUAGE_VULNERABILITY_SCAN: "false"
   before_script:
     - id
     - ED=ce; case ",$GITLAB_FEATURES," in *,container_scanning,*) ED=ee;; esac
     - mkdir -p "$CS_TRIVY_CACHE_DIR" && ln -sfn "/home/gitlab/.cache/trivy/$ED/db" "$CS_TRIVY_CACHE_DIR/db"
+  rules:
+    - if: '$CONTAINER_SCANNING_DISABLED == "true"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# The scanner itself only reports. From 1.1.1 the image is Alpine with 0
+# findings, so a gate can hold: fail when a FIX EXISTS and the severity is
+# High, Critical, or Unknown (not yet rated by the distro, so it may be
+# either). Findings with no fix stay report-only: nothing can be done about
+# them until the distro ships one, and a gate nobody can clear gets ignored.
+# The fix for a red gate is usually a rebuild: the Dockerfile's
+# `apk upgrade` picks up the patched package. A missing report fails too.
+container_scanning:gate:
+  stage: test
+  image: python:3.12-alpine
+  needs: ["container_scanning"]
+  script:
+    - |
+      python - <<'EOF'
+      import json, sys
+      BLOCKING = {"Critical", "High", "Unknown"}
+      found = json.load(open("gl-container-scanning-report.json"))["vulnerabilities"]
+      blocking = [v for v in found if v.get("solution") and v["severity"] in BLOCKING]
+      for v in blocking:
+          dep = v["location"]["dependency"]
+          print(f"BLOCKS {v['severity']}: {dep['package']['name']} {dep['version']} "
+                f"{v['identifiers'][0]['name']} -> {v['solution']}")
+      print(f"{len(found)} findings, {len(blocking)} blocking "
+            "(fix available and High/Critical/Unknown)")
+      sys.exit(1 if blocking else 0)
+      EOF
   rules:
     - if: '$CONTAINER_SCANNING_DISABLED == "true"'
       when: never
@@ -471,7 +508,7 @@ dast:
 
 fuzz:blackbox:
   stage: dast
-  image: python:3.12-slim
+  image: python:3.12-alpine  # the test client; the app under test is the sidecar
   dependencies: []
   services:
     - name: "$DAST_APP_IMAGE"
