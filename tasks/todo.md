@@ -21,6 +21,16 @@ lockfile.
   - Still unexercised: metadata v6's semver tag, until the next release
     tag.
 
+**Next (2026-10-14): production go-live.** The user is provisioning a
+production GovPaaS service.
+- The go-live checklist (verdict, blockers, platform settings, asks for
+  GovPaaS and the cyber team) is kept **outside this public repo**, in the
+  project folder.
+- The reusable version is `govpaas_configuration_helper/GOVPAAS_APP_SECURITY_CHECKLIST.md`.
+- `f1ad081` (a failed annotation is now logged as JSON, not a printed
+  traceback) is committed and becomes release 1.1.7, which production
+  should start on.
+
 Still open after 1.1.6:
 - **H6:** HSTS. **Deferred to production go-live** (user, 2026-10-14). The
   site is non-production, intranet-only and reached through Menlo browser
