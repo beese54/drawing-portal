@@ -27,6 +27,18 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+### Changed
+- The image-publishing workflow's five GitHub Actions moved to their
+  current majors, which run on Node 24. GitHub had been forcing the old
+  Node 20 versions onto Node 24 with a warning:
+  - checkout v7.0.1
+  - login v4.6.0
+  - metadata v6.2.0
+  - setup-buildx v4.4.1
+  - build-push v7.4.0
+- They are still pinned by commit SHA. Checkout no longer leaves the token
+  in `.git/`. The image itself is unchanged.
+
 ## [1.1.6] - 2026-10-14
 
 Security hardening. There is no behaviour change for users: responses are
