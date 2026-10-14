@@ -18,6 +18,9 @@ updates:
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
+  # backend/requirements.txt is a pip-compile lock of requirements.in (H5).
+  # Dependabot recognises the pip-compile header and updates the .in pin and
+  # both hashed locks in one PR; ci/lock_check.py fails any PR where they drift.
   - package-ecosystem: pip
     directory: "/backend"
     schedule:

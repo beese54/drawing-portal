@@ -131,7 +131,9 @@ backend:test:
     paths:
       - .cache/pip
   script:
-    - pip install --quiet --root-user-action=ignore -r backend/requirements-dev.txt
+    # The hashed dev lock: production's exact runtime versions plus the test
+    # tools, each checked against its hash (H5).
+    - pip install --quiet --root-user-action=ignore --require-hashes --no-deps -r backend/requirements-dev.txt
     - cd backend
     # JUnit output so failures surface on the merge request itself, not just the log.
     - python -m pytest -q --junitxml="$CI_PROJECT_DIR/report-backend.xml"
@@ -194,6 +196,9 @@ semgrep-sast:
 # new advisories are published against code that has not changed, so the
 # weekly run is what catches them. The rules live in ci/audit_gate.py:
 #   - any pip-audit finding in backend/requirements.txt         → fails
+#     (the hashed lock, so exactly the versions the image installs)
+#   - the lock out of step with backend/requirements.in         → fails
+#     (ci/lock_check.py)
 #   - npm high/critical in runtime deps (shipped to browsers)   → fails
 #   - npm findings in dev/build-only deps                       → reported
 # Waivers go in ci/audit-exceptions.json, each with a reason and an expiry
@@ -227,9 +232,12 @@ deps:audit:
   script:
     - pip install --quiet --root-user-action=ignore pip-audit==2.10.1 pytest
     # The gate's own rules first: a broken gate would pass everything.
-    - python -m pytest -q -p no:cacheprovider ci/test_audit_gate.py
+    - python -m pytest -q -p no:cacheprovider ci/test_audit_gate.py ci/test_lock_check.py
+    - python ci/lock_check.py backend
     # As a module: as non-root, pip puts the script in ~/.local/bin, off PATH.
-    - python -m pip_audit -r backend/requirements.txt --progress-spinner off --format json --output pip-audit.json || true
+    # --disable-pip audits the lock's pinned versions as written, with no
+    # resolving, so the audit covers every transitive package the image has.
+    - python -m pip_audit -r backend/requirements.txt --require-hashes --disable-pip --progress-spinner off --format json --output pip-audit.json || true
     - >
       python ci/audit_gate.py --pip pip-audit.json
       --npm-runtime npm-runtime.json --npm-all npm-all.json
@@ -527,7 +535,7 @@ fuzz:blackbox:
       - .cache/pip
   timeout: 40m
   script:
-    - pip install --quiet --root-user-action=ignore -r backend/requirements-dev.txt
+    - pip install --quiet --root-user-action=ignore --require-hashes --no-deps -r backend/requirements-dev.txt
     - cd backend
     - |
       if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then

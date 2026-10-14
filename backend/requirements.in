@@ -1,0 +1,39 @@
+# The DIRECT runtime dependencies, each pinned exactly. Edit this file, never
+# requirements.txt: that is the lock compiled from it (H5, 1.1.6), with every
+# package, transitive ones included, pinned and hashed. After an edit, recompile
+# in the production platform (Linux, Python 3.12) from backend/:
+#
+#   docker run --rm -v "$PWD:/src" -w /src python:3.12-alpine sh -c \
+#     "pip install -q pip-tools==7.6.2 && pip-compile --generate-hashes --strip-extras \
+#      --allow-unsafe -q -o requirements.txt requirements.in && pip-compile \
+#      --generate-hashes --strip-extras --allow-unsafe -q \
+#      -o requirements-dev.txt requirements-dev.in"
+#
+# pip-compile downloads every published wheel of a package to hash it (several
+# GB for Pillow, lxml and pydantic-core), but reuses the hashes already in the
+# output file for versions that have not changed. So a bump is quick. A lock
+# rebuilt from nothing is not: compile requirements.txt, copy it to
+# requirements-dev.txt, then compile that.
+#
+# CI (ci/lock_check.py, in deps:audit) fails if a lock no longer matches this
+# file. Bumps arrive as Dependabot PRs, which recompile both locks themselves.
+
+# Core API
+# fastapi, starlette and python-multipart were bumped together on 2026-10-09:
+# pip-audit found 7 known vulnerabilities in each of starlette 0.37.2 and
+# python-multipart 0.0.9 (fixed by 1.3.1 and 0.0.31). starlette is pinned
+# directly because it is the package carrying the fixes; fastapi alone would
+# accept anything >= 0.46.0. Starlette >= 0.40 caps form fields at 1 MB by
+# default; app/services/form_limits.py raises that for metadata_json.
+fastapi==0.143.0
+starlette==1.7.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.32
+pydantic-settings==2.3.0
+python-dotenv==1.2.4
+
+# Image annotation (backflow check annotated image)
+Pillow==12.3.0
+
+# Word (.docx) compliance report export
+python-docx==1.2.0

@@ -29,10 +29,17 @@ RUN apk upgrade --no-cache
 WORKDIR /app
 
 COPY backend/requirements.txt .
+# requirements.txt is the hashed lock of every package (H5, 1.1.6; edit
+# requirements.in, then recompile). --require-hashes refuses any file whose
+# hash is not in the lock, and --no-deps refuses anything the lock does not
+# list, so the image contains exactly what was reviewed. pip check then
+# proves the lock is complete: a missing dependency fails the build here, not
+# at runtime.
 # pip is a build tool: once the dependencies are in, the app never calls it.
 # Removing it drops 6 CVEs the base image's pip 25.0.1 carried (found
 # 2026-10-13 by scanning installed Python packages, not just requirements.txt).
-RUN pip install --no-cache-dir -r requirements.txt \
+RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.txt \
+    && pip check \
     && pip uninstall --yes pip
 
 COPY backend/app/ ./app/

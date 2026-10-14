@@ -3,7 +3,8 @@ FROM python:3.12-alpine
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# The hashed lock, as in the production image (see the root Dockerfile).
+RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.txt
 
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

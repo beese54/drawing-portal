@@ -82,7 +82,10 @@ docker compose up --build
 ```
 
 Without Docker, `./start.sh` runs the same two dev servers from your local
-Python venv and Node install (`./stop.sh` stops them).
+Python venv and Node install (`./stop.sh` stops them). Create the venv in
+`backend/.venv` and install `requirements-dev.in`. The hashed
+`requirements*.txt` locks are compiled for Linux (the image's platform), so on
+Windows or macOS install the `.in` files, which carry the same direct pins.
 
 ### 4. Run (production image)
 
@@ -187,7 +190,9 @@ schematic-drawing-portal/
 ├── backend/
 │   ├── .env.example                  # Optional overrides — copy to .env
 │   ├── Dockerfile.dev                # Dev image with --reload (Python 3.12 Alpine, as production)
-│   ├── requirements.txt              # Python dependencies
+│   ├── requirements.in               # Direct Python dependencies (edit this)
+│   ├── requirements.txt              # Hashed lock compiled from it (what the image installs)
+│   ├── requirements-dev.in / .txt    # Test tools, same scheme
 │   └── app/
 │       ├── main.py                   # FastAPI entry point
 │       ├── config.py                 # Settings & environment
