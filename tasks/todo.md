@@ -22,7 +22,10 @@ lockfile.
     tag.
 
 Still open after 1.1.6:
-- **H6:** HSTS. GovPaaS's call, still unanswered.
+- **H6:** HSTS. **Deferred to production go-live** (user, 2026-10-14). The
+  site is non-production, intranet-only and reached through Menlo browser
+  isolation, so DevTools can't show the real headers. See the H6 row in
+  `security_audit.md` for the go-live action.
 - **Release workflow actions moved to their Node 24 majors:** committed
   locally as `a9fdffe`. Push it after `v1.1.6` is tagged; its main-push run
   proves it. The first tag build afterwards (1.1.7) exercises metadata
@@ -514,7 +517,10 @@ Measured on the 1.1.2 image:
 - **H4:** request logging (F5 remainder): request id, route, status,
   duration, no payloads.
 - **H5:** Python transitive lockfile with hashes (supply chain).
-- **H6:** HSTS. GovPaaS's call, still unanswered.
+- **H6:** HSTS. **Deferred to production go-live** (user, 2026-10-14). The
+  site is non-production, intranet-only and reached through Menlo browser
+  isolation, so DevTools can't show the real headers. See the H6 row in
+  `security_audit.md` for the go-live action.
 
 ---
 
