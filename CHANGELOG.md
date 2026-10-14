@@ -27,6 +27,13 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+### Fixed
+- A failed schematic annotation printed a plain-text traceback to stderr.
+  This is a handled failure, so the report is still returned without the
+  annotated image. It was the one path that broke the all-JSON log stream
+  added in 1.1.6. It is now logged as a JSON warning that carries the
+  request id.
+
 ### Changed
 - The image-publishing workflow's five GitHub Actions moved to their
   current majors, which run on Node 24. GitHub had been forcing the old

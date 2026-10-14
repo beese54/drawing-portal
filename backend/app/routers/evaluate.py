@@ -12,7 +12,7 @@ Returns a structured JSON report rendered in the Draw tab's evaluation modal.
 from __future__ import annotations
 
 import json
-import traceback
+import logging
 from dataclasses import asdict
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -36,6 +36,7 @@ from app.services.metadata_schema import Metadata
 from app.services.upload_validation import is_allowed_image
 
 # SizedFormRoute: metadata_json can exceed Starlette's 1 MB per-field default.
+logger = logging.getLogger(__name__)
 router = APIRouter(route_class=SizedFormRoute)
 
 
@@ -278,8 +279,10 @@ async def evaluate_schematic(
                     canvas_height=canvas_h,
                 )
         except Exception:
-            # Annotation failure is non-fatal — log and continue
-            traceback.print_exc()
+            # Annotation failure is non-fatal: the report returns without the
+            # annotated image. Logged as JSON with this request's id (H4), never
+            # printed: a raw traceback on stderr would break the log stream.
+            logger.warning("schematic annotation failed; report sent without it", exc_info=True)
 
     return EvaluateResponse(
         check1_backflow=asdict(check1),

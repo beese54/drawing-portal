@@ -213,6 +213,47 @@ def test_under_real_uvicorn_the_traceback_carries_the_request_id(logs):
     assert rid is None or rid == access["request_id"]
 
 
+def test_a_handled_annotation_failure_is_logged_as_json_not_printed(logs, capsys, monkeypatch):
+    """Annotation failure is non-fatal: the report still returns, without the
+    annotated image. Until 1.1.7 it called traceback.print_exc(), a plain-text
+    traceback on stderr with no request id, the one path that broke the
+    all-JSON log stream."""
+    import io
+
+    from PIL import Image
+
+    import app.routers.evaluate as evaluate
+
+    real_check = evaluate.check_backflow_prevention
+
+    def with_an_element_of_interest(metadata, adjacency):
+        result = real_check(metadata, adjacency)
+        result.elements_of_interest = [{"element_id": "e0", "label": "x", "color": "red"}]
+        return result
+
+    def failing_annotation(**_kwargs):
+        raise RuntimeError("deliberate annotation failure")
+
+    monkeypatch.setattr(evaluate, "check_backflow_prevention", with_an_element_of_interest)
+    monkeypatch.setattr(evaluate, "annotate_schematic", failing_annotation)
+    png = io.BytesIO()
+    Image.new("RGB", (8, 8), "white").save(png, format="PNG")
+    capsys.readouterr()
+
+    r = client.post(
+        "/api/evaluate",
+        data={"metadata_json": '{"elements": [{"id": "e0", "type": "tap", "position": {"canvas_x": 1, "canvas_y": 1}}], "pipes": []}'},
+        files={"schematic_image": ("s.png", png.getvalue(), "image/png")},
+    )
+    assert r.status_code == 200
+    assert "Traceback" not in capsys.readouterr().err
+    [record] = [x for x in logs.records if x.name == "app.routers.evaluate"]
+    line = json.loads(JsonFormatter().format(record))
+    assert line["level"] == "WARNING"
+    assert line["request_id"] == r.headers["X-Request-ID"]
+    assert "RuntimeError: deliberate annotation failure" in line["exc"]
+
+
 # ── The formatter on its own ────────────────────────────────────────────────
 
 def test_a_log_line_outside_any_request_has_no_request_id():
