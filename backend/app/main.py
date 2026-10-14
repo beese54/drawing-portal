@@ -6,7 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
+from app.request_logging import RequestLoggingMiddleware, configure_logging
 from app.routers import health, symbols, evaluate, export
+
+# Every log line, uvicorn's included, as JSON on stdout (H4).
+configure_logging()
 
 # The image runs on Alpine (musl), which gives a new thread a 128 KiB stack;
 # glibc gives 8 MiB, and CPython's recursion guard assumes the larger one. With
@@ -101,6 +105,12 @@ async def security_headers(request: Request, call_next):
         "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
     )
     return response
+
+
+# Added last, so it wraps every middleware above: one JSON line per request,
+# timed end to end, with the X-Request-ID it returns (H4). See
+# app/request_logging.py for what it deliberately leaves out.
+app.add_middleware(RequestLoggingMiddleware)
 
 app.include_router(health.router, prefix="/api")
 app.include_router(symbols.router, prefix="/api/symbols")

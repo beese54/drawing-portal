@@ -17,6 +17,120 @@ Release flow, unchanged: push (with OK) → GitLab "Update now", green → tag
 
 ---
 
+# H4 request logging + H5 Python lockfile (2026-10-14) → 1.1.6
+
+## H4: one structured line per request (F5 remainder; IM8 LM-15, LM-19)
+
+**Measured on the 1.1.5 image.** Uvicorn's default access log:
+- plain text: `INFO: 172.17.0.1:41282 - "GET /api/symbols?token=SECRET123 HTTP/1.1" 200 OK`
+- the query string is written verbatim; anything in it reaches the log (LM-19)
+- the "client" is the proxy's address behind GovPaaS, not the user's
+- no request id, no duration, no timestamp of its own
+- an unhandled error's traceback cannot be tied to its request
+
+**Questions the log must answer** (Pattern AP; questions first):
+- Is it erroring, and on which route? → `status`, `route`
+- Is it slow, and where? → `duration_ms` per `route`
+- Which line belongs to the failed request a user reports? → `request_id`,
+  also returned as the `X-Request-ID` response header, and carried on
+  the traceback
+- When? → `ts` (UTC, ms)
+
+**Design:**
+- A pure ASGI middleware, outermost, so it times the whole response
+  (including the streamed body) and sees a 500 from an exception.
+- A JSON formatter for the `uvicorn` and app loggers, so every line in
+  the stream is structured, including startup lines and tracebacks.
+- The request id goes into a contextvar, so any log line in that request,
+  including uvicorn's traceback, carries it.
+- Uvicorn's own access log is turned off; this replaces it.
+
+**Not logged:**
+- **Payloads, query strings, headers:** the path is kept without its
+  query.
+- **Client IP:** behind the proxy it's the proxy's address. A forwarded
+  header is caller-supplied, and the user's IP is personal data. GovPaaS's
+  edge already records the real one (LM-6 is a platform control).
+- **User agent:** to keep the log minimal.
+- **Successful `/api/health` probes:** noise from the platform and Docker
+  health checks. Failed probes are still logged.
+
+**Out of scope:** metrics, dashboards and alerts. Those are GovPaaS's
+monitoring (LM-9, LM-11, LM-16).
+
+**Tasks:**
+- [x] Tests first (`tests/test_request_logging.py`):
+  - one JSON line per request with the fields above
+  - query string absent
+  - `X-Request-ID` matches the logged id
+  - a 500 is logged with its id, and the traceback carries it
+  - successful health is not logged; a 404 and a 422 are
+  - path truncation
+  - the formatter escapes newlines (no log injection)
+- [x] `app/request_logging.py`, wired into `main.py`.
+- [x] Built image: the real stdout stream is all JSON, there are no
+  plaintext access lines, and a forced error carries its request id.
+
+**H4 review:**
+- **Tests:** 16 new, failing before the module existed.
+  - Alpine as uid 65533: 209 passed, 7 skipped (193 + 16).
+- **Found on the way:** FastAPI 0.143 keeps an included route's template
+  without its router prefix (`/{symbol_id}/image`). The full template is
+  rebuilt from the request path, and a test pins it.
+- **Built image, real uvicorn stdout:**
+  - every line is JSON (0 non-JSON), startup lines included
+  - no plain-text access lines; successful health probes absent
+  - `?token=SECRET123` and a forged `X-Forwarded-For: 9.9.9.9` appear
+    nowhere
+  - `X-Request-ID` header matches the logged id
+  - routes logged as templates (`/api/symbols/{symbol_id}/image`); the
+    static `/` and `/docs` (404) have `route: null`
+  - `docker diff` empty
+- **Forced error under the real `uvicorn` command line** (probe route):
+  - the access line is `ERROR`, status 500, `error: RuntimeError`
+  - uvicorn's traceback line carries the same `request_id`
+
+## H5: hashed lock for every Python package (supply chain)
+
+**Today:** the direct dependencies are pinned, but transitive ones
+(pydantic, anyio, lxml, …) resolve freely at build time. Nothing checks
+that a downloaded wheel is the one that was reviewed. pip-audit resolves
+on its own, so it can audit different versions from the ones the image
+installs.
+
+**Design (pip-tools, which Dependabot supports natively):**
+- `requirements.in` holds the direct pins (today's file).
+  `requirements.txt` is compiled from it with every package pinned and
+  `--generate-hashes`, in `python:3.12-alpine` (the production platform).
+- `requirements-dev.in` takes the runtime pins via `-r requirements.in`,
+  constrained with `-c requirements.txt`, plus the test tools. It compiles
+  to `requirements-dev.txt`, also hashed, and its runtime versions are
+  identical to the production lock.
+- **Dockerfile:** `pip install --require-hashes --no-deps -r requirements.txt`.
+  It installs only what the lock lists, and only those files.
+- **deps:audit:** `pip-audit -r requirements.txt --require-hashes
+  --disable-pip`, which audits exactly the locked versions with no
+  resolving.
+- A CI check that the lock matches `requirements.in`, so an edited `.in`
+  without a recompile fails.
+- **Windows venv for `start.sh`:** the lock is Linux-specific (uvloop), so
+  that venv installs from `requirements-dev.in`. Documented in the README.
+
+**Tasks:**
+- [ ] Compile the two locks in Alpine.
+  - Diff the resolved versions against those installed in the 1.1.5 image.
+    They should match, or each difference is explained.
+- [ ] Dockerfile, `Dockerfile.dev`, CI jobs (backend:test, deps:audit,
+  fuzz:blackbox) and the README.
+- [ ] Prove that a tampered hash fails the install, and that an unlisted
+  transitive package is not pulled in.
+- [ ] Built image: `pip list` matches the lock, Trivy 0, fuzz, `docker diff`.
+
+Release: push (with OK) → GitLab green → tag `v1.1.6` (with OK) → verify →
+GovPaaS and `DAST_APP_IMAGE` → schedule.
+
+---
+
 # H2: full Content-Security-Policy + Permissions-Policy (2026-10-13), RELEASED in v1.1.5
 
 **Inventory (measured):**
