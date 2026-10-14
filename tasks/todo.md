@@ -28,8 +28,14 @@ production GovPaaS service.
   project folder.
 - The reusable version is `govpaas_configuration_helper/GOVPAAS_APP_SECURITY_CHECKLIST.md`.
 - `f1ad081` (a failed annotation is now logged as JSON, not a printed
-  traceback) is committed and becomes release 1.1.7, which production
-  should start on.
+  traceback) becomes release 1.1.7, which production should start on.
+  - **Paused 2026-10-14:** pushed `a3c0f07..a7099d8`; the GitHub build
+    passed.
+  - **Resume:** the user confirms GitLab is green → tag `v1.1.7` (with OK)
+    → check that metadata v6 published `:1.1.7` → run the usual image
+    checks.
+  - Then: the optional local load test, and converting the go-live
+    checklist to Word if the cyber team wants it.
 
 Still open after 1.1.6:
 - **H6:** HSTS. **Deferred to production go-live** (user, 2026-10-14). The
