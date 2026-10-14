@@ -12,11 +12,14 @@ lockfile.
   - installed packages exactly equal the lock (25)
   - logs all JSON; a `?token=SECRET123` request did not reach them
   - `docker diff` empty; Trivy 0 (Alpine and Python)
-- [ ] The user switches GovPaaS and `DAST_APP_IMAGE` to `:1.1.6` and runs
-  the schedule.
-
-Pending push: `a9fdffe` (workflow actions moved to Node 24) plus this
-record. Its main-push build proves the new actions.
+- [x] The user switched GovPaaS and `DAST_APP_IMAGE` to `:1.1.6`; the
+  schedule is green.
+- [x] `a9fdffe` (workflow actions moved to Node 24) pushed with this record
+  (`846bc8c..a3c0f07`).
+  - Run 38529088939 succeeded; the Node 20 warning is gone.
+  - build-push v7 now uploads a build-record artifact (`.dockerbuild`).
+  - Still unexercised: metadata v6's semver tag, until the next release
+    tag.
 
 Still open after 1.1.6:
 - **H6:** HSTS. GovPaaS's call, still unanswered.
