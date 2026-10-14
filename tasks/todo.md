@@ -1,15 +1,30 @@
 # Resume here (2026-10-14)
 
-1.1.6 (H4 request logging + H5 Python lockfile) is built and verified
-locally and committed, but not pushed. Next: push (with OK) → GitLab green
-→ tag `v1.1.6` (with OK) → verify → GovPaaS and `DAST_APP_IMAGE` →
-schedule.
+**v1.1.6 released (2026-10-14).** H4 request logging plus H5 Python
+lockfile.
+- pushed `9633b94..846bc8c`; GitHub build ok; GitLab green (user)
+- tag `v1.1.6` → `846bc8c`; GitHub Actions run 38528645254 succeeded
+- **published `:1.1.6` checked:**
+  - anonymous pull 200; health `1.1.6/846bc8c`
+  - CSP, Permissions-Policy, nosniff, DENY, no-referrer and `X-Request-ID`
+    present
+  - docs 404
+  - installed packages exactly equal the lock (25)
+  - logs all JSON; a `?token=SECRET123` request did not reach them
+  - `docker diff` empty; Trivy 0 (Alpine and Python)
+- [ ] The user switches GovPaaS and `DAST_APP_IMAGE` to `:1.1.6` and runs
+  the schedule.
+
+Pending push: `a9fdffe` (workflow actions moved to Node 24) plus this
+record. Its main-push build proves the new actions.
 
 Still open after 1.1.6:
 - **H6:** HSTS. GovPaaS's call, still unanswered.
-- **Small follow-up:** the GitHub release workflow's actions still target
-  Node 20, and GitHub forces them onto Node 24. Bump their versions. Also,
-  `ubuntu-latest` becomes Ubuntu 26 from 2026-10-19.
+- **Release workflow actions moved to their Node 24 majors:** committed
+  locally as `a9fdffe`. Push it after `v1.1.6` is tagged; its main-push run
+  proves it. The first tag build afterwards (1.1.7) exercises metadata
+  v6's semver tag. `ubuntu-latest` becomes Ubuntu 26 from 2026-10-19; the
+  build only needs Docker, so it's left unpinned.
 - **Watch the first Dependabot pip PR:** it should update
   `requirements.in` and both hashed locks together, and pass
   `ci/lock_check.py`.
