@@ -1,23 +1,22 @@
-# Resume here (paused 2026-10-13)
+# Resume here (2026-10-14)
 
-v1.1.5 is live on GovPaaS, and the DAST schedule is green against `:1.1.5`.
-The remaining hardening items are in "Next plan: application hardening"
-(under the 1.1.3 plan below):
-- **H4:** request logging: request id, route, status, duration, no
-  payloads.
-- **H5:** Python transitive lockfile with hashes.
+1.1.6 (H4 request logging + H5 Python lockfile) is built and verified
+locally and committed, but not pushed. Next: push (with OK) → GitLab green
+→ tag `v1.1.6` (with OK) → verify → GovPaaS and `DAST_APP_IMAGE` →
+schedule.
+
+Still open after 1.1.6:
 - **H6:** HSTS. GovPaaS's call, still unanswered.
 - **Small follow-up:** the GitHub release workflow's actions still target
   Node 20, and GitHub forces them onto Node 24. Bump their versions. Also,
   `ubuntu-latest` becomes Ubuntu 26 from 2026-10-19.
-
-Release flow, unchanged: push (with OK) → GitLab "Update now", green → tag
-(with OK) → verify the published image → the user switches GovPaaS and
-`DAST_APP_IMAGE` → run the schedule.
+- **Watch the first Dependabot pip PR:** it should update
+  `requirements.in` and both hashed locks together, and pass
+  `ci/lock_check.py`.
 
 ---
 
-# H4 request logging + H5 Python lockfile (2026-10-14) → 1.1.6
+# H4 request logging + H5 Python lockfile (2026-10-14), DONE locally → 1.1.6
 
 ## H4: one structured line per request (F5 remainder; IM8 LM-15, LM-19)
 
@@ -117,14 +116,53 @@ installs.
   that venv installs from `requirements-dev.in`. Documented in the README.
 
 **Tasks:**
-- [ ] Compile the two locks in Alpine.
+- [x] Compile the two locks in Alpine.
   - Diff the resolved versions against those installed in the 1.1.5 image.
     They should match, or each difference is explained.
-- [ ] Dockerfile, `Dockerfile.dev`, CI jobs (backend:test, deps:audit,
+- [x] Dockerfile, `Dockerfile.dev`, CI jobs (backend:test, deps:audit,
   fuzz:blackbox) and the README.
-- [ ] Prove that a tampered hash fails the install, and that an unlisted
+- [x] Prove that a tampered hash fails the install, and that an unlisted
   transitive package is not pulled in.
-- [ ] Built image: `pip list` matches the lock, Trivy 0, fuzz, `docker diff`.
+- [x] Built image: `pip list` matches the lock, Trivy 0, fuzz, `docker diff`.
+
+**H5 review:**
+- **Locks:**
+  - `requirements.txt`: 25 packages, 867 hashes. The versions are identical
+    to the 25 installed in the 1.1.5 image (diffed).
+  - `requirements-dev.txt`: the same 25 plus 10 test packages.
+    `ci/lock_check.py` confirms the runtime versions are identical.
+  - Compiled with pip-tools 7.6.2 in `python:3.12-alpine`.
+- **Cost found on the way:** pip-compile downloads every published wheel
+  (all platforms) to hash it. The runtime lock took about 30 minutes and
+  over 7 GB. Unchanged versions reuse the hashes already in the output
+  file, so the dev lock, seeded from `requirements.txt`, took about a
+  minute. This is recorded in `requirements.in`. The same cost is why CI
+  checks the lock statically rather than recompiling it.
+- **Negative proofs** (scratch copies of the lock, in Alpine):
+  - idna's hashes altered: pip refused it ("DO NOT MATCH THE HASHES"),
+    and nothing was installed
+  - idna's entry removed: `--no-deps` did not fetch it, and `pip check`
+    failed ("anyio requires idna"), so the Docker build would fail
+- **CI pieces, run in their CI images:**
+  - `ci/test_lock_check.py` and `ci/test_audit_gate.py`: 20 passed
+  - `lock_check` on the real locks: ok
+  - `pip-audit --require-hashes --disable-pip`: 25 packages audited, 0
+    vulnerabilities
+  - the full `audit_gate` with real npm reports: 0 advisories
+- **Backend suite** installed from the hashed dev lock (Alpine, uid
+  65533): 209 passed, 7 skipped.
+- **Image `dp:116`:**
+  - built with `--require-hashes --no-deps` and `pip check`
+  - installed packages exactly match the lock (25/25); pip is absent
+  - **differential against 1.1.5:**
+    - evaluate on the full-symbols fixture: identical bodies
+    - three invalid inputs: identical status and bodies (422, 422, 200)
+    - `/api/symbols` and `/`: identical
+    - response headers: identical apart from the new `X-Request-ID`
+  - docs return 404; `docker diff` is empty; Trivy 0 (Alpine and Python)
+  - black-box fuzz 7/7 (300 examples): 1,816 log lines, all JSON, no 5xx
+- **Dev compose backend** (`Dockerfile.dev` from the hashed lock): builds;
+  health and `/docs` return 200; logs are JSON.
 
 Release: push (with OK) → GitLab green → tag `v1.1.6` (with OK) → verify →
 GovPaaS and `DAST_APP_IMAGE` → schedule.

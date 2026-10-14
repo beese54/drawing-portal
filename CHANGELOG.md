@@ -27,6 +27,36 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-10-14
+
+Security hardening. There is no behaviour change for users: responses are
+identical to 1.1.5 apart from a new `X-Request-ID` header.
+
+### Security
+- **Structured request logging** (H4; closes the logging part of audit F5).
+  - Every request now writes one JSON line: time, request id, method, path
+    (without its query string), route template, status and duration.
+  - The request id is returned as `X-Request-ID`, and every other log line
+    written during that request carries it too, including the traceback of
+    an unhandled error.
+  - **Never logged:** query strings, request bodies, headers and the client
+    IP. Behind GovPaaS the address is the proxy's; the platform edge keeps
+    the real one.
+  - Successful `/api/health` probes are skipped as noise.
+  - Uvicorn's startup lines are JSON too, and its plain-text access log is
+    off.
+- **Hashed lock for every Python package** (H5).
+  - `backend/requirements.txt` is now compiled by pip-compile from the new
+    `requirements.in`. It pins all 25 runtime packages, transitive ones
+    included, with their hashes. They are the same 25 versions 1.1.5 runs.
+  - The image installs with `--require-hashes --no-deps` and then runs
+    `pip check`. A tampered or substituted wheel, or a package missing from
+    the lock, fails the build.
+  - `requirements-dev.txt` is locked the same way, with production's exact
+    versions.
+  - CI audits the lock as written and fails if a lock drifts from its
+    `.in` file (`ci/lock_check.py`).
+
 ## [1.1.5] - 2026-10-13
 
 Security hardening. There is no behaviour change for the app: every
@@ -247,7 +277,11 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.6...HEAD
+[1.1.6]: https://github.com/beese54/drawing-portal/compare/v1.1.5...v1.1.6
+[1.1.5]: https://github.com/beese54/drawing-portal/compare/v1.1.4...v1.1.5
+[1.1.4]: https://github.com/beese54/drawing-portal/compare/v1.1.3...v1.1.4
+[1.1.3]: https://github.com/beese54/drawing-portal/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/beese54/drawing-portal/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/beese54/drawing-portal/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/beese54/drawing-portal/releases/tag/v1.1.0

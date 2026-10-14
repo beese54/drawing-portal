@@ -194,11 +194,12 @@ the Remediation Log further down.
 | F2: unbounded compute endpoints (DoS) | **Mitigated.** Request, field, image, crop and row-count caps (`c73cd7e`, `1e55132`), the pre-parse size cap (R-01), F9–F13. Rate limiting is still platform-side and not configured. |
 | F3: open CORS, dead config | **Fixed in 1.1.2.** Cross-origin access is off unless `ALLOWED_ORIGINS` lists an origin, the `*` fallback is deleted, and methods are limited to GET/POST. Browser-verified. |
 | F4: SVG upload blocklist sanitiser | **Moot.** The upload API was removed (`01c1265`); symbols ship in the image. `nosniff` still guards a future committed SVG. |
-| F5: no audit logging / identity model | **Open, reduced.** No state-changing actions remain to attribute. Access logging is uvicorn's default only. |
+| F5: no audit logging / identity model | **Logging fixed in 1.1.6 (H4); identity moot.** No state-changing actions remain to attribute. Every request is logged as one JSON line (request id, route, status, duration), with no query strings, bodies, headers or client IP; the edge keeps the IP (LM-6). `tests/test_request_logging.py`. |
 | F6: no dependency scanning in CI | **Fixed.** `deps:audit` on every push and weekly (R11 closed), plus container scanning of OS and Python packages. |
 | F7: version disclosed on `/api/health` | **Accepted**, and extended with the commit (the repo is public). |
 | F8: dead API-key references in `.env.example` | **Fixed.** Removed (`d5094e7`); none remain. |
 | F9–F13 | **Fixed** (see the Remediation Log). |
+| H5: Python transitive dependencies unpinned and unhashed (found 2026-10-13) | **Fixed in 1.1.6.** `requirements.txt` is a pip-compile lock of all 25 packages with hashes; the image installs it with `--require-hashes --no-deps` plus `pip check`. A tampered hash and a lock missing a package were both shown to fail. CI audits the lock as written and checks it against `requirements.in` (`ci/lock_check.py`). |
 | H2: CSP covered images and plugins only (AS-9 / R-17) | **Fixed in 1.1.5.** Full policy: script/style/connect `'self'` only, no inline code or eval, no plugins, `<base>`, form posts or framing; plus `Permissions-Policy`. Every feature was exercised in Chrome with zero violations; an injected inline script/style and `eval` were refused. `tests/test_security_headers.py`. |
 | H1: interactive API docs public in production (found 2026-10-13) | **Fixed in 1.1.4.** `/docs`, `/redoc` and `/openapi.json` returned 200 on the live image. Swagger UI and ReDoc load script from a CDN on this origin, and `/docs` is a live request console. Now off unless `ENABLE_API_DOCS=1` (development only); `tests/test_api_docs.py`. |
 
