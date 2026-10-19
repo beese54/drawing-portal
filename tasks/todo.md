@@ -31,9 +31,18 @@ production GovPaaS service.
   traceback) becomes release 1.1.7, which production should start on.
   - **Paused 2026-10-14:** pushed `a3c0f07..a7099d8`; the GitHub build
     passed.
-  - **Resume:** the user confirms GitLab is green → tag `v1.1.7` (with OK)
-    → check that metadata v6 published `:1.1.7` → run the usual image
-    checks.
+  - **v1.1.7 RELEASED 2026-10-19:** GitLab green (user) → tag `v1.1.7` →
+    `a7099d8`; GitHub Actions run 39183451367 succeeded.
+    - metadata v6 published `:1.1.7` correctly, so the Node 24 actions are
+      proven on a tag build too
+    - **image checked:**
+      - anonymous pull 200; health `1.1.7/a7099d8`
+      - all security headers plus `X-Request-ID`; docs 404
+      - installed packages exactly equal the lock (25)
+      - logs all JSON, and the secret query string didn't reach them
+      - `docker diff` empty; Trivy 0 (Alpine and Python)
+  - [ ] The user switches non-production GovPaaS and `DAST_APP_IMAGE` to
+    `:1.1.7` and runs the schedule. Production starts on `:1.1.7`.
   - Then: the optional local load test, and converting the go-live
     checklist to Word if the cyber team wants it.
 
