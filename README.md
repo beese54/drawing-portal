@@ -297,6 +297,9 @@ writable in production in any case.
 | Report export | python-docx (Word), jsPDF + svg2pdf (PDF), Pillow (image annotation) |
 | Containerisation | Docker, Docker Compose (local development only) |
 | Hosting | GovPaaS, pulling the CI-built image from GHCR |
+| Security pipeline | GitLab CI: Semgrep SAST, secret detection, pip-audit + npm audit, Trivy container scanning; weekly DAST and black-box fuzzing against a copy of the released image |
+| Testing | pytest on Alpine (the production platform), Hypothesis property-based fuzzing; frontend type check and lint |
+| Supply chain | Hashed Python lock (pip-compile), npm lock file, base images pinned by digest, GitHub Actions pinned by commit SHA, Dependabot |
 
 ---
 
