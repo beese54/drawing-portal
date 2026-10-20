@@ -27,6 +27,11 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.1.8] - 2026-10-20
+
+Security fixes from a scan. The only change inside the image is how three
+browser console messages are formatted; users see no difference.
+
 ### Security
 Findings from a Semgrep and Trivy scan of a third-party deployment build of
 this app (2026-10-19). The scan's Next.js, PostCSS 8.4.31 and sharp findings
@@ -317,7 +322,8 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.7...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.8...HEAD
+[1.1.8]: https://github.com/beese54/drawing-portal/compare/v1.1.7...v1.1.8
 [1.1.7]: https://github.com/beese54/drawing-portal/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/beese54/drawing-portal/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/beese54/drawing-portal/compare/v1.1.4...v1.1.5

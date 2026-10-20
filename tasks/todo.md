@@ -17,7 +17,10 @@ findings. The report itself stays outside this public repo.
   - compose stack healthy as uid 100 (`app`) and 1000 (`node`); `/api/health`
     200 through the Vite proxy
   - lint 0 errors (16 existing warnings); typecheck and build ok
-- [ ] Push, GitLab green, tag `v1.1.8` (user's go-ahead).
+- [x] Pushed `a7099d8..7d23441` (2026-10-20); GitHub run 39355080821 ok;
+  GitLab green (user). Scan report moved to the parent project folder.
+- [ ] Tag `v1.1.8`, check the published image.
+- [ ] The user switches GovPaaS and `DAST_APP_IMAGE` to `:1.1.8`.
 - Also: CHANGELOG got the missing `[1.1.7]` section.
 
 ---
