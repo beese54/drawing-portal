@@ -29,7 +29,7 @@ findings. The report itself stays outside this public repo.
     - `docker diff` empty; Trivy 0 (Alpine and Python)
 - [x] The user switched non-production GovPaaS to `:1.1.8` (2026-10-20);
   live health shows `1.1.8`.
-- [ ] `DAST_APP_IMAGE` on the weekly schedule → `:1.1.8`.
+- [x] `DAST_APP_IMAGE` on the weekly schedule → `:1.1.8` (user, 2026-10-20).
 - Production should start on `:1.1.8`, not `:1.1.7`.
 - Also: CHANGELOG got the missing `[1.1.7]` section.
 
