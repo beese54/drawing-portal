@@ -27,7 +27,10 @@ findings. The report itself stays outside this public repo.
     - installed packages exactly equal the lock (25)
     - logs all JSON, and the secret query string didn't reach them
     - `docker diff` empty; Trivy 0 (Alpine and Python)
-- [ ] The user switches GovPaaS and `DAST_APP_IMAGE` to `:1.1.8`.
+- [x] The user switched non-production GovPaaS to `:1.1.8` (2026-10-20);
+  live health shows `1.1.8`.
+- [ ] `DAST_APP_IMAGE` on the weekly schedule → `:1.1.8`.
+- Production should start on `:1.1.8`, not `:1.1.7`.
 - Also: CHANGELOG got the missing `[1.1.7]` section.
 
 ---
