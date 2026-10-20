@@ -363,7 +363,7 @@ async function drawTitleBlock(
           await svg2pdf(svgEl, pdf, { x: mm(colX + PAD), y: mm(rowY + 1), width: mm(iconSize), height: mm(iconSize) });
         } catch (err) {
           // Legend text label still conveys the symbol name even if the icon fails.
-          console.error(`PDF export: failed to place legend icon for "${symbolId}":`, err);
+          console.error('PDF export: failed to place legend icon for "%s":', symbolId, err);
         }
       }
       pdf.setFontSize(pt(7));
@@ -528,7 +528,7 @@ async function drawSymbols(
       );
     } catch (err) {
       // One malformed symbol shouldn't take down the whole export — skip it and keep going.
-      console.error(`PDF export: failed to place symbol "${el.symbolId}" (element ${el.id}):`, err);
+      console.error('PDF export: failed to place symbol "%s" (element %s):', el.symbolId, el.id, err);
     }
 
     // Dynamic value label — matches ElementsLayer.tsx's canvas render (same shared

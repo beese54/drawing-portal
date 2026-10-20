@@ -1,10 +1,20 @@
 FROM python:3.12-alpine
 
+# app/ and symbols/ are bind-mounted from the host (docker-compose.yml), so
+# don't write __pycache__ into the developer's checkout.
+ENV PYTHONDONTWRITEBYTECODE=1
+
 WORKDIR /app
 
 COPY requirements.txt .
 # The hashed lock, as in the production image (see the root Dockerfile).
 RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.txt
 
+# Non-root, as in the production image.
+RUN addgroup -S app && adduser -S -D -H -h /app -G app app
+USER app
+
 EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')" || exit 1
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

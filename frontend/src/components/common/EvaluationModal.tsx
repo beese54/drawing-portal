@@ -73,7 +73,7 @@ export function EvaluationModal({ result, metadata, onClose }: Props) {
                 cropIndex = crops.length - 1;
               }
             } catch (err) {
-              console.warn(`Crop capture failed for ${check.check_id} issue "${issue.text}":`, err);
+              console.warn('Crop capture failed for %s issue "%s":', check.check_id, issue.text, err);
             }
           }
           rows.push({

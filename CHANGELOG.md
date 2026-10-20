@@ -27,6 +27,27 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+### Security
+Findings from a Semgrep and Trivy scan of a third-party deployment build of
+this app (2026-10-19). The scan's Next.js, PostCSS 8.4.31 and sharp findings
+came from that platform's own wrapper, not from this repo: the frontend is
+Vite, its PostCSS is already 8.5.30, and neither Next.js nor sharp is used
+here.
+- **Dependabot cooldown.** All four ecosystems now wait 7 days after a
+  version is published before proposing it, so a hijacked or broken release
+  is likely to be pulled before it reaches a PR. Security updates are not
+  delayed.
+- **Dev containers run as non-root and have a HEALTHCHECK.** This affects
+  `backend/Dockerfile.dev` and `frontend/Dockerfile.dev`, which are used only
+  by `docker compose`. The production image already did both.
+- **Constant console format strings.** Three browser `console.error` and
+  `console.warn` messages now pass their values as arguments instead of
+  building the format string from them. Semgrep marked this a likely false
+  positive (it's browser console output), but the change clears it for good.
+  The messages read the same.
+
+## [1.1.7] - 2026-10-19
+
 ### Fixed
 - A failed schematic annotation printed a plain-text traceback to stderr.
   This is a handled failure, so the report is still returned without the
@@ -296,7 +317,8 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.6...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.7...HEAD
+[1.1.7]: https://github.com/beese54/drawing-portal/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/beese54/drawing-portal/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/beese54/drawing-portal/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/beese54/drawing-portal/compare/v1.1.3...v1.1.4

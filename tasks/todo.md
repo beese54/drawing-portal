@@ -1,3 +1,27 @@
+# Third-party deployment scan triage (2026-10-20) → 1.1.8 candidate
+
+Scan of a third-party deployment build (Semgrep, Trivy, Gitleaks), 30
+findings. The report itself stays outside this public repo.
+- **Not ours (platform wrapper):** every `next`, `postcss@8.4.31` and
+  `sharp` finding (all Criticals and Highs), plus 950 SAST hits in its
+  `.next/` build output. Our frontend is Vite; our PostCSS is 8.5.30.
+- **Ours, fixed locally:**
+  - [x] Dependabot `cooldown: default-days: 7` on all four ecosystems
+  - [x] `backend/Dockerfile.dev` and `frontend/Dockerfile.dev`: non-root
+    `USER` and `HEALTHCHECK`
+  - [x] 3 console calls use constant format strings
+- **Verified:**
+  - Semgrep with the two flagged rules: the pre-fix files reproduce all 7
+    hits, the fixed files 0
+  - Trivy config: 0 misconfigurations on all three Dockerfiles
+  - compose stack healthy as uid 100 (`app`) and 1000 (`node`); `/api/health`
+    200 through the Vite proxy
+  - lint 0 errors (16 existing warnings); typecheck and build ok
+- [ ] Push, GitLab green, tag `v1.1.8` (user's go-ahead).
+- Also: CHANGELOG got the missing `[1.1.7]` section.
+
+---
+
 # Resume here (2026-10-14)
 
 **v1.1.6 released (2026-10-14).** H4 request logging plus H5 Python

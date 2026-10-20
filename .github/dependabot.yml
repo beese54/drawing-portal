@@ -7,6 +7,11 @@
 # own regression check (e.g. vite 5 → 8, tasks/todo.md A4), not a weekly PR.
 # The runtime base image stays on Python 3.12 until that is a decision; only
 # its digest (Alpine and 3.12.x security patches) moves.
+#
+# cooldown: a version is only proposed once it has been public for 7 days, so
+# a hijacked or broken release is likely to be caught and pulled before it
+# reaches a PR. It delays version updates only; Dependabot security updates
+# are not held back.
 version: 2
 updates:
   - package-ecosystem: docker
@@ -14,6 +19,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
@@ -26,6 +33,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -35,6 +44,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
@@ -46,3 +57,5 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 7
