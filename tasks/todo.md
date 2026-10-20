@@ -1,4 +1,4 @@
-# Third-party deployment scan triage (2026-10-20) → 1.1.8 candidate
+# Third-party deployment scan triage (2026-10-20) → 1.1.8 released
 
 Scan of a third-party deployment build (Semgrep, Trivy, Gitleaks), 30
 findings. The report itself stays outside this public repo.
@@ -19,7 +19,14 @@ findings. The report itself stays outside this public repo.
   - lint 0 errors (16 existing warnings); typecheck and build ok
 - [x] Pushed `a7099d8..7d23441` (2026-10-20); GitHub run 39355080821 ok;
   GitLab green (user). Scan report moved to the parent project folder.
-- [ ] Tag `v1.1.8`, check the published image.
+- [x] **v1.1.8 RELEASED 2026-10-20:** changelog `83c309e` pushed → tag
+  `v1.1.8` → `83c309e`; GitHub Actions run 39378912049 succeeded.
+  - **image checked:**
+    - anonymous pull ok; health `1.1.8/83c309e`
+    - all security headers plus `X-Request-ID`; docs 404
+    - installed packages exactly equal the lock (25)
+    - logs all JSON, and the secret query string didn't reach them
+    - `docker diff` empty; Trivy 0 (Alpine and Python)
 - [ ] The user switches GovPaaS and `DAST_APP_IMAGE` to `:1.1.8`.
 - Also: CHANGELOG got the missing `[1.1.7]` section.
 
