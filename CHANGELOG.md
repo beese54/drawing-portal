@@ -27,6 +27,11 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.1.10] - 2026-10-27
+
+Adds the Official Government Footer. No change to the API or to how drawings
+are checked.
+
 ### Added
 - **Official Government Footer** (DSS TL-4) at the bottom of every page:
   Report Vulnerability, Privacy Statement and Terms of Use, then
@@ -353,7 +358,8 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.9...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.10...HEAD
+[1.1.10]: https://github.com/beese54/drawing-portal/compare/v1.1.9...v1.1.10
 [1.1.9]: https://github.com/beese54/drawing-portal/compare/v1.1.8...v1.1.9
 [1.1.8]: https://github.com/beese54/drawing-portal/compare/v1.1.7...v1.1.8
 [1.1.7]: https://github.com/beese54/drawing-portal/compare/v1.1.6...v1.1.7
