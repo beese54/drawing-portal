@@ -27,6 +27,11 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.1.9] - 2026-10-27
+
+Security upgrades for advisories published after 1.1.8. Users see no
+difference.
+
 ### Security
 Found by the weekly pipeline on 2026-10-27 (`deps:audit` and
 `container_scanning:gate`), from advisories published after 1.1.8.
@@ -339,7 +344,8 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.8...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.9...HEAD
+[1.1.9]: https://github.com/beese54/drawing-portal/compare/v1.1.8...v1.1.9
 [1.1.8]: https://github.com/beese54/drawing-portal/compare/v1.1.7...v1.1.8
 [1.1.7]: https://github.com/beese54/drawing-portal/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/beese54/drawing-portal/compare/v1.1.5...v1.1.6
