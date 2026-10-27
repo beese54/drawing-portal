@@ -24,7 +24,14 @@ FROM python:3.12-alpine@sha256:1b668429b3511ab407d8e00648891631b0b1a4d7e15e3ca70
 
 # Take Alpine's security fixes released since the base image was published.
 # The image digest still records exactly what shipped.
-RUN apk upgrade --no-cache
+# APK_UPGRADE_RUN keeps this step out of the build cache: the command text
+# never changes, so without it a cached layer keeps whatever Alpine had on the
+# day it was first built. On 2026-10-27 that shipped musl 1.2.6-r2 when -r3
+# (a fix) was out, and container_scanning:gate failed. docker-publish.yml
+# passes the workflow run, so every published image upgrades afresh. It also
+# reruns the pip install below (about a minute); the frontend stays cached.
+ARG APK_UPGRADE_RUN=local
+RUN echo "apk upgrade for build $APK_UPGRADE_RUN" && apk upgrade --no-cache
 
 WORKDIR /app
 

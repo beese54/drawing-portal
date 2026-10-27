@@ -54,8 +54,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           # Reported by /api/health. meta's version is the highest-priority tag:
           # "1.1.0" for a v1.1.0 git tag, "latest" for a push to main.
+          # APK_UPGRADE_RUN: a new value per run, so the Dockerfile's
+          # `apk upgrade` is never served from the gha cache (see there).
           build-args: |
             APP_VERSION=${{ steps.meta.outputs.version }}
             GIT_COMMIT=${{ github.sha }}
+            APK_UPGRADE_RUN=${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

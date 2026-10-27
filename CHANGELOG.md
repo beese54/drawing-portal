@@ -38,6 +38,11 @@ Found by the weekly pipeline on 2026-10-27 (`deps:audit` and
   done by hand.
 - **DOMPurify 3.4.16 → 3.4.17** (bundled through jsPDF). Three advisories
   rated Critical. Lock file only; jsPDF already allows 3.4.17.
+- **Alpine fixes are taken on every published build.** The Dockerfile's
+  `apk upgrade` was being reused from the GitHub Actions build cache, so
+  1.1.8 shipped musl 1.2.6-r2 after the fixed -r3 was out. The publish
+  workflow now passes a per-run build argument that keeps that step out of
+  the cache.
 
 ## [1.1.8] - 2026-10-20
 
