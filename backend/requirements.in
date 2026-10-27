@@ -33,7 +33,10 @@ pydantic-settings==2.3.0
 python-dotenv==1.2.4
 
 # Image annotation (backflow check annotated image)
-Pillow==12.3.0
+# 12.3.0 -> 13.0.0 on 2026-10-27: pip-audit found 37 known vulnerabilities in
+# 12.3.0, among them a Critical JPEG decoder overflow that uploaded photos
+# reach. A major version, so Dependabot (majors ignored) never offered it.
+Pillow==13.0.0
 
 # Word (.docx) compliance report export
 python-docx==1.2.0
