@@ -27,6 +27,18 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+### Security
+Found by the weekly pipeline on 2026-10-27 (`deps:audit` and
+`container_scanning:gate`), from advisories published after 1.1.8.
+- **Pillow 12.3.0 → 13.0.0.** 12.3.0 had 37 known vulnerabilities. Most are
+  in formats the app never opens (it accepts only JPEG and PNG), but they
+  include a Critical JPEG decoder overflow that an uploaded photo reaches.
+  13.0.0's breaking changes (Python 3.10 dropped, a few APIs removed) touch
+  nothing this app uses. Dependabot ignores major versions, so this one was
+  done by hand.
+- **DOMPurify 3.4.16 → 3.4.17** (bundled through jsPDF). Three advisories
+  rated Critical. Lock file only; jsPDF already allows 3.4.17.
+
 ## [1.1.8] - 2026-10-20
 
 Security fixes from a scan. The only change inside the image is how three
