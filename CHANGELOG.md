@@ -27,6 +27,15 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+### Added
+- **Official Government Footer** (DSS TL-4) at the bottom of every page:
+  Report Vulnerability, Privacy Statement and Terms of Use, then
+  "© <year>, Government of Singapore". Contact Us and Feedback are not shown
+  yet: their destinations are still to be decided, and each appears in its
+  TL-4 position once its link is set in `Footer.tsx`. The service has no FAQ or
+  sitemap, which TL-4 allows. The footer takes one line from the drawing
+  canvas.
+
 ## [1.1.9] - 2026-10-27
 
 Security upgrades for advisories published after 1.1.8. Users see no

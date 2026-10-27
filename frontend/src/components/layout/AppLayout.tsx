@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CanvasPane } from './CanvasPane';
 import { ControlPane } from './ControlPane';
+import { Footer } from './Footer';
 import { Masthead } from './Masthead';
 import { ScamAdvisoryBanner } from './ScamAdvisoryBanner';
 import { SheetSetupModal } from '../common/SheetSetupModal';
@@ -88,6 +89,9 @@ export function AppLayout() {
         />
         <ControlPane canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} />
       </div>
+
+      {/* Official Government Footer — the last component on the page (DSS TL-4) */}
+      <Footer />
 
       {sheetSetupOpen && <SheetSetupModal />}
       <ToastNotification />
