@@ -27,6 +27,30 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.1.11] - 2026-10-28
+
+Security hardening for the IM8 Pilot Sandbox SSP. No change to the API, to
+how drawings are checked, or to what users see.
+
+### Security
+- **Frontend build image pinned by digest** (IM8 CS-1). `node:24-alpine` in
+  the build stage is now pinned like the runtime image, so two builds of the
+  same commit use the same toolchain. Dependabot proposes the bumps.
+- **Dockerfiles are linted on every push** (IM8 CS-5). New blocking GitLab
+  job `dockerfile:lint` runs hadolint 2.15.1 over all three Dockerfiles. To
+  make them clean:
+  - The app now runs as a fixed numeric user, **uid/gid 10001** (was the
+    name `app`, which resolved to uid 100). Kubernetes can only enforce
+    `runAsNonRoot` against a numeric user. Nothing in the image is owned by
+    it, so nothing else changes. The dev images use 10001 and 1000 (`node`).
+  - Health checks use the exec form. Behaviour is unchanged: a failed probe
+    still exits 1.
+- **`SECURITY.md`** says how to report a vulnerability: GitHub private
+  vulnerability reporting for the code (now enabled on the repository), and
+  the site footer's Report Vulnerability link for the live service. It also
+  sets the remediation timeframes (Critical 14 days, High 30, Medium and
+  Low 60), which until now were practice but not written down (IM8 ST-5).
+
 ## [1.1.10] - 2026-10-27
 
 Adds the Official Government Footer. No change to the API or to how drawings
@@ -358,7 +382,8 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.10...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.11...HEAD
+[1.1.11]: https://github.com/beese54/drawing-portal/compare/v1.1.10...v1.1.11
 [1.1.10]: https://github.com/beese54/drawing-portal/compare/v1.1.9...v1.1.10
 [1.1.9]: https://github.com/beese54/drawing-portal/compare/v1.1.8...v1.1.9
 [1.1.8]: https://github.com/beese54/drawing-portal/compare/v1.1.7...v1.1.8
