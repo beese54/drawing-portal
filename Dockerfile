@@ -1,7 +1,10 @@
 # ---- Frontend build stage ----
 # Node 24 LTS (1.1.3): Node 20 reached end of life on 2026-04-30, and Vite 8
 # needs Node 20.19 or later. Only the built files leave this stage.
-FROM node:24-alpine AS frontend-build
+# Pinned by digest like the runtime stage (1.1.11, IM8 CS-1), so the toolchain
+# that builds the shipped JavaScript can't change between two builds of the
+# same commit. Dependabot proposes the bumps.
+FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS frontend-build
 WORKDIR /fe
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
@@ -67,8 +70,10 @@ RUN python -m compileall -q /app/app
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # busybox equivalents of groupadd/useradd --system: a system user with no
-# password and no new home directory (/app already exists).
-RUN addgroup -S app && adduser -S -D -H -h /app -G app app
+# password and no new home directory (/app already exists). A fixed, numeric
+# uid/gid (1.1.11) so USER below is numeric: Kubernetes can only enforce
+# runAsNonRoot against a numeric user, and nothing in the image is owned by it.
+RUN addgroup -S -g 10001 app && adduser -S -D -H -u 10001 -h /app -G app app
 
 # Which build this is, reported by /api/health. docker-publish.yml passes the
 # release version (or "latest" for a main push) and the full commit SHA. Kept
@@ -76,9 +81,11 @@ RUN addgroup -S app && adduser -S -D -H -h /app -G app app
 ARG APP_VERSION=dev
 ARG GIT_COMMIT=unknown
 ENV APP_VERSION=${APP_VERSION} GIT_COMMIT=${GIT_COMMIT}
-USER app
+USER 10001:10001
 
 EXPOSE 8000
+# Exec form (hadolint DL3025). No `|| exit 1` needed: a failed request raises,
+# and Python exits 1 on an uncaught exception, which Docker reads as unhealthy.
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')" || exit 1
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

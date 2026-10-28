@@ -143,7 +143,7 @@ all. That was wrong — corrected 2026-08-03 during the risk assessment.)
 
 - **Build:** a single root-level multi-stage `Dockerfile` — stage 1
   (`node:24-alpine`) builds the frontend with `VITE_API_BASE_URL=""` baked
-  in (relative paths); stage 2 (`python:3.12-alpine`, non-root `app` user)
+  in (relative paths); stage 2 (`python:3.12-alpine`, non-root `app` user, uid 10001)
   copies the backend + built frontend `dist/` into `./static/`.
 - **CI/CD:** `.github/workflows/docker-publish.yml` builds and pushes to
   `ghcr.io/beese54/drawing-portal` on every push to `main` or a `v*.*.*`

@@ -11,10 +11,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.txt
 
 # Non-root, as in the production image.
-RUN addgroup -S app && adduser -S -D -H -h /app -G app app
-USER app
+RUN addgroup -S -g 10001 app && adduser -S -D -H -u 10001 -h /app -G app app
+USER 10001:10001
 
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')" || exit 1
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
