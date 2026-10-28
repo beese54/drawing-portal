@@ -172,6 +172,20 @@ frontend:check:
     paths:
       - frontend/dist
 
+# Dockerfile lint (IM8 CS-5, 1.1.11). Blocking, at hadolint's default threshold,
+# so even an "info" finding fails the job; all three Dockerfiles were clean when
+# it was added. A finding that is wrong for this repo is silenced inline with a
+# `# hadolint ignore=DLxxxx` comment saying why, never by lowering the threshold.
+# The -alpine variant because GitLab needs a shell; the plain image has none.
+dockerfile:lint:
+  stage: test
+  image:
+    name: hadolint/hadolint:v2.15.1-alpine@sha256:a1d49ae1a4e83c1dbad26b8c1ad7588c8bd1e04f4866b34ad3cac50335198552
+    entrypoint: [""]
+  script:
+    - hadolint --version
+    - hadolint Dockerfile backend/Dockerfile.dev frontend/Dockerfile.dev
+
 # semgrep-sast comes from Jobs/SAST above; this only adjusts it. It scans the
 # committed source, so unlike DAST it never looks at a stale image, and it runs
 # on every push. allow_failure (from the template) keeps it advisory. That is
