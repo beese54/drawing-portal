@@ -1,3 +1,27 @@
+# PE/LP submission type in Title Block (2026-11-02) → branch `feat/submission-type`
+
+Colleague's request (email 2026-11-02), ahead of the 4Q PE/LP briefing.
+- [x] Submission Type dropdown (PE / LP), first item on the Title Block tab
+- [x] Renames: Professional Engineer, PE Stamp & Signature, Licensed Plumber,
+  LP Stamp & Signature; printed canvas + PDF labels too (user said yes)
+- [x] Mandatory matrix in `utils/titleBlockRequirements.ts` (one table for
+  asterisks and checks)
+- [x] Option 3 (user's choice): PDF export blocked while mandatory fields are
+  empty; Evaluate warns with "Evaluate Anyway"
+- [x] `submissionType` passes the JSON import allowlist (known values only)
+- **Verified** (Playwright, local dev servers):
+  - asterisks for none / PE / LP match the requested table exactly
+  - PDF blocked and lists missing fields; Open Title Block lands on the tab
+  - Evaluate Anyway reaches the acknowledgment step
+  - filled PE → PDF downloads; its text has PROFESSIONAL ENGINEER and
+    LICENSED PLUMBER, and no old labels
+  - JSON round trip keeps LP; tampered value and old file → "Select…"
+  - typecheck ok, lint 0 errors (16 existing warnings), build ok
+- [x] Committed `d54e71c` on `feat/submission-type`
+- [ ] User: push branch → PR → merge (main needs PRs)
+- [ ] Release as **1.2.0** (new feature = MINOR per CHANGELOG rules), then
+  switch non-prod GovPaaS
+
 # Third-party deployment scan triage (2026-10-20) → 1.1.8 released
 
 Scan of a third-party deployment build (Semgrep, Trivy, Gitleaks), 30
