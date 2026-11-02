@@ -61,8 +61,16 @@ export function getPxPerMetre(drawingScale: DrawingScale): number {
   return (SHEET_PX_PER_MM * 1000) / drawingScale;
 }
 
+/** Who is submitting the drawing; decides which title block fields are mandatory. */
+export type SubmissionType = 'PE' | 'LP';
+export const SUBMISSION_TYPES: readonly SubmissionType[] = ['PE', 'LP'];
+
 export interface TitleBlockData {
-  // Free-form block sections (textarea — line breaks preserved)
+  /** Unset until the user picks one (and on files saved before the field existed). */
+  submissionType?:       SubmissionType;
+  // Free-form block sections (textarea — line breaks preserved).
+  // structuralEngineer is shown as "Professional Engineer" and plumbingContractor as
+  // "Licensed Plumber"; the keys keep their old names so saved files still open.
   ownerDeveloper?:       string;
   structuralEngineer?:   string;
   projectName:           string;

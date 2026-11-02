@@ -9,7 +9,9 @@ import {
   type PaperSeries,
   type DrawingScale,
   type SheetConfig,
+  type SubmissionType,
 } from '../../types';
+import { isRequired } from '../../utils/titleBlockRequirements';
 
 const ISO_SIZES:  { id: PaperSize; label: string }[] = [
   { id: 'A0', label: 'A0' },
@@ -44,6 +46,12 @@ export function SheetSetupModal() {
 
   const setTB = (key: keyof SheetConfig['titleBlock'], val: string) =>
     setDraft((d) => ({ ...d, titleBlock: { ...d.titleBlock, [key]: val } }));
+  const setSubmissionType = (val: string) =>
+    setDraft((d) => ({
+      ...d,
+      titleBlock: { ...d.titleBlock, submissionType: (val || undefined) as SubmissionType | undefined },
+    }));
+  const req = (field: Parameters<typeof isRequired>[1]) => isRequired(draft.titleBlock.submissionType, field);
 
   const handleSeriesSwitch = (s: PaperSeries) => {
     setSeries(s);
@@ -208,6 +216,28 @@ export function SheetSetupModal() {
           {tab === 'titleblock' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
+              {/* ── Submission type — first decision; sets the mandatory fields ── */}
+              <label htmlFor="submission-type" style={{ ...LABEL, display: 'block' }}>
+                Submission Type<RequiredMark />
+              </label>
+              <select
+                id="submission-type"
+                value={draft.titleBlock.submissionType ?? ''}
+                onChange={(e) => setSubmissionType(e.target.value)}
+                style={{
+                  width: '100%', padding: '7px 9px', border: '1px solid #d1d5db',
+                  borderRadius: 5, fontSize: 13, outline: 'none', boxSizing: 'border-box',
+                  background: '#fff', color: draft.titleBlock.submissionType ? '#111' : '#6b7280',
+                }}
+              >
+                <option value="">Select…</option>
+                <option value="PE">PE Submission</option>
+                <option value="LP">LP Submission</option>
+              </select>
+              <div style={{ marginTop: 5, marginBottom: 18, fontSize: 11, color: '#9ca3af' }}>
+                Fields marked <span style={{ color: '#dc2626' }}>*</span> must be filled before the PDF can be exported.
+              </div>
+
               {/* ── Block sections ── */}
               <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
                 Block Sections
@@ -249,13 +279,16 @@ export function SheetSetupModal() {
 
                 <div>
                   <TextAreaField
-                    label="Structural Engineer"
+                    label="Professional Engineer"
+                    required={req('structuralEngineer')}
                     hint="Name, company, address, email, phone"
                     value={draft.titleBlock.structuralEngineer ?? ''}
                     onChange={(v) => setTB('structuralEngineer', v)}
                   />
                   <div style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>Stamp / Signature Image</div>
+                    <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>
+                      PE Stamp &amp; Signature{req('structuralEngineerStamp') && <RequiredMark />}
+                    </div>
                     {draft.titleBlock.structuralEngineerStamp ? (
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                         <div style={{ border: '1px solid #d1d5db', borderRadius: 5, padding: 6, background: '#f9fafb' }}>
@@ -273,7 +306,7 @@ export function SheetSetupModal() {
                         onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#2563eb'; (e.currentTarget as HTMLDivElement).style.background = '#eff6ff'; }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
                       >
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>⬆ Upload stamp / signature</div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>⬆ Upload PE stamp &amp; signature</div>
                         <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>PNG, JPG or WebP · transparent background recommended</div>
                       </div>
                     )}
@@ -282,6 +315,7 @@ export function SheetSetupModal() {
 
                 <TextAreaField
                   label="Project Title"
+                  required={req('projectName')}
                   hint="Full project description"
                   value={draft.titleBlock.projectName}
                   onChange={(v) => setTB('projectName', v)}
@@ -289,22 +323,24 @@ export function SheetSetupModal() {
 
                 <TextAreaField
                   label="Main Contractor"
+                  required={req('mainContractor')}
                   hint="Company name, address, phone"
                   value={draft.titleBlock.mainContractor ?? ''}
                   onChange={(v) => setTB('mainContractor', v)}
                 />
 
                 <TextAreaField
-                  label="Plumbing Contractor"
-                  hint="Company name, address, phone, email"
+                  label="Licensed Plumber"
+                  required={req('plumbingContractor')}
+                  hint="Name, company, address, email, phone"
                   value={draft.titleBlock.plumbingContractor ?? ''}
                   onChange={(v) => setTB('plumbingContractor', v)}
                 />
               </div>
 
-              {/* ── LP/PE Stamp ── */}
+              {/* ── LP Stamp & Signature (placed freely on the canvas) ── */}
               <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 22, marginBottom: 8, paddingTop: 18, borderTop: '1px solid #e5e7eb' }}>
-                LP / PE Stamp
+                LP Stamp &amp; Signature{req('lpPeStamp') && <RequiredMark />}
               </div>
               <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
                 Uploaded stamp is placed directly on the canvas — drag it to position.
@@ -312,7 +348,7 @@ export function SheetSetupModal() {
               {draft.titleBlock.lpPeStamp ? (
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                   <div style={{ border: '1px solid #d1d5db', borderRadius: 5, padding: 6, background: '#f9fafb' }}>
-                    <img src={draft.titleBlock.lpPeStamp} alt="LP/PE stamp" style={{ maxWidth: 140, maxHeight: 80, display: 'block', objectFit: 'contain' }} />
+                    <img src={draft.titleBlock.lpPeStamp} alt="LP stamp & signature" style={{ maxWidth: 140, maxHeight: 80, display: 'block', objectFit: 'contain' }} />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <StampButton label="Replace" onClick={() => triggerStampUpload((v) => setTB('lpPeStamp', v))} />
@@ -326,7 +362,7 @@ export function SheetSetupModal() {
                   onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#2563eb'; (e.currentTarget as HTMLDivElement).style.background = '#eff6ff'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
                 >
-                  <div style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>⬆ Upload LP/PE stamp</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>⬆ Upload LP stamp &amp; signature</div>
                   <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>PNG, JPG or WebP · transparent background recommended</div>
                 </div>
               )}
@@ -437,13 +473,17 @@ function Field({ label, value, onChange, type = 'text', disabled }: {
   );
 }
 
-function TextAreaField({ label, hint, value, onChange }: {
-  label: string; hint?: string; value: string; onChange: (v: string) => void;
+function RequiredMark() {
+  return <span aria-hidden="true" style={{ color: '#dc2626', marginLeft: 2 }}>*</span>;
+}
+
+function TextAreaField({ label, hint, value, onChange, required }: {
+  label: string; hint?: string; value: string; onChange: (v: string) => void; required?: boolean;
 }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
-        <label style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{label}</label>
+        <label style={{ fontSize: 11, color: '#374151', fontWeight: 600 }}>{label}{required && <RequiredMark />}</label>
         {hint && <span style={{ fontSize: 10, color: '#9ca3af' }}>{hint}</span>}
       </div>
       <textarea
@@ -451,6 +491,8 @@ function TextAreaField({ label, hint, value, onChange }: {
         rows={4}
         onChange={(e) => onChange(e.target.value)}
         placeholder={hint}
+        aria-label={label}
+        aria-required={required || undefined}
         style={{
           width: '100%', padding: '7px 9px', border: '1px solid #d1d5db',
           borderRadius: 5, fontSize: 12, outline: 'none', boxSizing: 'border-box',
