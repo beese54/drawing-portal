@@ -135,10 +135,10 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
       <Text x={tbX + PAD} y={yOwner + ownerH - 13}
             text="SIGN :" fontSize={LBL_SZ} fill={LBL_CLR} listening={false} />
 
-      {/* ═══ STRUCTURAL ENGINEER ═════════════════════════════════ */}
+      {/* ═══ PROFESSIONAL ENGINEER ═══════════════════════════════ */}
       <Rect x={tbX} y={yStructural} width={tbW} height={structuralH}
             fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
-      {BlockText(tbX, yStructural, 'STRUCTURAL ENGINEER :', titleBlock.structuralEngineer)}
+      {BlockText(tbX, yStructural, 'PROFESSIONAL ENGINEER :', titleBlock.structuralEngineer)}
       {renderStamp(structuralStampImg, structuralStampExtraH, yStructural, structuralH, 'structural-stamp')}
       <Text x={tbX + PAD} y={yStructural + structuralH - 13}
             text="SIGN :" fontSize={LBL_SZ} fill={LBL_CLR} listening={false} />
@@ -153,10 +153,10 @@ export function TitleBlockLayer({ sheetConfig, onTitleBlockClick }: Props) {
             fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
       {BlockText(tbX, yMain, 'MAIN CON :', titleBlock.mainContractor)}
 
-      {/* ═══ PLUMBING CONTRACTOR ══════════════════════════════════ */}
+      {/* ═══ LICENSED PLUMBER ═════════════════════════════════════ */}
       <Rect x={tbX} y={yPlumb} width={tbW} height={plumbH}
             fill="#fff" stroke={BORDER} strokeWidth={bw} listening={false} />
-      {BlockText(tbX, yPlumb, 'PLUMBING CONTRACTOR', titleBlock.plumbingContractor)}
+      {BlockText(tbX, yPlumb, 'LICENSED PLUMBER :', titleBlock.plumbingContractor)}
 
       {/* ═══ LEGEND ══════════════════════════════════════════════ */}
       {legendH > 0 && (

@@ -321,19 +321,19 @@ async function drawTitleBlock(
   if (titleBlock.ownerStamp) await drawStamp(pdf, titleBlock.ownerStamp, ownerStampExtraH, yOwner, ownerH, tbX, tbW);
   label(tbX + PAD, yOwner + ownerH - 13, 'SIGN :');
 
-  // Structural Engineer
+  // Professional Engineer
   box(tbX, yStructural, tbW, structuralH);
-  blockText(tbX, yStructural, 'STRUCTURAL ENGINEER :', titleBlock.structuralEngineer);
+  blockText(tbX, yStructural, 'PROFESSIONAL ENGINEER :', titleBlock.structuralEngineer);
   if (titleBlock.structuralEngineerStamp) await drawStamp(pdf, titleBlock.structuralEngineerStamp, structuralStampExtraH, yStructural, structuralH, tbX, tbW);
   label(tbX + PAD, yStructural + structuralH - 13, 'SIGN :');
 
-  // Project Title / Main Con / Plumbing Contractor
+  // Project Title / Main Con / Licensed Plumber
   box(tbX, yProj, tbW, projH);
   blockText(tbX, yProj, 'PROJECT TITLE', titleBlock.projectName);
   box(tbX, yMain, tbW, mainH);
   blockText(tbX, yMain, 'MAIN CON :', titleBlock.mainContractor);
   box(tbX, yPlumb, tbW, plumbH);
-  blockText(tbX, yPlumb, 'PLUMBING CONTRACTOR', titleBlock.plumbingContractor);
+  blockText(tbX, yPlumb, 'LICENSED PLUMBER :', titleBlock.plumbingContractor);
 
   // Legend
   if (legendH > 0) {

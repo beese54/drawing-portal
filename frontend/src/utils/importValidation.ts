@@ -37,7 +37,7 @@
  * problems (wrong shape, over the caps) refuse the file, and they say why.
  */
 
-import { PAPER_SIZES_MM } from '../types';
+import { PAPER_SIZES_MM, SUBMISSION_TYPES } from '../types';
 
 // Mirrors backend/app/config.py — keep the two in step.
 export const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024; // config.max_image_bytes
@@ -63,8 +63,8 @@ export type DroppedFieldReporter = (field: string) => void;
 /** How each stamp field is named to the user. */
 export const STAMP_FIELD_LABELS: Record<string, string> = {
   ownerStamp: "the Owner's stamp",
-  structuralEngineerStamp: "the Structural Engineer's stamp",
-  lpPeStamp: 'the LP/PE stamp',
+  structuralEngineerStamp: 'the PE stamp & signature',
+  lpPeStamp: 'the LP stamp & signature',
 };
 
 /** png/jpeg/webp only — the same set SheetSetupModal offers on upload. */
@@ -253,6 +253,11 @@ export function sanitizeTitleBlock(raw: unknown, onDrop?: DroppedFieldReporter):
   for (const k of textFields) {
     const v = safeText(tb[k]);
     if (v !== undefined) out[k] = v;
+  }
+
+  // Only the known values; anything else leaves the dropdown on "Select…".
+  if ((SUBMISSION_TYPES as readonly unknown[]).includes(tb.submissionType)) {
+    out.submissionType = tb.submissionType;
   }
 
   // The three sinks that reach img.src.

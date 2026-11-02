@@ -6,6 +6,8 @@ import { ConfirmDialog } from '../common/ConfirmDialog';
 import { EvaluationModal } from '../common/EvaluationModal';
 import { AcknowledgmentModal } from '../common/AcknowledgmentModal';
 import { TemplateModal } from '../common/TemplateModal';
+import { MissingTitleBlockDialog } from '../common/MissingTitleBlockDialog';
+import { missingTitleBlockFields } from '../../utils/titleBlockRequirements';
 import { useUiStore } from '../../store/uiStore';
 import { getUnconnectedPorts } from '../../utils/portConnectionStatus';
 import { evaluationApi } from '../../api/client';
@@ -27,6 +29,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   const setActiveTool = useUiStore((s) => s.setActiveTool);
   const exportPdfFn = useUiStore((s) => s.exportPdfFn);
   const openSheetSetup = useUiStore((s) => s.openSheetSetup);
+  const openSheetSetupAtTitleBlock = useUiStore((s) => s.openSheetSetupAtTitleBlock);
   const sheetConfig = useUiStore((s) => s.sheetConfig);
   const elements = useCanvasStore((s) => s.elements);
   const pipes = useCanvasStore((s) => s.pipes);
@@ -40,6 +43,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   const [evalResult, setEvalResult] = useState<EvaluationResponse | null>(null);
   const [evalMetadata, setEvalMetadata] = useState<DrawingMetadata | null>(null);
   const [evalError, setEvalError] = useState<string | null>(null);
+  const [missingFor, setMissingFor] = useState<{ action: 'pdf' | 'evaluate'; fields: string[] } | null>(null);
   const { exportMetadata, getMetadata } = useMetadataExport(canvasWidth, canvasHeight);
   const { openFilePicker: openJsonImport } = useJsonImport();
 
@@ -65,7 +69,15 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   };
 
   const handleEvaluateClick = () => {
-    setShowAckModal(true);
+    const fields = missingTitleBlockFields(sheetConfig.titleBlock);
+    if (fields.length > 0) setMissingFor({ action: 'evaluate', fields });
+    else setShowAckModal(true);
+  };
+
+  const handleExportPdfClick = () => {
+    const fields = missingTitleBlockFields(sheetConfig.titleBlock);
+    if (fields.length > 0) setMissingFor({ action: 'pdf', fields });
+    else exportPdfFn?.();
   };
 
   const runEvaluation = async (acks: AcknowledgmentFlags) => {
@@ -174,7 +186,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
         Export Metadata (JSON)
       </button>
       <button
-        onClick={() => exportPdfFn?.()}
+        onClick={handleExportPdfClick}
         disabled={!hasContent}
         style={{
           width: '100%', padding: '9px 12px', border: 'none', borderRadius: 6,
@@ -235,6 +247,17 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
       )}
       {showTemplates && (
         <TemplateModal onClose={() => setShowTemplates(false)} />
+      )}
+      {missingFor && (
+        <MissingTitleBlockDialog
+          fields={missingFor.fields}
+          actionLabel={missingFor.action === 'pdf' ? 'export the PDF' : 'evaluate'}
+          onCancel={() => setMissingFor(null)}
+          onFill={() => { setMissingFor(null); openSheetSetupAtTitleBlock(); }}
+          onContinue={missingFor.action === 'evaluate'
+            ? () => { setMissingFor(null); setShowAckModal(true); }
+            : undefined}
+        />
       )}
 
       {/* Unconnected port warning dialog */}
