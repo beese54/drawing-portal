@@ -27,6 +27,42 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-03
+
+Title block changes for PE and LP submissions, requested ahead of the 4Q 2026
+briefing for PEs and LPs. No change to the API or to how drawings are checked.
+
+### Added
+- **Submission Type** (PE / LP) is now the first field on Sheet Setup →
+  Title Block, and it decides which fields are mandatory (red asterisk):
+
+  | Field | PE | LP |
+  |---|---|---|
+  | Professional Engineer | Mandatory | Optional |
+  | PE Stamp & Signature | Mandatory | Optional |
+  | Project Title | Mandatory | Mandatory |
+  | Main Contractor | Mandatory | Mandatory |
+  | Licensed Plumber | Optional | Mandatory |
+  | LP Stamp & Signature | Optional | Mandatory |
+
+- **Export Diagram (PDF) is blocked** while a mandatory field is empty, with
+  a list of what is missing and an Open Title Block button. **Evaluate
+  Schematic warns** but can continue, since it is used while drafting.
+- Saved JSON files keep the submission type. Files saved before 1.2.0 open
+  with it unset.
+
+### Changed
+- Renamed on the form, the drawing and the PDF: Structural Engineer →
+  **Professional Engineer**, Plumbing Contractor → **Licensed Plumber**, and
+  the stamp uploads → **PE Stamp & Signature** / **LP Stamp & Signature**.
+  The JSON field names are unchanged, so existing files still open.
+
+### Security
+- **follow-redirects 1.16.2** (GHSA-mrwp-f3q8-3g9p, High, published
+  2026-10-30). The advisory turned the weekly `deps:audit` job red on 1.1.11.
+  The package comes in through axios but is not in the browser bundle, so
+  the live site was not exposed.
+
 ## [1.1.11] - 2026-10-28
 
 Security hardening for the IM8 Pilot Sandbox SSP. No change to the API, to
@@ -382,7 +418,8 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.1.11...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/beese54/drawing-portal/compare/v1.1.11...v1.2.0
 [1.1.11]: https://github.com/beese54/drawing-portal/compare/v1.1.10...v1.1.11
 [1.1.10]: https://github.com/beese54/drawing-portal/compare/v1.1.9...v1.1.10
 [1.1.9]: https://github.com/beese54/drawing-portal/compare/v1.1.8...v1.1.9
