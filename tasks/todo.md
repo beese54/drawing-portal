@@ -18,9 +18,20 @@ Colleague's request (email 2026-11-02), ahead of the 4Q PE/LP briefing.
   - JSON round trip keeps LP; tampered value and old file → "Select…"
   - typecheck ok, lint 0 errors (16 existing warnings), build ok
 - [x] Committed `d54e71c` on `feat/submission-type`
-- [ ] User: push branch → PR → merge (main needs PRs)
-- [ ] Release as **1.2.0** (new feature = MINOR per CHANGELOG rules), then
-  switch non-prod GovPaaS
+- [x] PR #4 rebase-merged → main `c6bb7dc` (2026-11-03). Also carries
+  follow-redirects 1.16.2 (GHSA-mrwp-f3q8-3g9p), the cause of the red weekly
+  `deps:audit` on 4084d33 (pipeline 25799685), and the 1.2.0 changelog.
+- [x] GitLab green on c6bb7dc (user) → tag `v1.2.0` → c6bb7dc; GHA run
+  41564083238 ok
+- [x] **:1.2.0 verified:** anonymous pull ok; health `1.2.0/c6bb7dc`; all
+  security headers + X-Request-ID; docs 404; bundle has the new labels and
+  none of the old; no follow-redirects in bundle; uid 10001; `docker diff`
+  empty; Trivy 0
+- [x] DAST "CSP analysis" (Info): evidence = intended policy; dismissal text
+  given to the user (Acceptable risk)
+- [ ] User: GovPaaS → `:1.2.0`, live health check, `DAST_APP_IMAGE` →
+  `:1.2.0`, run schedule, dismiss the CSP finding, mark follow-redirects
+  resolved
 
 # Third-party deployment scan triage (2026-10-20) → 1.1.8 released
 
