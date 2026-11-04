@@ -12,6 +12,9 @@ import {
   type SubmissionType,
 } from '../../types';
 import { isRequired } from '../../utils/titleBlockRequirements';
+import { cleanUploadedStamp, MAX_IMPORT_FILE_BYTES } from '../../utils/importValidation';
+
+type StampField = 'ownerStamp' | 'structuralEngineerStamp' | 'lpPeStamp';
 
 const ISO_SIZES:  { id: PaperSize; label: string }[] = [
   { id: 'A0', label: 'A0' },
@@ -46,6 +49,15 @@ export function SheetSetupModal() {
 
   const setTB = (key: keyof SheetConfig['titleBlock'], val: string) =>
     setDraft((d) => ({ ...d, titleBlock: { ...d.titleBlock, [key]: val } }));
+  // A refused stamp file, shown under the stamp it was meant for.
+  const [stampError, setStampError] = useState<{ field: StampField; message: string } | null>(null);
+  const pickStamp = (field: StampField) =>
+    triggerStampUpload(
+      (v) => { setStampError(null); setTB(field, v); },
+      (message) => setStampError({ field, message }),
+    );
+  const stampErrorFor = (field: StampField) =>
+    stampError?.field === field ? <StampError message={stampError.message} /> : null;
   const setSubmissionType = (val: string) =>
     setDraft((d) => ({
       ...d,
@@ -259,13 +271,13 @@ export function SheetSetupModal() {
                           <img src={draft.titleBlock.ownerStamp} alt="Owner stamp" style={{ maxWidth: 140, maxHeight: 60, display: 'block', objectFit: 'contain' }} />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                          <StampButton label="Replace" onClick={() => triggerStampUpload((v) => setTB('ownerStamp', v))} />
+                          <StampButton label="Replace" onClick={() => pickStamp('ownerStamp')} />
                           <StampButton label="Remove"  danger onClick={() => setTB('ownerStamp', '')} />
                         </div>
                       </div>
                     ) : (
                       <div
-                        onClick={() => triggerStampUpload((v) => setTB('ownerStamp', v))}
+                        onClick={() => pickStamp('ownerStamp')}
                         style={{ border: '2px dashed #d1d5db', borderRadius: 6, padding: '12px 16px', textAlign: 'center', cursor: 'pointer', background: '#fafafa' }}
                         onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#2563eb'; (e.currentTarget as HTMLDivElement).style.background = '#eff6ff'; }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
@@ -274,6 +286,7 @@ export function SheetSetupModal() {
                         <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>PNG, JPG or WebP · transparent background recommended</div>
                       </div>
                     )}
+                    {stampErrorFor('ownerStamp')}
                   </div>
                 </div>
 
@@ -295,13 +308,13 @@ export function SheetSetupModal() {
                           <img src={draft.titleBlock.structuralEngineerStamp} alt="Stamp" style={{ maxWidth: 140, maxHeight: 60, display: 'block', objectFit: 'contain' }} />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                          <StampButton label="Replace" onClick={() => triggerStampUpload((v) => setTB('structuralEngineerStamp', v))} />
+                          <StampButton label="Replace" onClick={() => pickStamp('structuralEngineerStamp')} />
                           <StampButton label="Remove"  danger onClick={() => setTB('structuralEngineerStamp', '')} />
                         </div>
                       </div>
                     ) : (
                       <div
-                        onClick={() => triggerStampUpload((v) => setTB('structuralEngineerStamp', v))}
+                        onClick={() => pickStamp('structuralEngineerStamp')}
                         style={{ border: '2px dashed #d1d5db', borderRadius: 6, padding: '12px 16px', textAlign: 'center', cursor: 'pointer', background: '#fafafa' }}
                         onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#2563eb'; (e.currentTarget as HTMLDivElement).style.background = '#eff6ff'; }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
@@ -310,6 +323,7 @@ export function SheetSetupModal() {
                         <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>PNG, JPG or WebP · transparent background recommended</div>
                       </div>
                     )}
+                    {stampErrorFor('structuralEngineerStamp')}
                   </div>
                 </div>
 
@@ -351,13 +365,13 @@ export function SheetSetupModal() {
                     <img src={draft.titleBlock.lpPeStamp} alt="LP stamp & signature" style={{ maxWidth: 140, maxHeight: 80, display: 'block', objectFit: 'contain' }} />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    <StampButton label="Replace" onClick={() => triggerStampUpload((v) => setTB('lpPeStamp', v))} />
+                    <StampButton label="Replace" onClick={() => pickStamp('lpPeStamp')} />
                     <StampButton label="Remove"  danger onClick={() => { setTB('lpPeStamp', ''); }} />
                   </div>
                 </div>
               ) : (
                 <div
-                  onClick={() => triggerStampUpload((v) => setTB('lpPeStamp', v))}
+                  onClick={() => pickStamp('lpPeStamp')}
                   style={{ border: '2px dashed #d1d5db', borderRadius: 6, padding: '12px 16px', textAlign: 'center', cursor: 'pointer', background: '#fafafa' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#2563eb'; (e.currentTarget as HTMLDivElement).style.background = '#eff6ff'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#d1d5db'; (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
@@ -366,6 +380,7 @@ export function SheetSetupModal() {
                   <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>PNG, JPG or WebP · transparent background recommended</div>
                 </div>
               )}
+              {stampErrorFor('lpPeStamp')}
 
               {/* ── Drawing Info ── */}
               <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 22, marginBottom: 12, paddingTop: 18, borderTop: '1px solid #e5e7eb' }}>
@@ -418,18 +433,43 @@ export function SheetSetupModal() {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function triggerStampUpload(onLoad: (dataUrl: string) => void) {
+const STAMP_UNREADABLE = 'That file could not be read as a PNG, JPEG or WebP image. Choose another file.';
+
+/**
+ * Pick a stamp image. Only a cleaned copy reaches the title block: the same
+ * checks and redraw as a stamp in an imported schematic (cleanUploadedStamp),
+ * so the user's original file is never stored in the drawing, its JSON or its
+ * PDF.
+ */
+function triggerStampUpload(onLoad: (dataUrl: string) => void, onReject: (message: string) => void) {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/png,image/jpeg,image/webp';
   input.onchange = () => {
     const file = input.files?.[0];
     if (!file) return;
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      onReject(`That file is over ${MAX_IMPORT_FILE_BYTES / (1024 * 1024)} MB. Choose a smaller image.`);
+      return;
+    }
     const reader = new FileReader();
-    reader.onload = () => onLoad(reader.result as string);
+    reader.onload = async () => {
+      const clean = typeof reader.result === 'string' ? await cleanUploadedStamp(reader.result) : undefined;
+      if (clean) onLoad(clean);
+      else onReject(STAMP_UNREADABLE);
+    };
+    reader.onerror = () => onReject(STAMP_UNREADABLE);
     reader.readAsDataURL(file);
   };
   input.click();
+}
+
+function StampError({ message }: { message: string }) {
+  return (
+    <div role="alert" style={{ fontSize: 11, color: '#dc2626', marginTop: 6 }}>
+      {message}
+    </div>
+  );
 }
 
 function StampButton({ label, danger, onClick }: { label: string; danger?: boolean; onClick: () => void }) {

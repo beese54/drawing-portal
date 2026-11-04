@@ -197,6 +197,39 @@ export function reencodeImageDataUrl(dataUrl: string, maxEdgePx = 2000): Promise
   });
 }
 
+/** Longest stamp edges to try, largest first, until the re-encoded PNG fits MAX_DATA_URL_LEN. */
+const UPLOAD_STAMP_EDGES_PX = [2000, 1400, 1000, 700];
+
+/**
+ * A stamp the user has just picked in Sheet Setup, cleaned the same way as an
+ * imported one, or undefined if it is not a usable image.
+ *
+ * The file picker's accept list is only a hint, and the MIME label in the data
+ * URL comes from the file name, so neither proves anything. The bytes must
+ * start like a PNG, JPEG or WebP, whatever the label says. That way a misnamed
+ * image still works and anything else is refused. The image is then redrawn,
+ * which drops anything hidden in the original file, for example a phone
+ * photo's EXIF data and GPS location.
+ *
+ * The result must also pass safeImageDataUrl, so a stamp the user attaches
+ * here is never one that a later import of their own JSON would drop. A very
+ * detailed image is redrawn smaller until it fits. At 700 px even pure noise
+ * fits (700 x 700 RGBA is about 2 MB, 2.6 MB as base64), so any image that
+ * decodes is accepted.
+ */
+export async function cleanUploadedStamp(dataUrl: string): Promise<string | undefined> {
+  const comma = dataUrl.indexOf(',');
+  const bytes = comma > 0 ? leadingBytes(dataUrl.slice(comma + 1)) : undefined;
+  if (!bytes || !Object.values(MAGIC).some((isFormat) => isFormat(bytes))) return undefined;
+
+  for (const edge of UPLOAD_STAMP_EDGES_PX) {
+    const clean = await reencodeImageDataUrl(dataUrl, edge);
+    if (!clean) return undefined;
+    if (safeImageDataUrl(clean)) return clean;
+  }
+  return undefined;
+}
+
 /** Re-encode every stamp on an already-sanitised title block, dropping any that will not decode. */
 export async function reencodeTitleBlockStamps(
   tb: Record<string, unknown>,
