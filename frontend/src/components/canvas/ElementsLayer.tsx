@@ -1,4 +1,5 @@
-import React, { useState, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import type { WarningTip } from './WarningTooltip';
 import { Layer, Circle, Text, Rect, Group, Line } from 'react-konva';
 import Konva from 'konva';
 import { useCanvasStore } from '../../store/canvasStore';
@@ -183,6 +184,91 @@ interface ElementsLayerProps {
   onElementDblClick?: (id: string) => void;
   rubberBand?: RubberBandRect | null;
   onAnnotationDblClick?: (id: string, x: number, y: number, text: string, fontSize: number, maxWidth: number, height: number) => void;
+  /** Hovering a "!" badge reports its tooltip (null on leave). DrawingCanvas draws it as HTML. */
+  onWarningTooltip?: (tip: WarningTip | null) => void;
+}
+
+/** One "!" badge: where it sits (canvas coords), what its tooltip says, what clicking does. */
+interface WarningBadge {
+  key: string;
+  x: number;
+  y: number;
+  title: string;
+  details: string[];
+  action?: string;
+  onClick?: () => void;
+  onDblClick?: () => void;
+}
+
+const WARNING_ORANGE = '#f97316';
+const WARNING_BADGE_RADIUS = 4;
+
+// The glow: a soft halo that slowly swells and fades, enough to catch the eye without
+// flashing. It sits behind each orange "!" badge (missing information) and each red ✕
+// (a port with no pipe). One cycle takes GLOW_PERIOD_MS, a slow resting rate, well
+// under the 3 flashes a second that WCAG 2.3.1 limits.
+const GLOW_PERIOD_MS = 1600;
+const GLOW_OPACITY = { min: 0.15, max: 0.7 };
+const GLOW_SCALE = { min: 0.75, max: 1.15 };
+// Both glows have the same radius, so a red ✕ draws the eye as much as a "!" does
+const GLOW_RADIUS = WARNING_BADGE_RADIUS * 2.6;
+const BADGE_GLOW = { radius: GLOW_RADIUS, rgb: '249,115,22' }; // orange, as the badge
+const PORT_GLOW  = { radius: GLOW_RADIUS, rgb: '239,68,68' };  // red, as the ✕
+
+/** One halo: where (canvas coords), how big, and its colour as "r,g,b". */
+interface GlowSpot {
+  key: string;
+  x: number;
+  y: number;
+  radius: number;
+  rgb: string;
+}
+
+/**
+ * The halos, on a layer of their own beneath the symbols. Only this small layer is
+ * redrawn on each animation frame, not the whole drawing, and the animation runs only
+ * while there is something to glow. If the user's system asks for reduced motion, the
+ * glow stays still and faint. DrawingCanvas hides this layer (by its name) when it
+ * captures images for the compliance report.
+ */
+function WarningGlowLayer({ spots }: { spots: GlowSpot[] }) {
+  const layerRef = useRef<Konva.Layer>(null);
+  const hasSpots = spots.length > 0;
+
+  useEffect(() => {
+    const layer = layerRef.current;
+    if (!layer || !hasSpots) return;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) {
+      layer.opacity(GLOW_OPACITY.min * 2);
+      return;
+    }
+    const anim = new Konva.Animation((frame) => {
+      if (!frame) return;
+      const s = 0.5 - 0.5 * Math.cos((2 * Math.PI * frame.time) / GLOW_PERIOD_MS); // 0 → 1 → 0
+      layer.opacity(GLOW_OPACITY.min + (GLOW_OPACITY.max - GLOW_OPACITY.min) * s);
+      const k = GLOW_SCALE.min + (GLOW_SCALE.max - GLOW_SCALE.min) * s;
+      layer.getChildren().forEach((halo) => halo.scale({ x: k, y: k }));
+    }, layer);
+    anim.start();
+    return () => { anim.stop(); };
+  }, [hasSpots]);
+
+  return (
+    <Layer ref={layerRef} name="warning-glow" listening={false}>
+      {spots.map((g) => (
+        <Circle
+          key={g.key}
+          x={g.x} y={g.y} radius={g.radius}
+          fillRadialGradientStartPoint={{ x: 0, y: 0 }}
+          fillRadialGradientStartRadius={0}
+          fillRadialGradientEndPoint={{ x: 0, y: 0 }}
+          fillRadialGradientEndRadius={g.radius}
+          fillRadialGradientColorStops={[0, `rgba(${g.rgb},0.9)`, 0.45, `rgba(${g.rgb},0.45)`, 1, `rgba(${g.rgb},0)`]}
+        />
+      ))}
+    </Layer>
+  );
 }
 
 /**
@@ -202,7 +288,7 @@ function portLabelOffset(relX: number, relY: number): { dx: number; dy: number }
     : { dx: -4, dy:  4 };   // bottom port
 }
 
-export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onElementDblClick, rubberBand, onAnnotationDblClick }: ElementsLayerProps) {
+export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onElementDblClick, rubberBand, onAnnotationDblClick, onWarningTooltip }: ElementsLayerProps) {
   const elements = useCanvasStore((s) => s.elements);
   const pipes = useCanvasStore((s) => s.pipes);
   const selectedId = useCanvasStore((s) => s.selectedId);
@@ -217,7 +303,12 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
   const alignmentGuide = useUiStore((s) => s.alignmentGuide);
   const symPx = getSymbolSizePx(drawingScale);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [warningTooltip, setWarningTooltip] = useState<{ x: number; y: number; lines: string[] } | null>(null);
+  // The badge under the pointer, so its tooltip can be closed if the badge goes away
+  const hoveredBadgeRef = useRef<string | null>(null);
+  const showBadgeTip = (b: WarningBadge | null) => {
+    hoveredBadgeRef.current = b?.key ?? null;
+    onWarningTooltip?.(b ? { x: b.x, y: b.y, title: b.title, details: b.details, action: b.action } : null);
+  };
   // Live position of a highest_direct_supply_fitting marker while it's being dragged —
   // its elevation label (renderHighestFittingLabel) is a sibling Text node, not a child
   // of the dragged symbol, so without this it would only catch up once onDragEnd commits
@@ -282,7 +373,114 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
     }
   }, [selectedIds, selectedPipeIds, selectedAnnotationIds, moveMultiple]);
 
+  // ── Warning badges ("!") ── one entry per open issue on a symbol. The badges, their
+  // glow (WarningGlowLayer) and their tooltip (WarningTooltip, drawn by DrawingCanvas)
+  // all come from this list.
+  const openProperties = (id: string) => { setSelected(id); onElementDblClick?.(id); };
+  const warningBadges: WarningBadge[] = [];
+  for (const el of elements) {
+    const corner = { x: el.x + symPx / 2 + 4, y: el.y - symPx / 2 - 4 };
+
+    // Long bath: capacity must be indicated on the drawing (PUB requirement)
+    if (el.symbolId === 'long_bath' && !el.longBathCapacityL) {
+      warningBadges.push({
+        key: `lb-nocap-${el.id}`, ...corner,
+        title: 'Long Bath Capacity Not Set',
+        details: ['Capacity must be indicated on drawing (PUB requirement)'],
+        action: 'Double-click symbol to enter capacity',
+        onClick: () => openProperties(el.id),
+      });
+    }
+
+    // Long bath over 250 L: recycling facilities required
+    if (el.symbolId === 'long_bath' && el.longBathCapacityL && el.longBathCapacityL > 250) {
+      warningBadges.push({
+        key: `lb-${el.id}`, ...corner,
+        title: 'Capacity exceeds 250 L (SS636 §6.2)',
+        details: ['Recycling facilities required — no drain plug, full recirculation, backwash to sewer'],
+      });
+    }
+
+    // Backflow risk: no check valve nearby
+    if (isBackflowRiskElement(el) && !isElementProtected(el, elementAdj, elemById, 6, elements, pipes)) {
+      const halfW = (el.width ?? symPx) / 2;
+      const halfH = (el.height ?? symPx) / 2;
+      const vbRule = getBackflowRule(el) === 'vb_and_check_valve';
+      warningBadges.push({
+        key: `bf-${el.id}`, x: el.x + halfW + 4, y: el.y - halfH - 4,
+        title: vbRule ? 'Backflow Risk (SS636 §6.5)' : 'Backflow Risk (SS636 §6.4)',
+        details: [vbRule
+          ? 'Requires a vacuum breaker and check valve connected in series'
+          : 'Requires 2 check valves connected in series upstream'],
+        action: vbRule
+          ? 'Double-click to insert Gate Valve + Check Valve + Vacuum Breaker'
+          : 'Double-click to insert Gate Valve + 2 Check Valves',
+        onDblClick: () => {
+          const asms = buildBackflowAssemblies(el.id, '', elements, pipes);
+          if (asms.length > 0) {
+            insertDcvAssemblies(asms.map((a) => ({
+              elements: a.elements, targetPipeId: a.targetPipeId, snapX: a.snapX, snapY: a.snapY,
+            })));
+          }
+        },
+      });
+    }
+
+    // MWELS efficiency rating missing
+    if (el.symbolId in FIXTURE_MWELS_CATEGORY && !el.efficiencyRating) {
+      const mwelsCategory = FIXTURE_MWELS_CATEGORY[el.symbolId];
+      if (!(mwelsCategory && NON_MWELS_FITTING_TYPE_IDS.has(mwelsCategory))) {
+        warningBadges.push({
+          key: `mwels-${el.id}`, ...corner,
+          title: 'MWELS Rating Missing',
+          details: [],
+          action: 'Double-click symbol to set efficiency ticks',
+          onClick: () => openProperties(el.id),
+        });
+      }
+    }
+
+    // Pump rated head not declared
+    if (el.symbolId === 'pump' && el.pumpRatedHeadM === undefined) {
+      warningBadges.push({
+        key: `pump-head-${el.id}`, ...corner,
+        title: 'Pump Rated Head Not Declared',
+        details: [],
+        action: 'Double-click symbol to enter rated head (m) from pump schedule',
+        onClick: () => openProperties(el.id),
+      });
+    }
+  }
+
+  // Which ports have a pipe. The ✕ / ✓ markers below use it, and every open port
+  // (a red ✕) also gets a red glow.
+  const connStatus = computePortConnectionStatus(elements, pipes);
+  const glowSpots: GlowSpot[] = warningBadges.map((b) => ({ key: b.key, x: b.x, y: b.y, ...BADGE_GLOW }));
+  for (const el of elements) {
+    const elStatus = connStatus.get(el.id) ?? [];
+    getElementPorts(el).forEach((port, i) => {
+      if (elStatus[i]) return;
+      // Same exemption as the markers: the water meter's inlet is the mains source
+      if (el.symbolId === 'water_meter' && getEffectivePortRole(el, i) === 'upstream') return;
+      const pos = getPortPosition(el, port);
+      glowSpots.push({ key: `open-${el.id}-${i}`, x: pos.x, y: pos.y, ...PORT_GLOW });
+    });
+  }
+
+  // A badge can disappear while the pointer is on it (the issue was fixed by a
+  // double-click, or the symbol was deleted with the keyboard). Close its tooltip then.
+  const badgeKeys = warningBadges.map((b) => b.key).join('|');
+  useEffect(() => {
+    const hovered = hoveredBadgeRef.current;
+    if (hovered && !badgeKeys.split('|').includes(hovered)) {
+      hoveredBadgeRef.current = null;
+      onWarningTooltip?.(null);
+    }
+  }, [badgeKeys, onWarningTooltip]);
+
   return (
+    <>
+    <WarningGlowLayer spots={glowSpots} />
     <Layer>
       {pipes.map((pipe) => (
         <PipeElement
@@ -411,186 +609,71 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
       )}
 
       {/* Port connection status indicators — always visible on every element */}
-      {(() => {
-        const connStatus = computePortConnectionStatus(elements, pipes);
-        return elements.flatMap((el) => {
-          const ports = getElementPorts(el);
-          const elStatus = connStatus.get(el.id) ?? [];
-          return ports.map((port, i) => {
-            // Exception: water_meter upstream inlet is the mains source — no pipe expected
-            const isExempt = el.symbolId === 'water_meter' && getEffectivePortRole(el, i) === 'upstream';
-            if (isExempt) return null;
-
-            const pos = getPortPosition(el, port);
-            const connected = elStatus[i] ?? false;
-            const color = connected ? '#22c55e' : '#ef4444';
-
-            // Drawn as vector strokes rather than a text glyph: at this size (~1px)
-            // font rasterization/hinting snaps to a coarse pixel grid regardless of
-            // how precise pos.x/pos.y are, which made the marker visibly drift from
-            // the actual port location. A vector path has no such snapping step.
-            return connected ? (
-              <Line
-                key={`${el.id}-connstatus-${i}`}
-                points={[pos.x - 0.6, pos.y, pos.x - 0.15, pos.y + 0.45, pos.x + 0.6, pos.y - 0.5]}
-                stroke={color}
-                strokeWidth={0.35}
-                lineCap="round"
-                lineJoin="round"
-                listening={false}
-              />
-            ) : (
-              <Group key={`${el.id}-connstatus-${i}`} listening={false}>
-                <Line points={[pos.x - 0.6, pos.y - 0.6, pos.x + 0.6, pos.y + 0.6]} stroke={color} strokeWidth={0.35} lineCap="round" />
-                <Line points={[pos.x - 0.6, pos.y + 0.6, pos.x + 0.6, pos.y - 0.6]} stroke={color} strokeWidth={0.35} lineCap="round" />
-              </Group>
-            );
-          }).filter(Boolean);
-        });
-      })()}
-
-      {/* Long bath — capacity not set badge (PUB requirement: must be indicated on drawing) */}
       {elements.flatMap((el) => {
-        if (el.symbolId !== 'long_bath') return [];
-        if (el.longBathCapacityL) return []; // capacity is set — no badge
-        const bx = el.x + symPx / 2 + 4;
-        const by = el.y - symPx / 2 - 4;
-        return [
-          <Circle
-            key={`lb-nocap-badge-${el.id}`}
-            x={bx} y={by} radius={4}
-            fill="#f97316" stroke="#fff" strokeWidth={1}
-            onMouseEnter={() => setWarningTooltip({ x: bx, y: by, lines: ['Long Bath Capacity Not Set', 'Capacity must be indicated on drawing (PUB requirement)', 'Double-click symbol to enter capacity'] })}
-            onMouseLeave={() => setWarningTooltip(null)}
-            onClick={() => { setWarningTooltip(null); setSelected(el.id); onElementDblClick?.(el.id); }}
-          />,
-          <Text
-            key={`lb-nocap-text-${el.id}`}
-            x={bx - 1.3} y={by - 3}
-            text="!" fontSize={8} fontStyle="bold" fill="#fff"
-            listening={false}
-          />,
-        ];
+        const ports = getElementPorts(el);
+        const elStatus = connStatus.get(el.id) ?? [];
+        return ports.map((port, i) => {
+          // Exception: water_meter upstream inlet is the mains source — no pipe expected
+          const isExempt = el.symbolId === 'water_meter' && getEffectivePortRole(el, i) === 'upstream';
+          if (isExempt) return null;
+
+          const pos = getPortPosition(el, port);
+          const connected = elStatus[i] ?? false;
+          const color = connected ? '#22c55e' : '#ef4444';
+
+          // Drawn as vector strokes rather than a text glyph: at this size (~1px)
+          // font rasterization/hinting snaps to a coarse pixel grid regardless of
+          // how precise pos.x/pos.y are, which made the marker visibly drift from
+          // the actual port location. A vector path has no such snapping step.
+          return connected ? (
+            <Line
+              key={`${el.id}-connstatus-${i}`}
+              points={[pos.x - 0.6, pos.y, pos.x - 0.15, pos.y + 0.45, pos.x + 0.6, pos.y - 0.5]}
+              stroke={color}
+              strokeWidth={0.35}
+              lineCap="round"
+              lineJoin="round"
+              listening={false}
+            />
+          ) : (
+            <Group key={`${el.id}-connstatus-${i}`} listening={false}>
+              <Line points={[pos.x - 0.6, pos.y - 0.6, pos.x + 0.6, pos.y + 0.6]} stroke={color} strokeWidth={0.35} lineCap="round" />
+              <Line points={[pos.x - 0.6, pos.y + 0.6, pos.x + 0.6, pos.y - 0.6]} stroke={color} strokeWidth={0.35} lineCap="round" />
+            </Group>
+          );
+        }).filter(Boolean);
       })}
 
-      {/* Long bath >250L capacity badge — recycling facilities required */}
-      {elements.flatMap((el) => {
-        if (el.symbolId !== 'long_bath') return [];
-        if (!el.longBathCapacityL || el.longBathCapacityL <= 250) return [];
-        const bx = el.x + symPx / 2 + 4;
-        const by = el.y - symPx / 2 - 4;
-        return [
-          <Circle
-            key={`lb-badge-${el.id}`}
-            x={bx} y={by} radius={4}
-            fill="#f97316" stroke="#fff" strokeWidth={1}
-            onMouseEnter={() => setWarningTooltip({ x: bx, y: by, lines: ['Capacity exceeds 250 L (SS636 §6.2)', 'Recycling facilities required — no drain plug, full recirculation, backwash to sewer'] })}
-            onMouseLeave={() => setWarningTooltip(null)}
-          />,
-          <Text
-            key={`lb-text-${el.id}`}
-            x={bx - 1.3} y={by - 3}
-            text="!" fontSize={8} fontStyle="bold" fill="#fff"
-            listening={false}
-          />,
-        ];
-      })}
-
-      {/* Backflow-risk warning badges — orange ! when no check valve is nearby */}
-      {elements.flatMap((el) => {
-        if (!isBackflowRiskElement(el)) return [];
-        if (isElementProtected(el, elementAdj, elemById, 6, elements, pipes)) return [];
-        const halfW = (el.width ?? symPx) / 2;
-        const halfH = (el.height ?? symPx) / 2;
-        const bx = el.x + halfW + 4;
-        const by = el.y - halfH - 4;
-        const rule = getBackflowRule(el);
-        const ttLines = rule === 'vb_and_check_valve'
-          ? ['Backflow Risk (SS636 §6.5)', 'Requires a vacuum breaker and check valve connected in series', 'Double-click to insert Gate Valve + Check Valve + Vacuum Breaker']
-          : ['Backflow Risk (SS636 §6.4)', 'Requires 2 check valves connected in series upstream', 'Double-click to insert Gate Valve + 2 Check Valves'];
-        return [
-          <Circle
-            key={`bf-badge-${el.id}`}
-            x={bx} y={by} radius={4}
-            fill="#f97316" stroke="#fff" strokeWidth={1}
-            onMouseEnter={(e) => {
-              setWarningTooltip({ x: bx, y: by, lines: ttLines });
-              const stage = (e.target as Konva.Node).getStage();
-              if (stage) stage.container().style.cursor = 'pointer';
-            }}
-            onMouseLeave={(e) => {
-              setWarningTooltip(null);
-              const stage = (e.target as Konva.Node).getStage();
-              if (stage) stage.container().style.cursor = 'default';
-            }}
-            onDblClick={(e) => {
-              e.cancelBubble = true;
-              setWarningTooltip(null);
-              const asms = buildBackflowAssemblies(el.id, '', elements, pipes);
-              if (asms.length > 0) {
-                insertDcvAssemblies(asms.map((a) => ({
-                  elements: a.elements, targetPipeId: a.targetPipeId, snapX: a.snapX, snapY: a.snapY,
-                })));
-              }
-            }}
-          />,
-          <Text
-            key={`bf-text-${el.id}`}
-            x={bx - 1.3} y={by - 3}
-            text="!" fontSize={8} fontStyle="bold" fill="#fff"
-            listening={false}
-          />,
-        ];
-      })}
-
-      {/* MWELS efficiency rating missing badges — orange ! when no rating ticks set */}
-      {elements.flatMap((el) => {
-        if (!(el.symbolId in FIXTURE_MWELS_CATEGORY)) return [];
-        const mwelsCategory = FIXTURE_MWELS_CATEGORY[el.symbolId];
-        if (mwelsCategory && NON_MWELS_FITTING_TYPE_IDS.has(mwelsCategory)) return [];
-        if (el.efficiencyRating) return [];
-        const bx = el.x + symPx / 2 + 4;
-        const by = el.y - symPx / 2 - 4;
-        return [
-          <Circle
-            key={`mwels-badge-${el.id}`}
-            x={bx} y={by} radius={4}
-            fill="#f97316" stroke="#fff" strokeWidth={1}
-            onMouseEnter={() => setWarningTooltip({ x: bx, y: by, lines: ['MWELS Rating Missing', 'Double-click symbol to set efficiency ticks'] })}
-            onMouseLeave={() => setWarningTooltip(null)}
-            onClick={() => { setWarningTooltip(null); setSelected(el.id); onElementDblClick?.(el.id); }}
-          />,
-          <Text
-            key={`mwels-text-${el.id}`}
-            x={bx - 1.3} y={by - 3}
-            text="!" fontSize={8} fontStyle="bold" fill="#fff"
-            listening={false}
-          />,
-        ];
-      })}
-
-      {/* Pump rated head missing badge — orange ! when pump head not declared */}
-      {elements.flatMap((el) => {
-        if (el.symbolId !== 'pump') return [];
-        if (el.pumpRatedHeadM !== undefined) return [];
-        const bx = el.x + symPx / 2 + 4;
-        const by = el.y - symPx / 2 - 4;
-        return [
-          <Circle
-            key={`pump-head-badge-${el.id}`}
-            x={bx} y={by} radius={4}
-            fill="#f97316" stroke="#fff" strokeWidth={1}
-            onMouseEnter={() => setWarningTooltip({ x: bx, y: by, lines: ['Pump Rated Head Not Declared', 'Double-click symbol to enter rated head (m) from pump schedule'] })}
-            onMouseLeave={() => setWarningTooltip(null)}
-            onClick={() => { setWarningTooltip(null); setSelected(el.id); onElementDblClick?.(el.id); }}
-          />,
-          <Text
-            key={`pump-head-text-${el.id}`}
-            x={bx - 1.3} y={by - 3}
-            text="!" fontSize={8} fontStyle="bold" fill="#fff"
-            listening={false}
-          />,
-        ];
+      {/* Warning badges: an orange "!" per open issue (list built above) */}
+      {warningBadges.map((b) => {
+        const clickable = !!(b.onClick || b.onDblClick);
+        const setCursor = (e: Konva.KonvaEventObject<MouseEvent>, cursor: string) => {
+          const stage = e.target.getStage();
+          if (stage) stage.container().style.cursor = cursor;
+        };
+        return (
+          <React.Fragment key={b.key}>
+            <Circle
+              x={b.x} y={b.y} radius={WARNING_BADGE_RADIUS}
+              fill={WARNING_ORANGE} stroke="#fff" strokeWidth={1}
+              onMouseEnter={(e) => {
+                showBadgeTip(b);
+                if (clickable) setCursor(e, 'pointer');
+              }}
+              onMouseLeave={(e) => {
+                showBadgeTip(null);
+                if (clickable) setCursor(e, '');
+              }}
+              onClick={b.onClick && (() => { showBadgeTip(null); b.onClick!(); })}
+              onDblClick={b.onDblClick && ((e) => { e.cancelBubble = true; showBadgeTip(null); b.onDblClick!(); })}
+            />
+            <Text
+              x={b.x - 1.3} y={b.y - 3}
+              text="!" fontSize={8} fontStyle="bold" fill="#fff"
+              listening={false}
+            />
+          </React.Fragment>
+        );
       })}
 
       {/* Port indicators — shown for the hovered or single-selected element */}
@@ -781,36 +864,6 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
           </React.Fragment>
         );
       })}
-      {/* Warning tooltip — shown on hover over ! badges */}
-      {warningTooltip && (() => {
-        const PAD = 1.5;
-        const LINE_H = 2.5;
-        const W = 36;
-        const H = warningTooltip.lines.length * LINE_H + PAD * 2;
-        return (
-          <Group x={warningTooltip.x + 8} y={warningTooltip.y - H - 6} listening={false}>
-            <Rect
-              x={0} y={0} width={W} height={H}
-              fill="#1f2937" cornerRadius={3} opacity={0.93}
-              shadowColor="black" shadowBlur={6} shadowOpacity={0.25} shadowOffsetY={1}
-            />
-            {warningTooltip.lines.map((line, i) => (
-              <Text
-                key={i}
-                x={PAD} y={PAD + i * LINE_H}
-                text={line}
-                fontSize={1}
-                fill={i === 0 ? '#fbbf24' : '#d1d5db'}
-                fontStyle={i === 0 ? 'bold' : 'normal'}
-                width={W - PAD * 2}
-                wrap="word"
-                listening={false}
-              />
-            ))}
-          </Group>
-        );
-      })()}
-
       {/* Template ghost — semi-transparent preview following the cursor before placement */}
       {templateGhost && (() => {
         const { elements: gEls, pipes: gPipes, cursorX, cursorY } = templateGhost;
@@ -865,5 +918,6 @@ export function ElementsLayer({ dragPreview, templateGhost, onElementClick, onEl
         />
       )}
     </Layer>
+    </>
   );
 }

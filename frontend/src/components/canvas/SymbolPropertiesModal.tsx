@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import { useCanvasStore } from '../../store/canvasStore';
 import { FIXTURE_MWELS_CATEGORY, NON_MWELS_FITTING_TYPE_IDS, MWELS_TICK_OPTIONS, DEFAULT_MWELS_TICK_OPTIONS, WATER_FITTING_TYPES, SCHEMATIC_SYMBOL_PX } from '../../types';
 import { DUAL_SUPPLY_SYMBOLS } from '../../utils/symbolPorts';
+import { POPUP_PANEL, POPUP_TITLE } from './canvasPopupStyles';
 
 const TICK = '✓';
 
@@ -14,19 +15,8 @@ interface Props {
 }
 
 const panelStyle: React.CSSProperties = {
-  position: 'absolute',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 0,
-  zIndex: 10,
-  background: 'rgba(255,255,255,0.97)',
-  borderRadius: 6,
-  padding: '8px 10px 10px',
-  boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
-  border: '1px solid #ccc',
+  ...POPUP_PANEL,
   pointerEvents: 'all',
-  minWidth: 160,
-  maxWidth: 220,
 };
 
 export function SymbolPropertiesModal({ elementId, x, y, elementHalfWidthVp = SCHEMATIC_SYMBOL_PX / 2, onClose }: Props) {
@@ -78,7 +68,7 @@ export function SymbolPropertiesModal({ elementId, x, y, elementHalfWidthVp = SC
   return (
     <div ref={panelRef} style={posStyle}>
       {/* Header */}
-      <div style={{ fontSize: 10, fontWeight: 700, color: '#1a3a5c', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+      <div style={POPUP_TITLE}>
         {el.symbolName}
       </div>
 
