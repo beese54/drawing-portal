@@ -1,4 +1,4 @@
-# Canvas usability + footer links (2026-11-04) → 1.3.0 released
+# Canvas usability + footer links (2026-11-04) → 1.3.0 live on non-prod
 
 - [x] Footer: Contact Us + Feedback (PLACEHOLDER links in
   `layout/externalLinks.ts`); User Guide button in the header only
@@ -17,8 +17,8 @@
   security headers ok; docs 404; uid 10001; bundle has User Guide,
   helpandfeedback, contact-us, warning-glow, prefers-reduced-motion;
   Trivy HIGH/CRITICAL 0
-- [ ] User: GovPaaS → `:1.3.0`, live health check, `DAST_APP_IMAGE` →
-  `:1.3.0`, run schedule
+- [x] User (2026-11-04): non-prod GovPaaS on `:1.3.0`; `DAST_APP_IMAGE` →
+  `:1.3.0`, schedule run, no new vulnerabilities reported
 - [ ] Later: swap the placeholder links for the real pages (patch release)
 
 # PE/LP submission type in Title Block (2026-11-02) → branch `feat/submission-type`
