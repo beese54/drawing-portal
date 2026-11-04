@@ -27,17 +27,33 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-04
+
+Canvas usability, and the remaining footer links. No change to the API or to
+how drawings are checked.
+
 ### Added
-- **User Guide** button at the right of the header, and a User Guide link in
-  the footer (in the FAQ position of DSS TL-4). Both open the how-to guide in
-  a new tab.
+- **User Guide** button at the right of the header. It opens the how-to guide
+  in a new tab.
 - **Contact Us** and **Feedback** links in the footer, so all the TL-4 links
   are now shown.
+- These three links point at general PUB pages as placeholders for now: PUB
+  Contact Us, PUB Help & Feedback, and the PUB homepage. All the links live
+  in `frontend/src/components/layout/externalLinks.ts`.
 
-Contact Us, Feedback and User Guide point at general PUB pages as
-placeholders for now: PUB Contact Us, PUB Help & Feedback, and the PUB
-homepage. All the links live in
-`frontend/src/components/layout/externalLinks.ts`.
+### Changed
+- **Panning with the middle mouse button** (hold the scroll wheel and drag)
+  now works the way it does in DWG TrueView. Before, it was held to the sheet
+  edges, so at the default zoom it did nothing. Now the sheet moves freely, as
+  far as any edge reaching the middle of the screen. Double-clicking the middle
+  button fits the sheet to the screen.
+- **"!" warning tooltips** are now readable at any zoom. They used to be drawn
+  inside the drawing and shrank as you zoomed out. They now use the same card
+  and font sizes as the popup that opens when you double-click a symbol.
+- **Issues pulse gently:** a soft glow behind every orange "!" (missing
+  information) and every red ✕ (a port with no pipe). The glow is still if the
+  system asks for reduced motion, and it is left out of the compliance report
+  images.
 
 ## [1.2.0] - 2026-11-03
 
@@ -430,7 +446,8 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/beese54/drawing-portal/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/beese54/drawing-portal/compare/v1.1.11...v1.2.0
 [1.1.11]: https://github.com/beese54/drawing-portal/compare/v1.1.10...v1.1.11
 [1.1.10]: https://github.com/beese54/drawing-portal/compare/v1.1.9...v1.1.10
