@@ -27,6 +27,25 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-04
+
+### Security
+
+- Stamp images uploaded in Sheet Setup now get the same checks as stamps in
+  an imported schematic. The file must really be a PNG, JPEG or WebP image
+  (checked on its bytes, not its name) and at most 10 MB, and it is redrawn
+  before it is stored. The redraw drops anything hidden in the original file,
+  such as data appended after the image or a phone photo's EXIF and GPS
+  location, so none of it reaches the drawing, its JSON or its PDF. A file
+  that is refused shows a message under the stamp, and the existing stamp is
+  kept.
+
+### Fixed
+
+- A large, detailed stamp could be attached but was then dropped when the
+  drawing's own JSON was imported again, because it was over the 4 MB import
+  limit. Uploaded stamps are now redrawn smaller until they fit.
+
 ## [1.3.0] - 2026-11-04
 
 Canvas usability, and the remaining footer links. No change to the API or to
@@ -446,7 +465,8 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/beese54/drawing-portal/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/beese54/drawing-portal/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/beese54/drawing-portal/compare/v1.1.11...v1.2.0
 [1.1.11]: https://github.com/beese54/drawing-portal/compare/v1.1.10...v1.1.11
