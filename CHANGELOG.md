@@ -27,6 +27,18 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+### Added
+- **User Guide** button at the right of the header, and a User Guide link in
+  the footer (in the FAQ position of DSS TL-4). Both open the how-to guide in
+  a new tab.
+- **Contact Us** and **Feedback** links in the footer, so all the TL-4 links
+  are now shown.
+
+Contact Us, Feedback and User Guide point at general PUB pages as
+placeholders for now: PUB Contact Us, PUB Help & Feedback, and the PUB
+homepage. All the links live in
+`frontend/src/components/layout/externalLinks.ts`.
+
 ## [1.2.0] - 2026-11-03
 
 Title block changes for PE and LP submissions, requested ahead of the 4Q 2026
