@@ -7,12 +7,10 @@
  * followed by "© <current year>, Government of Singapore". PUB's own footer on
  * pub.gov.sg uses that same Government of Singapore wording.
  *
- * FOOTER_LINKS below is the one place to change. The order is the TL-4 order,
- * so keep it. A link whose href is null is not rendered: Contact Us and
- * Feedback are waiting on the System Owner's choice of destination, and a
- * link that goes nowhere is worse than no link. Setting the href makes it
- * appear in its place. This service has no FAQ or sitemap, which TL-4 allows,
- * so they are not listed at all.
+ * The links live in FOOTER_LINKS in externalLinks.ts, in the TL-4 order. Keep
+ * that order. The User Guide takes the FAQ position. Contact Us, Feedback and
+ * User Guide currently point at general PUB pages as placeholders, which that
+ * file lists.
  *
  * Destinations, checked 2026-10-27:
  *  - Report Vulnerability: go.gov.sg/report-vulnerability, the channel IM8 ST-3
@@ -36,27 +34,12 @@
  * desktop widths for that reason.
  */
 
+import { FOOTER_LINKS } from './externalLinks';
+
 const FOOTER_BG = '#1a3a5c';
 const TEXT = '#ffffff';
 
-interface FooterLink {
-  label: string;
-  href: string | null;
-}
-
-const FOOTER_LINKS: FooterLink[] = [
-  { label: 'Contact Us', href: null },
-  { label: 'Feedback', href: null },
-  { label: 'Report Vulnerability', href: 'https://go.gov.sg/report-vulnerability' },
-  { label: 'Privacy Statement', href: 'https://www.pub.gov.sg/privacy-statement' },
-  { label: 'Terms of Use', href: 'https://www.pub.gov.sg/termsofuse' },
-];
-
 export function Footer() {
-  const links = FOOTER_LINKS.filter(
-    (link): link is FooterLink & { href: string } => link.href !== null,
-  );
-
   return (
     <footer
       style={{
@@ -84,7 +67,7 @@ export function Footer() {
             gap: '0 1.25rem',
           }}
         >
-          {links.map((link) => (
+          {FOOTER_LINKS.map((link) => (
             <li key={link.label}>
               <a
                 href={link.href}

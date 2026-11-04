@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { CanvasPane } from './CanvasPane';
 import { ControlPane } from './ControlPane';
 import { Footer } from './Footer';
+import { USER_GUIDE } from './externalLinks';
 import { Masthead } from './Masthead';
 import { ScamAdvisoryBanner } from './ScamAdvisoryBanner';
 import { SheetSetupModal } from '../common/SheetSetupModal';
@@ -80,6 +81,30 @@ export function AppLayout() {
               : 'PIPE MODE — Click canvas to place points · Esc to cancel'}
           </span>
         )}
+
+        {/* How-to guide, kept in the header so it is easy to find while drawing. It
+            opens in a new tab for the same reason as the logo. The destination is set
+            in externalLinks.ts (a placeholder for now). */}
+        <a
+          href={USER_GUIDE.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${USER_GUIDE.label} — opens in a new tab`}
+          style={{
+            marginLeft: 'auto', marginRight: 20, flexShrink: 0,
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            minHeight: 28, padding: '0 12px',
+            border: '1px solid rgba(255,255,255,0.6)', borderRadius: 14,
+            color: '#fff', fontSize: 13, fontWeight: 600, textDecoration: 'none',
+          }}
+        >
+          <span aria-hidden="true" style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 16, height: 16, borderRadius: '50%',
+            background: '#fff', color: '#1a3a5c', fontSize: 11, fontWeight: 800,
+          }}>?</span>
+          {USER_GUIDE.label}
+        </a>
       </div>
 
       {/* Main content */}
