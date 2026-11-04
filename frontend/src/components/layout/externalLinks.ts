@@ -1,8 +1,8 @@
 /**
  * externalLinks.ts: every off-site link in the page chrome, in one place.
  *
- * The header's User Guide button and the footer (Footer.tsx) both read from
- * here, so when a destination changes, this is the only file to edit.
+ * The header's User Guide button (AppLayout.tsx) and the footer (Footer.tsx)
+ * read from here, so when a destination changes, this is the only file to edit.
  *
  * PLACEHOLDERS (set 2026-11-04, to be replaced by the System Owner):
  *  - CONTACT_US: PUB's general Contact Us page.
@@ -31,15 +31,14 @@ export interface FooterLink {
 
 /**
  * Footer links in the DSS TL-4 order:
- *   Contact Us · Feedback · FAQ · Sitemap · Report Vulnerability ·
- *   Privacy Statement · Terms of Use
- * The User Guide takes the FAQ position, because it is this service's help
- * content. The service has no sitemap, which TL-4 allows, so none is listed.
+ *   Contact Us · Feedback · FAQ (if any) · Sitemap (if any) ·
+ *   Report Vulnerability · Privacy Statement · Terms of Use
+ * The service has no FAQ or sitemap, which TL-4 allows, so neither is listed.
+ * The User Guide is in the header only, so there is one place to look for it.
  */
 export const FOOTER_LINKS: FooterLink[] = [
   { label: 'Contact Us', href: 'https://www.pub.gov.sg/contact-us' }, // PLACEHOLDER
   { label: 'Feedback', href: 'https://eservices.pub.gov.sg/helpandfeedback/report' }, // PLACEHOLDER
-  USER_GUIDE,
   { label: 'Report Vulnerability', href: 'https://go.gov.sg/report-vulnerability' },
   { label: 'Privacy Statement', href: 'https://www.pub.gov.sg/privacy-statement' },
   { label: 'Terms of Use', href: 'https://www.pub.gov.sg/termsofuse' },

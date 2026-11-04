@@ -8,9 +8,9 @@
  * pub.gov.sg uses that same Government of Singapore wording.
  *
  * The links live in FOOTER_LINKS in externalLinks.ts, in the TL-4 order. Keep
- * that order. The User Guide takes the FAQ position. Contact Us, Feedback and
- * User Guide currently point at general PUB pages as placeholders, which that
- * file lists.
+ * that order. Contact Us and Feedback currently point at general PUB pages as
+ * placeholders, which that file lists. The User Guide is in the header, not
+ * here.
  *
  * Destinations, checked 2026-10-27:
  *  - Report Vulnerability: go.gov.sg/report-vulnerability, the channel IM8 ST-3
