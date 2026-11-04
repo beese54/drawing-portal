@@ -1,3 +1,26 @@
+# Canvas usability + footer links (2026-11-04) → 1.3.0 released
+
+- [x] Footer: Contact Us + Feedback (PLACEHOLDER links in
+  `layout/externalLinks.ts`); User Guide button in the header only
+- [x] Hold the middle button to pan (free pan limits, soft clamp; middle
+  double-click = fit)
+- [x] "!" tooltip as an HTML card in the properties-popup style
+  (`WarningTooltip.tsx`, `canvasPopupStyles.ts`)
+- [x] Pulsing glow on "!" badges and on unconnected-port red ✕ (same radius,
+  `warning-glow` layer, static under reduced motion, hidden in capture)
+- [x] Verified on localhost (Playwright) + user approved; typecheck ok, lint 0
+  errors (16 existing warnings), build ok
+- [x] PR #5 rebase-merged → main `134880d`; GHA run 41757484519 ok
+- [x] GitLab green on 134880d (user) → tag `v1.3.0` → 134880d; GHA run
+  41766331342 ok
+- [x] **:1.3.0 verified:** anonymous pull ok; label + health `1.3.0/134880d`;
+  security headers ok; docs 404; uid 10001; bundle has User Guide,
+  helpandfeedback, contact-us, warning-glow, prefers-reduced-motion;
+  Trivy HIGH/CRITICAL 0
+- [ ] User: GovPaaS → `:1.3.0`, live health check, `DAST_APP_IMAGE` →
+  `:1.3.0`, run schedule
+- [ ] Later: swap the placeholder links for the real pages (patch release)
+
 # PE/LP submission type in Title Block (2026-11-02) → branch `feat/submission-type`
 
 Colleague's request (email 2026-11-02), ahead of the 4Q PE/LP briefing.
