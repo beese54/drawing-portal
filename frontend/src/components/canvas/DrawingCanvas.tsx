@@ -16,6 +16,7 @@ import { FlipOrientationDialog } from './FlipOrientationDialog';
 import { HighestFittingValueDialog } from './HighestFittingValueDialog';
 import { LongBathPanel } from './LongBathPanel';
 import { SymbolPropertiesModal } from './SymbolPropertiesModal';
+import { WarningTooltip, type WarningTip } from './WarningTooltip';
 import { WaterTankPropertiesModal } from './WaterTankPropertiesModal';
 import { useUiStore } from '../../store/uiStore';
 import { useCanvasStore } from '../../store/canvasStore';
@@ -37,6 +38,49 @@ const MAX_SCALE = 12.0;
 const SCALE_STEP = 0.25;
 // At "100%" zoom the page occupies this fraction of the viewport, leaving grey margins on all sides
 const FIT_PAD = 0.92;
+
+// ── Viewport limits, per axis ────────────────────────────────────────────────
+// An offset is how many viewport px the sheet is scrolled; pagePx is the sheet's size
+// at the current zoom; viewPx is the canvas size.
+
+/** Scroll limits for the wheel, zoom and scrollbars: the sheet stays in view. */
+function scrollRange(pagePx: number, viewPx: number): [number, number] {
+  return pagePx < viewPx ? [-(viewPx - pagePx) / 2, 0] : [0, pagePx - viewPx];
+}
+
+/**
+ * Pan limits for a middle-button drag (DWG TrueView style): any sheet edge can be
+ * dragged as far as the middle of the view, at any zoom, so the drawing can be
+ * moved around freely but never lost off-screen.
+ */
+function panRange(viewPx: number, pagePx: number): [number, number] {
+  return [-viewPx / 2, pagePx - viewPx / 2];
+}
+
+/**
+ * Clamp a wheel scroll to the scroll limits, without pulling back a view that a
+ * middle-button pan has taken past them. From outside the limits, a scroll can only
+ * move toward them.
+ */
+function clampScroll(next: number, prev: number, pagePx: number, viewPx: number): number {
+  const [lo, hi] = scrollRange(pagePx, viewPx);
+  return Math.max(Math.min(lo, prev), Math.min(next, Math.max(hi, prev)));
+}
+
+/**
+ * Clamp the offset after a zoom. If the view was already past the scroll limits from
+ * a middle-button pan, the pan limits apply, so zooming does not make it jump.
+ */
+function clampZoom(next: number, prevOfs: number, prevPagePx: number, newPagePx: number, viewPx: number): number {
+  const [lo, hi] = scrollRange(prevPagePx, viewPx);
+  const panned = prevOfs < lo - 0.5 || prevOfs > hi + 0.5;
+  const [a, b] = panned ? panRange(viewPx, newPagePx) : scrollRange(newPagePx, viewPx);
+  return Math.max(a, Math.min(next, b));
+}
+
+// Two middle-button presses within this time, on the same spot, fit the sheet to the
+// screen (TrueView's "zoom extents").
+const MIDDLE_DBLCLICK_MS = 350;
 
 // Symbols where the pipe passes straight through inlet → outlet (split at both ports)
 const INLINE_SYMBOL_IDS = new Set([
@@ -124,6 +168,8 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   stageOffsetYRef.current = stageOffsetY;
   stageScaleRef.current   = stageScale;
   const scrollbarDragRef = useRef<{ startY: number; startOffset: number } | null>(null);
+  // Last middle-button press, for detecting a middle double-click
+  const lastMiddleDownRef = useRef<{ t: number; x: number; y: number } | null>(null);
   const horizontalScrollbarDragRef = useRef<{startX: number; startOffset: number;} | null>(null);
 
   // sheetConfig must be read before the derived canvas dimensions below
@@ -145,9 +191,11 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       ? Math.max(40, (canvasSize.width / (virtualWidth * stageScale)) * canvasSize.width)
       : canvasSize.width;
 
+  // The ratio is clamped because a middle-button pan can take the view past the
+  // scroll range; the thumb then rests at the end of its track.
   const horizontalThumbLeft =
     maxOffsetX > 0
-      ? (stageOffsetX / maxOffsetX) * (canvasSize.width - horizontalThumbWidth)
+      ? Math.max(0, Math.min(1, stageOffsetX / maxOffsetX)) * (canvasSize.width - horizontalThumbWidth)
       : 0;
 
   // Fit-to-screen — returns to the base (100%) scale with the full sheet visible + grey margins
@@ -173,9 +221,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         const vp = canvasSize.height;
         const contentCenterY = (prevOffset + vp / 2) / prevScale;
         const newOffset = contentCenterY * newScale - vp / 2;
-        const pageH = virtualHeight * newScale;
-        const minOfs = pageH < vp ? -(vp - pageH) / 2 : 0;
-        return Math.max(minOfs, Math.min(newOffset, Math.max(0, pageH - vp)));
+        return clampZoom(newOffset, prevOffset, virtualHeight * prevScale, virtualHeight * newScale, vp);
       });
       return newScale;
     });
@@ -265,6 +311,8 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   // Water tank: id of the tank whose properties modal is open
   const [tankModalId, setTankModalId] = useState<string | null>(null);
   const [symbolPropertiesModalId, setSymbolPropertiesModalId] = useState<string | null>(null);
+  // Tooltip of the "!" badge under the pointer, reported by ElementsLayer
+  const [warningTip, setWarningTip] = useState<WarningTip | null>(null);
   const [longBathPanelId, setLongBathPanelId] = useState<string | null>(null);
   const tankModalOpenRef = useRef(false);
   tankModalOpenRef.current = !!tankModalId;
@@ -335,6 +383,9 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       const prevScale = stage.scale();
       const prevPos = stage.position();
       const prevSize = { width: stage.width(), height: stage.height() };
+      // Keep the pulsing badge glow (an on-screen cue only) out of the report images
+      const glow = stage.findOne('.warning-glow');
+      glow?.hide();
       try {
         stage.size({ width: virtualWidth, height: virtualHeight });
         stage.scale({ x: 1, y: 1 });
@@ -345,6 +396,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           pixelRatio, mimeType: 'image/jpeg', quality: 0.92,
         });
       } finally {
+        glow?.show();
         stage.size(prevSize);
         stage.scale(prevScale ?? { x: 1, y: 1 });
         stage.position(prevPos ?? { x: 0, y: 0 });
@@ -527,12 +579,8 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
         const contentX = (px + prevOfsX) / prevScale;
         const contentY = (py + prevOfsY) / prevScale;
         setStageScale(newScale);
-        const pageW = virtualWidth  * newScale;
-        const pageH = virtualHeight * newScale;
-        const minX = pageW < canvasSize.width  ? -(canvasSize.width  - pageW) / 2 : 0;
-        const minY = pageH < canvasSize.height ? -(canvasSize.height - pageH) / 2 : 0;
-        setStageOffsetX(Math.max(minX, Math.min(contentX * newScale - px, Math.max(0, pageW - canvasSize.width))));
-        setStageOffsetY(Math.max(minY, Math.min(contentY * newScale - py, Math.max(0, pageH - canvasSize.height))));
+        setStageOffsetX(clampZoom(contentX * newScale - px, prevOfsX, virtualWidth * prevScale, virtualWidth * newScale, canvasSize.width));
+        setStageOffsetY(clampZoom(contentY * newScale - py, prevOfsY, virtualHeight * prevScale, virtualHeight * newScale, canvasSize.height));
         return;
       }
 
@@ -541,18 +589,10 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       const deltaY = e.shiftKey ? 0 : e.deltaY;
 
       // Horizontal scroll
-      setStageOffsetX((prev) => {
-        const pageW = virtualWidth * stageScale;
-        const minOfs = pageW < canvasSize.width ? -(canvasSize.width - pageW) / 2 : 0;
-        return Math.max(minOfs, Math.min(prev + deltaX, Math.max(0, pageW - canvasSize.width)));
-      });
+      setStageOffsetX((prev) => clampScroll(prev + deltaX, prev, virtualWidth * stageScale, canvasSize.width));
 
       // Vertical scroll
-      setStageOffsetY((prev) => {
-        const pageH = virtualHeight * stageScale;
-        const minOfs = pageH < canvasSize.height ? -(canvasSize.height - pageH) / 2 : 0;
-        return Math.max(minOfs, Math.min(prev + deltaY, Math.max(0, pageH - canvasSize.height)));
-      });
+      setStageOffsetY((prev) => clampScroll(prev + deltaY, prev, virtualHeight * stageScale, canvasSize.height));
     };
 
     el.addEventListener('wheel', onWheel, { passive: false });
@@ -1217,30 +1257,41 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       // Right mouse button → reserved for context menu, never start rubber band
       if (e.evt.button === 2) return;
-      // Middle mouse button → pan canvas
+      // Middle mouse button → hold and drag to pan, as in DWG TrueView. preventDefault
+      // also stops the browser's own middle-click autoscroll.
       if (e.evt.button === 1) {
         setEditingAnnotation(null);
         e.evt.preventDefault();
         const startX = e.evt.clientX;
         const startY = e.evt.clientY;
+
+        // Double middle-click → fit the sheet to the screen (TrueView's zoom extents)
+        const last = lastMiddleDownRef.current;
+        lastMiddleDownRef.current = { t: e.evt.timeStamp, x: startX, y: startY };
+        if (last && e.evt.timeStamp - last.t < MIDDLE_DBLCLICK_MS
+            && Math.abs(startX - last.x) < 6 && Math.abs(startY - last.y) < 6) {
+          lastMiddleDownRef.current = null;
+          fitToScreen();
+          return;
+        }
+
         const startOffsetX = stageOffsetXRef.current;
         const startOffsetY = stageOffsetYRef.current;
-        const container = containerRef.current;
-        if (container) container.style.cursor = 'grabbing';
+        // Set the cursor on the Konva container too: symbols set their hover cursor
+        // there, and it would otherwise override the grab cursor.
+        const cursorTargets = [containerRef.current, e.target.getStage()?.container()]
+          .filter((el): el is HTMLDivElement => !!el);
+        cursorTargets.forEach((el) => { el.style.cursor = 'grabbing'; });
         const onMove = (me: MouseEvent) => {
           const s  = stageScaleRef.current;
-          const vw = virtualWidthRef.current;
-          const vh = virtualHeightRef.current;
-          const cw = canvasSize.width;
-          const ch = canvasSize.height;
-          const minX = vw * s < cw ? -(cw - vw * s) / 2 : 0;
-          const minY = vh * s < ch ? -(ch - vh * s) / 2 : 0;
-          setStageOffsetX(Math.max(minX, Math.min(startOffsetX - (me.clientX - startX), Math.max(0, vw * s - cw))));
-          setStageOffsetY(Math.max(minY, Math.min(startOffsetY - (me.clientY - startY), Math.max(0, vh * s - ch))));
+          const [minX, maxX] = panRange(canvasSize.width,  virtualWidthRef.current  * s);
+          const [minY, maxY] = panRange(canvasSize.height, virtualHeightRef.current * s);
+          setStageOffsetX(Math.max(minX, Math.min(startOffsetX - (me.clientX - startX), maxX)));
+          setStageOffsetY(Math.max(minY, Math.min(startOffsetY - (me.clientY - startY), maxY)));
         };
         const onUp = (ue: MouseEvent) => {
           if (ue.button !== 1) return;
-          if (container) container.style.cursor = '';
+          cursorTargets.forEach((el) => { el.style.cursor = ''; });
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
         };
@@ -1261,7 +1312,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
       setRubberAnchor(content);
       setRubberCurrent(content);
     },
-    [activeTool, pointerToContent, virtualWidth, virtualHeight, canvasSize],
+    [activeTool, pointerToContent, virtualWidth, virtualHeight, canvasSize, fitToScreen],
   );
 
   // Konva onMouseUp kept as no-op — window listener above handles completion.
@@ -1321,7 +1372,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
 
   // Scrollbar geometry
   const thumbHeight = Math.max(24, (canvasSize.height / (virtualHeight * stageScale)) * canvasSize.height);
-  const thumbTop = maxOffset > 0 ? (stageOffsetY / maxOffset) * (canvasSize.height - thumbHeight) : 0;
+  const thumbTop = maxOffset > 0 ? Math.max(0, Math.min(1, stageOffsetY / maxOffset)) * (canvasSize.height - thumbHeight) : 0;
 
   const handleThumbMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -1506,6 +1557,7 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
           }}
           rubberBand={rubberBandRect}
           onAnnotationDblClick={handleAnnotationDblClick}
+          onWarningTooltip={setWarningTip}
         />
         <AnnotationsLayer onAnnotationDblClick={handleAnnotationDblClick} editingAnnotationId={editingAnnotation?.id} />
         <PipeDraftLayer
@@ -1723,6 +1775,18 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
               setHighestFittingEditId(null);
             }}
             onCancel={() => setHighestFittingEditId(null)}
+          />
+        );
+      })()}
+      {warningTip && (() => {
+        const vp = contentToViewport(warningTip.x, warningTip.y);
+        return (
+          <WarningTooltip
+            tip={warningTip}
+            vpX={vp.x}
+            vpY={vp.y}
+            badgeRadiusVp={4 * stageScale}
+            canvasWidth={canvasSize.width}
           />
         );
       })()}
