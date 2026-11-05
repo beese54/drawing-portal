@@ -1,219 +1,135 @@
 # System Architecture — Schematic Drawing Portal
 
-For PUB (Singapore's national water agency), deployed on GovPaaS
-(Northflank-based) at `wsi-drawing-portal.pub.gov.sg`. Written to be handed
-directly to a cyber/security team; grounded in the actual code and deploy
-config rather than any feature list. The service performs no AI or model
-inference of any kind — see §3.
+For PUB (Singapore's national water agency). Written for a cyber security team and grounded in the code and deployment configuration, not a feature list. Current as of release **1.4.0** (November 2026). The service performs no AI or model inference of any kind.
 
-## 1. Component overview
+## 1. Summary
 
-```
-                            ┌─────────────────────────────┐
-   Browser (public,  ─────▶ │   Single combined container │
-   no login)                │   (GovPaaS / Northflank)    │
-                            │                              │
-                            │  ┌────────────────────────┐  │
-                            │  │ Static frontend (React/ │  │
-                            │  │ Vite/Konva) served from │  │
-                            │  │ ./static, mounted at /  │  │
-                            │  └────────────────────────┘  │
-                            │              │ same-origin    │
-                            │              ▼                │
-                            │  ┌────────────────────────┐  │
-                            │  │ FastAPI backend         │  │
-                            │  │ (uvicorn, port 8000)    │  │
-                            │  │  /api/evaluate          │  │
-                            │  │  /api/export/docx       │  │
-                            │  │  /api/symbols/*         │  │
-                            │  │  /api/health            │  │
-                            │  └───────────┬────────────┘  │
-                            │              │                │
-                            └──────────────┼────────────────┘
-```
+| Item | Value |
+|---|---|
+| Purpose | Draw a water service installation schematic, check it against PUB requirements, and export it as PDF and JSON |
+| Hosting | GovPaaS (Northflank-based), one container |
+| Address | `wsi-drawing-portal.pub.gov.sg` |
+| Exposure | Non-production: intranet only. Production: public internet at go-live |
+| Users and log-in | No log-in, no accounts, no sessions |
+| Data stored by the server | None. No database, no stored files |
+| Secrets held by the application | None |
+| Outbound calls from the server | None |
+| Code and image | Source on GitHub (`beese54/drawing-portal`, public), mirrored to GitLab; image `ghcr.io/beese54/drawing-portal:X.Y.Z` |
 
-**There is no persistent storage.** The symbol library and its `manifest.json`
-are baked into the container image and are read-only at runtime. Nothing a user
-draws is stored server-side, so the container is disposable — restarting or
-replacing it loses nothing.
+## 2. Architecture diagram
 
-The app makes **no outbound network calls of any kind**. A Slack feedback
-webhook was the sole exception; it was removed on 2026-08-01, along with
-`httpx`, the only HTTP client in the dependency list.
+![System architecture of the Schematic Drawing Portal](architecture.png)
 
-There is no database anywhere in this app. State lives in two places only:
-the symbol manifest/files on the PVC, and whatever the browser holds
-in-memory for the current drawing session (drawings are imported/exported
-as `.json` files by the user, not persisted server-side).
+Two dashed boundaries in the diagram mark where trust changes: the **user's device** (everything there is under the user's control) and the **GovPaaS service** (the only code PUB runs). The edge between them is managed by GovPaaS and Cloudflare, not by this project.
 
-## 2. Backend components (`backend/app/`)
+## 3. Components
 
-- **`routers/`** — one file per HTTP surface: `symbols.py` (read-only symbol
-  library), `evaluate.py` (compliance evaluation), `export.py` (DOCX report
-  generation), `health.py` (liveness/readiness).
-- **`agents/`** — deterministic compliance-check functions, not LLM agents
-  despite the name: `compliance_checks.py` (backflow prevention / supply
-  mode / water efficiency), `tank_pump_check.py`, `long_bath_check.py`,
-  `hot_water_contamination_check.py`, `section3_pipe_check.py`,
-  `highest_fitting_check.py`, plus `graph_utils.py` (shared
-  element/pipe-adjacency graph builder used by several checks).
-- **`services/`** — `symbol_service.py` (resolves a symbol id to a file on
-  disk), `image_annotator.py` (Pillow-based marker overlay on an uploaded
-  schematic JPEG for the evaluation report), `metadata_schema.py` (strict
-  type contract for `metadata_json`; type errors become 422, not 500),
-  `form_limits.py` (route class that sizes Starlette's per-field multipart
-  limit to the app's own caps).
-- **`schemas/manifest.py`** — read-only index of the symbol library
-  (`symbols_dir/manifest.json`). Read at request time, never written.
-- **`models/symbol.py`**, **`config.py`** — Pydantic models and
-  `pydantic-settings`-based config (env-var driven).
+### 3.1 Frontend (runs in the user's browser)
 
-## 3. Frontend (`frontend/src/`)
+- React and TypeScript, built with Vite. The drawing canvas uses Konva. State is kept with Zustand.
+- A single page with no client-side routing and no log-in screen.
+- **Saved in the browser's local storage** (on the user's computer only): the drawing (symbols, pipes, annotations) and the sheet settings, including the title block. The title block can hold names, addresses, emails, phone numbers and stamp and signature images. None of this is sent anywhere unless the user runs an evaluation or a Word export.
+- **Built in the browser:** the PDF drawing (jsPDF) and the JSON data file. Neither involves the server.
+- **User Guide:** part of the app, shown in place of the canvas. Its pictures are static files served by the container.
+- **Links to other sites:** the PUB logo and the footer links (Contact Us, Feedback, Report Vulnerability, Privacy Statement, Terms of Use) open in a new tab. An optional pilot survey link (FormSG) is built in but **switched off** in 1.4.0. When on, no drawing data is added to it.
+- Calls the API with relative paths, so every request is same-origin.
 
-React + TypeScript + Vite, canvas rendering via Konva
-(`react-konva`)/`use-image`. State managed with Zustand
-(`store/canvasStore.ts`, `store/uiStore.ts`). No client-side routing
-(single page, no react-router) and no authentication UI of any kind. Talks
-to the backend via `api/client.ts`, using a relative base URL — same-origin
-by construction since frontend and backend ship in one combined image.
+### 3.2 Backend (in the container)
 
-## 4. Data flow — main use cases
+- FastAPI on uvicorn, port 8000, Python 3.12.
+- **Compliance checks:** eight deterministic rule functions in `backend/app/agents/` (backflow prevention, supply mode, water efficiency, tank and pump, long bath, hot water contamination, section 3 pipes, highest direct-supply fitting). Despite the folder name, nothing here is an AI agent.
+- **Word report:** python-docx builds the report in memory and streams it back.
+- **Symbol library:** SVG files and `manifest.json`, built into the image and read-only.
+- **Static files:** the built frontend is served from `/`.
 
-**Drawing + compliance evaluation:** user builds a schematic on the Konva
-canvas client-side → clicks evaluate → frontend POSTs `metadata_json`
-(the full elements/pipes/canvas JSON) + optionally the rendered schematic
-as a JPEG to `POST /api/evaluate` → backend runs 8 compliance-check
-functions synchronously and returns a structured JSON report, optionally
-with a base64 annotated image → nothing is persisted server-side; the
-response goes straight back into the browser's evaluation modal.
+### 3.3 Container image
 
-**Compliance report export:** the frontend already holds the full
-evaluation result and captures per-issue crop images directly from the live
-canvas → POSTs `manifest_json` (row data) + the crop images to
-`POST /api/export/docx` → backend assembles a Word document in-memory
-(`io.BytesIO`, no disk temp files) and streams it back. Nothing persisted.
+- Multi-stage `Dockerfile`: stage 1 builds the frontend on `node:24-alpine`; stage 2 runs on `python:3.12-alpine`. Both base images are pinned by `sha256` digest.
+- Runs as a non-root user (uid 10001). The application code is owned by root, so the app can read and run it but not change it. The only writable place is `/tmp`, where uploads over 1 MB are briefly spooled.
+- Python dependencies are installed from a lockfile with hashes; npm from `package-lock.json`.
 
-**Symbol library:** `GET /api/symbols` lists the library from
-`manifest.json`; `GET /api/symbols/{id}/image` serves the SVG file. Both are
-read-only and public by design — the library is reference data, not user data.
+## 4. API endpoints
 
-The `POST`/`PATCH`/`DELETE` routes and their `X-Admin-Key` guard were **removed
-on 2026-08-04**. They wrote into the container filesystem, which §4a records as
-not writable in production, so they could not have worked; the shared, mutable
-global resource they implied never really existed. Symbols are now added by
-committing an SVG and redeploying. **The service holds no credential of any
-kind.**
+There are five API endpoints. All are unauthenticated by design: there is no user concept.
 
-**Feedback:** removed 2026-08-02. `POST /api/feedback` and its modal
-collected three ratings and two free-text boxes, printed to stdout. The
-free-text fields were the only route by which arbitrary user-supplied text
-entered the service and reached the log stream; deleting the feature closes
-that path outright rather than mitigating it. The service now has no
-feedback or support channel — publishing one is tracked as DSS control
-BD-9.
+| Method and path | Purpose | Input | Limits |
+|---|---|---|---|
+| `GET /api/health` | Liveness and readiness; reports version and commit | None | — |
+| `GET /api/symbols` | List the symbol library | None | Read-only |
+| `GET /api/symbols/{id}/image` | One symbol's SVG | Symbol id | Read-only; id must be in the manifest |
+| `POST /api/evaluate` | Run the eight compliance checks | `metadata_json` (form field); optional schematic image | Metadata ≤ 20 MB; ≤ 1,000 elements, 2,000 pipes, 4,000 ports; image ≤ 10 MB and ≤ 25 million pixels, PNG or JPEG |
+| `POST /api/export/docx` | Build the Word compliance report | `manifest_json` (form field); cropped canvas images | Manifest ≤ 4 MB, ≤ 1,000 rows; ≤ 200 images, ≤ 8 MB each, ≤ 32 MB in total, PNG or JPEG |
 
-## 4a. Logging and the container filesystem
+`/docs`, `/redoc` and `/openapi.json` are switched off in the deployed image and return 404.
 
-**The production container filesystem is not writable.** This was discovered
-empirically: an early SQLite-backed feedback store failed in production with
-`OperationalError('unable to open database file')`, which is why that
-feature was redesigned around stdout before being removed altogether. The
-property holds regardless of the feedback feature and is relied on by the
-security posture — but note it is a platform behaviour, not an asserted one:
-the in-repo k8s manifests set no `securityContext` and no
-`readOnlyRootFilesystem`.
+## 5. Data flows
 
-**The application emits almost no logs of its own.** As of 2026-08-03 there
-is no `logger` call and no `logging` configuration anywhere in
-`backend/app/`. There is exactly **one** application-emitted output in the
-whole backend: `traceback.print_exc()` at `routers/evaluate.py:223`, which
-prints a stack trace to stderr when schematic-image annotation fails, inside
-an `except Exception:` that then silently continues. It carries no request
-correlation and no structured fields.
+- **Drawing.** Happens entirely in the browser. The drawing is saved in the browser's local storage.
+- **Evaluate.** The browser sends the drawing as JSON to `POST /api/evaluate`. The server runs the checks and returns a JSON result. Nothing is kept.
+- **Word report.** The browser sends the result rows and cropped pictures of the canvas to `POST /api/export/docx`. The server builds the document in memory and returns it. Nothing is kept.
+- **PDF and JSON export.** Built in the browser and downloaded directly. The server is not involved.
+- **JSON import.** Read and checked entirely in the browser. It never reaches the server.
+- **Logs.** One structured JSON line per request on stdout: request id (also returned as `X-Request-ID`), method, path, route, status and duration. Request bodies, query strings, headers and client IP addresses are deliberately not logged. Successful health checks are not logged.
 
-Everything else is uvicorn's default access log — plain text, one line per
-request, no application events. Anything resembling an audit trail would
-have to be built from scratch, and that single `print_exc` is the natural
-first hook for error aggregation.
+## 6. File uploads and imports
 
-(An earlier revision of this section stated there was no `print` call at
-all. That was wrong — corrected 2026-08-03 during the risk assessment.)
+| Input | Where it is handled | Checks |
+|---|---|---|
+| Schematic JSON (Import) | Browser only | Size ≤ 10 MB; structure and value checks; counts capped as on the server; colours must be `#rrggbb`; stamp images must be real PNG, JPEG or WebP and are redrawn, dropping anything hidden in them |
+| Stamp and signature images (Sheet Setup) | Browser only | Since 1.3.1: ≤ 10 MB; the file's bytes must start like a PNG, JPEG or WebP whatever its name says; redrawn as a PNG, which removes EXIF and GPS data and anything appended; shrunk to fit the import limit |
+| Drawing metadata (Evaluate) | Server, in memory | Size checked before parsing; strict type checks (bad input gives 422, not 500); counts capped; malformed or deeply nested JSON refused |
+| Schematic image (Evaluate, optional) | Server, in memory | Real PNG or JPEG by its first bytes, not the declared type; ≤ 10 MB; pixel count checked before decoding (guards against decompression bombs) |
+| Canvas crops (Word report) | Server, in memory | Real PNG or JPEG by its first bytes; size per file and in total; a corrupt image leaves one blank cell rather than failing the report |
 
-## 5. Deployment topology
+No upload is stored, run, or passed to another user. Antivirus scanning is not applicable because nothing is kept or shared. The only path between users is a JSON file sent outside the system; the import checks above protect the person who opens it.
 
-- **Build:** a single root-level multi-stage `Dockerfile` — stage 1
-  (`node:24-alpine`) builds the frontend with `VITE_API_BASE_URL=""` baked
-  in (relative paths); stage 2 (`python:3.12-alpine`, non-root `app` user, uid 10001)
-  copies the backend + built frontend `dist/` into `./static/`.
-- **CI/CD:** `.github/workflows/docker-publish.yml` builds and pushes to
-  `ghcr.io/beese54/drawing-portal` on every push to `main` or a `v*.*.*`
-  tag, using the ephemeral `GITHUB_TOKEN` (scoped `contents: read`,
-  `packages: write`). The image is currently anonymously, publicly
-  pullable.
-- **Runtime:** GovPaaS (Northflank-based PaaS), pulling the CI-built image
-  from GHCR directly. One pod, `replicas: 1` — now a **sizing choice rather
-  than a constraint**. It was previously forced by a `ReadWriteOnce` volume
-  that a second replica could not mount; with the symbol write path removed
-  on 2026-08-04 there is no attached storage and nothing stateful, so the
-  service could be scaled horizontally whenever that is wanted.
-  Resources: 0.5 vCPU / 1024Mi at the platform level.
+## 7. Security controls
 
-  **The GovPaaS console is the only authoritative source for runtime
-  configuration.** In-repo Kubernetes manifests were deleted on 2026-08-04:
-  they were never applied, they disagreed with the console, and they mounted a
-  volume over the directory holding the built-in symbols, which would have
-  started the service with an empty palette.
-- **Networking:** publicly exposed, no IP allowlist, no basic auth, no
-  SSO/org-restricted access at the platform level. Custom domain
-  `wsi-drawing-portal.pub.gov.sg` reaches the app via a Cloudflare NS
-  delegation for that subzone, managed by GovPaaS/Airbase on the DNS side.
-- **Health checks:** both liveness and readiness hit `GET /api/health`,
-  which does zero dependency checks (no DB/disk/network calls) — safe to
-  share since there's nothing to check, but also means a healthy probe
-  response tells you nothing about the app's actual working state beyond
-  "the process is up."
+- **Security headers on every response:** a strict Content Security Policy (`default-src 'self'`, scripts and styles only from this site, images from this site or `data:`, no plugins, no framing, no form posts, no `<base>` rewriting), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and a `Permissions-Policy` that turns off camera, microphone, location, payment and USB.
+- **Cross-origin access closed:** no CORS origins are allowed.
+- **No credentials anywhere:** no log-in, API keys, sessions or stored secrets.
+- **Request limits:** see section 4. They keep a single request from exhausting the service.
+- **Container hardening:** see section 3.3.
+- **Supply chain:** base images and GitHub Actions are pinned to exact versions; dependencies are locked; images are built only by CI.
+- **Not handled by the application (platform controls):** TLS, HSTS, rate limiting, WAF and DDoS protection. See section 10.
 
-## 6. Trust / network boundaries
+## 8. Deployment and environments
 
-See `tasks/security_audit.md` Phase 0 for the full numbered list. That audit
-was written against 14 boundaries. **Two no longer exist:** #11, the
-outbound Slack webhook (removed 2026-08-01), and #3, `POST /api/feedback`
-(removed 2026-08-02 with the whole feedback feature). That leaves **12**: 7
-HTTP endpoints, health check, static mount, the client-local JSON import,
-and the two CI/CD → registry → runtime supply-chain hops. The audit is kept
-as a dated record rather than edited retroactively.
+| Item | Non-production (today) | Production (at go-live) |
+|---|---|---|
+| Platform | GovPaaS, one service | GovPaaS, one service |
+| Exposure | Intranet only | Public internet |
+| Image | Release tag from GHCR, for example `:1.4.0` | Planned: the same verified image, pulled from the GitLab container registry (see section 9) |
+| Resources | 0.5 vCPU, 1 GiB, one instance | To be sized; the app holds no state, so more instances can be added |
+| Health checks | `GET /api/health` (no dependency checks) | Same |
 
-(An earlier revision of this section said 13 — it accounted for the webhook
-removal but still counted the deleted feedback endpoint. Corrected
-2026-08-03.)
+The domain reaches GovPaaS through a Cloudflare delegation managed by GovPaaS and Airbase. The GovPaaS console is the only source of runtime configuration; the application needs no environment variables or secrets.
 
-Note that the audit predates the removal of the symbol write API on
-2026-08-04, and with it the `X-Admin-Key` guard it discusses. The single most
-important fact for a reviewer is now simpler than it was: **every HTTP endpoint
-in this app is unauthenticated, and the application holds no credential** —
-no login, no API key, no session, no user concept anywhere in the codebase.
+## 9. Build, release and security testing
 
-## 7. Explicitly out of scope / not visible from this repo
+- **Changes:** every change goes through a pull request; `main` on GitHub is protected.
+- **Build:** GitHub Actions builds the image on every push to `main` (tagged `:latest` and `:sha-<commit>`) and on every release tag (tagged `:X.Y.Z`). Releases follow semantic versioning and are recorded in `CHANGELOG.md`.
+- **Release gate:** a release is tagged only after the GitLab pipeline is green on that commit. Each released image is then checked: anonymous pull, health check reporting the right version and commit, security headers, `/docs` returning 404, non-root user, and a Trivy scan with no high or critical findings.
+- **GitLab security pipeline** (WOG GitLab instance, a pull mirror of the GitHub repository):
+  - **Every push:** SAST (Semgrep); secret detection (blocks on any finding); dependency audit for Python and npm (blocks on any finding); Dockerfile lint; 211 automated tests, including security tests for headers, CORS, request limits and upload handling.
+  - **Weekly schedule, against a running copy of the released image:** DAST (GitLab DAST); fuzz testing of the two POST endpoints; Trivy container scan; dependency audit.
+- **Earlier reviews:** an internal code security audit (July 2026), and a third-party scan with RabbitDeploy whose findings were fixed in release 1.1.8.
+- **Planned:** production will pull its image only from the GitLab container registry, starting with a copy of the verified GHCR image, and later images built in GitLab once its runners can build them.
 
-This document only reflects what's checked into the repository. It does
-**not** cover, and this team should not assume it covers:
+## 10. Trust boundaries and responsibilities
 
-- **GovPaaS/Northflank's own ingress/edge layer** — load balancer config,
-  TLS termination details, any WAF or DDoS mitigation the platform provides
-  independently of anything this repository declares.
-- **PUB's WOG (Whole-of-Government) DNS infrastructure** — the
-  `pub.gov.sg` zone is administered outside this project; the developer
-  does not hold admin rights to it.
-- **The Cloudflare zone** GovPaaS/Airbase manages for the delegated
-  `wsi-drawing-portal.pub.gov.sg` subzone — actual A/CNAME/TLS records and
-  any Cloudflare-side security features (WAF rules, rate limiting, bot
-  management) live in a Cloudflare account this project has no visibility
-  into.
-- **Runtime secrets storage** on the GovPaaS platform — not because the app
-  uses it, but because a reviewer will ask. Since 2026-08-04 the application
-  has **no secrets at all**: the last one, `SYMBOLS_ADMIN_KEY`, went with the
-  symbol write API. Nothing needs injecting at runtime.
+**Trust boundaries:**
 
-These gaps are the natural handoff points to a cyber/infra team — they
-require platform/account access this review didn't have, not more code
-reading.
+1. The user's browser and the API: every request is untrusted input (section 6).
+2. The user's device: drawings, title block details and stamps stay in that browser's local storage.
+3. A JSON file shared between users outside the system: checked on import.
+4. The platform edge (Cloudflare, GovPaaS ingress) and the container.
+5. The supply chain: GitHub, GitHub Actions, the GHCR registry, and GovPaaS pulling the image.
+
+**Outside this repository** (owned by GovPaaS, Cloudflare or PUB, and the natural starting points for VAPT and go-live review):
+
+- TLS settings and HSTS. HSTS is deliberately not set by the application; it is to be decided with GovPaaS before production go-live.
+- Rate limiting, WAF rules, bot protection and DDoS protection. The application has none of its own; this was decided as a platform responsibility.
+- Edge access logs, including client IP addresses.
+- DNS for `pub.gov.sg` and the Cloudflare zone for the subdomain.
+- Network restriction to the intranet (non-production).
