@@ -1,3 +1,24 @@
+# Stamp upload fix → 1.3.1; in-app User Guide + survey prompt → 1.4.0 (2026-11-04/05)
+
+- [x] **1.3.1:** stamp uploads in Sheet Setup checked (real PNG/JPEG/WebP,
+  ≤ 10 MB) and redrawn like imported stamps (`cleanUploadedStamp`). PR #6 →
+  main `060331b`; GitLab green (user) → tag `v1.3.1`; GHA 41942183970 ok.
+  **:1.3.1 verified:** anonymous pull, health `1.3.1/060331b`, headers, docs
+  404, uid 10001, new messages in bundle, Trivy 0
+- [x] **1.4.0:** in-app User Guide over the canvas (header button ↔ Back to
+  drawing, Esc), 6 steps with screenshots (made-up details); pilot survey
+  prompt before JSON download, **off** (`PILOT_SURVEY = null`); `.webp`
+  served as image/webp. Guide text written from the WISE deck, which stays
+  out of the repo (excluded locally; user OK'd the rewritten text).
+  PR #7 → main `3e32ac9`; GitLab green (user) → tag `v1.4.0`; GHA
+  41949312930 ok. **:1.4.0 verified:** anonymous pull, health
+  `1.4.0/3e32ac9`, headers, docs 404, guide images 200 image/webp, uid
+  10001, survey code absent from bundle (off), browser 20 checks, Trivy 0
+- [ ] User: GovPaaS → `:1.4.0`, live health check, `DAST_APP_IMAGE` →
+  `:1.4.0`, run schedule
+- [ ] Patch release when ready: FormSG link in `PILOT_SURVEY` (turns the
+  prompt and the guide's survey step on) + real Contact Us details
+
 # Canvas usability + footer links (2026-11-04) → 1.3.0 live on non-prod
 
 - [x] Footer: Contact Us + Feedback (PLACEHOLDER links in
