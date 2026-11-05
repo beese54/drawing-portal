@@ -1,6 +1,6 @@
 # System Architecture — Schematic Drawing Portal
 
-For PUB (Singapore's national water agency). Written for a cyber security team and grounded in the code and deployment configuration, not a feature list. Current as of release **1.4.0** (November 2026). The service performs no AI or model inference of any kind.
+Current as of release **1.4.0** (November 2026). The service performs no AI or model inference of any kind.
 
 ## 1. Summary
 
