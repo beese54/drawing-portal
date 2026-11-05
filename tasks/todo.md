@@ -1,4 +1,4 @@
-# Stamp upload fix → 1.3.1; in-app User Guide + survey prompt → 1.4.0 (2026-11-04/05)
+# Stamp upload fix → 1.3.1; in-app User Guide + survey prompt → 1.4.0 (2026-11-04/05) → 1.4.0 live on non-prod
 
 - [x] **1.3.1:** stamp uploads in Sheet Setup checked (real PNG/JPEG/WebP,
   ≤ 10 MB) and redrawn like imported stamps (`cleanUploadedStamp`). PR #6 →
@@ -14,8 +14,8 @@
   41949312930 ok. **:1.4.0 verified:** anonymous pull, health
   `1.4.0/3e32ac9`, headers, docs 404, guide images 200 image/webp, uid
   10001, survey code absent from bundle (off), browser 20 checks, Trivy 0
-- [ ] User: GovPaaS → `:1.4.0`, live health check, `DAST_APP_IMAGE` →
-  `:1.4.0`, run schedule
+- [x] User (2026-11-05): non-prod GovPaaS on `:1.4.0`, live checks ok;
+  `DAST_APP_IMAGE` → `:1.4.0`, schedule run, nothing new reported
 - [ ] Patch release when ready: FormSG link in `PILOT_SURVEY` (turns the
   prompt and the guide's survey step on) + real Contact Us details
 
