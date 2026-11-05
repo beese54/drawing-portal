@@ -1,3 +1,4 @@
+import mimetypes
 import threading
 from pathlib import Path
 
@@ -19,6 +20,13 @@ configure_logging()
 # raising RecursionError. Set before any worker thread exists. It reserves
 # address space, not memory. See tests/test_thread_stack.py.
 threading.stack_size(8 * 1024 * 1024)
+
+# The static mount labels files by extension through Python's mimetypes, which
+# only learned .webp in 3.13. The image runs 3.12, so the User Guide's WebP
+# screenshots (frontend/public/guide/) went out as application/octet-stream.
+# Browsers display them anyway, but with nosniff set the label should be right.
+# See tests/test_static_types.py.
+mimetypes.add_type("image/webp", ".webp")
 
 # None removes the route entirely, so the request falls through to the static
 # mount and gets its 404. Development sets ENABLE_API_DOCS=1 (see config.py).
