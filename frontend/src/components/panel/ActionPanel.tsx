@@ -7,6 +7,8 @@ import { EvaluationModal } from '../common/EvaluationModal';
 import { AcknowledgmentModal } from '../common/AcknowledgmentModal';
 import { TemplateModal } from '../common/TemplateModal';
 import { MissingTitleBlockDialog } from '../common/MissingTitleBlockDialog';
+import { SurveyPrompt } from '../common/SurveyPrompt';
+import { PILOT_SURVEY } from '../layout/externalLinks';
 import { missingTitleBlockFields } from '../../utils/titleBlockRequirements';
 import { useUiStore } from '../../store/uiStore';
 import { getUnconnectedPorts } from '../../utils/portConnectionStatus';
@@ -43,6 +45,8 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
   const [evalResult, setEvalResult] = useState<EvaluationResponse | null>(null);
   const [evalMetadata, setEvalMetadata] = useState<DrawingMetadata | null>(null);
   const [evalError, setEvalError] = useState<string | null>(null);
+  const [showSurvey, setShowSurvey] = useState(false);
+  const surveyPromptDismissed = useUiStore((s) => s.surveyPromptDismissed);
   const [missingFor, setMissingFor] = useState<{ action: 'pdf' | 'evaluate'; fields: string[] } | null>(null);
   const { exportMetadata, getMetadata } = useMetadataExport(canvasWidth, canvasHeight);
   const { openFilePicker: openJsonImport } = useJsonImport();
@@ -55,12 +59,19 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
     setClearTitleBlock(false);
   };
 
+  // The last step before the JSON downloads: offer the pilot survey first,
+  // unless it is switched off or the user asked not to be asked again.
+  const downloadMetadata = () => {
+    if (PILOT_SURVEY && !surveyPromptDismissed) setShowSurvey(true);
+    else exportMetadata();
+  };
+
   const runExportMetadataFlow = () => {
     const issues = getUnconnectedPorts(elements, pipes);
     if (issues.length > 0) {
       setConnectionWarning({ issues });
     } else {
-      exportMetadata();
+      downloadMetadata();
     }
   };
 
@@ -245,6 +256,13 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
       {evalResult && evalMetadata && (
         <EvaluationModal result={evalResult} metadata={evalMetadata} onClose={() => setEvalResult(null)} />
       )}
+      {showSurvey && PILOT_SURVEY && (
+        <SurveyPrompt
+          surveyHref={PILOT_SURVEY.href}
+          onDownload={() => { setShowSurvey(false); exportMetadata(); }}
+          onCancel={() => setShowSurvey(false)}
+        />
+      )}
       {showTemplates && (
         <TemplateModal onClose={() => setShowTemplates(false)} />
       )}
@@ -319,7 +337,7 @@ export function ActionPanel({ canvasWidth, canvasHeight }: ActionPanelProps) {
                 Cancel
               </button>
               <button
-                onClick={() => { setConnectionWarning(null); exportMetadata(); }}
+                onClick={() => { setConnectionWarning(null); downloadMetadata(); }}
                 style={{
                   padding: '7px 16px', border: 'none', borderRadius: 5,
                   background: '#b45309', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600,

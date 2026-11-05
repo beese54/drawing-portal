@@ -61,6 +61,11 @@ interface UiStore {
    *  so returning users get the canvas height back — the shell is a fixed 100vh with no
    *  page scroll, so every row above the canvas is taken from the drawing area. */
   scamAdvisoryDismissed: boolean;
+  /** The User Guide is covering the canvas and the tool panel. Not persisted:
+   *  a reload always opens on the drawing. */
+  guideOpen: boolean;
+  /** The user ticked "Don't ask me again" on the pilot survey prompt. Persisted. */
+  surveyPromptDismissed: boolean;
   setActiveTool: (tool: ActiveTool) => void;
   setMrlConfig: (config: Partial<MrlConfig>) => void;
   addFloorLevel: (floor: Omit<FloorLevel, 'id'>) => void;
@@ -89,6 +94,8 @@ interface UiStore {
   addRecentPipeColor: (color: string) => void;
   setAnnotationFontSizeDefault: (size: number) => void;
   dismissScamAdvisory: () => void;
+  setGuideOpen: (open: boolean) => void;
+  dismissSurveyPrompt: () => void;
 }
 
 export const useUiStore = create<UiStore>()(persist((set, get) => ({
@@ -114,7 +121,11 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
   recentPipeColors: [],
   annotationFontSizeDefault: DEFAULT_ANNOTATION_FONT_SIZE,
   scamAdvisoryDismissed: false,
+  guideOpen: false,
+  surveyPromptDismissed: false,
+  dismissSurveyPrompt: () => set({ surveyPromptDismissed: true }),
 
+  setGuideOpen: (open) => set({ guideOpen: open }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   setDraggingSymbolId: (id) => set({ draggingSymbolId: id }),
   setPendingSymbol: (sym) => set({ pendingSymbol: sym }),
@@ -197,6 +208,7 @@ export const useUiStore = create<UiStore>()(persist((set, get) => ({
     // Without this line the dismissal works but never survives a reload — the
     // allowlist is the whole persistence contract, not an optimisation.
     scamAdvisoryDismissed: state.scamAdvisoryDismissed,
+    surveyPromptDismissed: state.surveyPromptDismissed,
   }),
   migrate: (_persisted, version) => {
     if (version < 1) return {} as UiStore;

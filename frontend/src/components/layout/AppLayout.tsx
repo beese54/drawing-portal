@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { CanvasPane } from './CanvasPane';
 import { ControlPane } from './ControlPane';
 import { Footer } from './Footer';
-import { USER_GUIDE } from './externalLinks';
 import { Masthead } from './Masthead';
 import { ScamAdvisoryBanner } from './ScamAdvisoryBanner';
+import { UserGuide } from '../guide/UserGuide';
 import { SheetSetupModal } from '../common/SheetSetupModal';
 import { ToastNotification, DcvToastNotification } from '../common/ToastNotification';
 import { useUiStore } from '../../store/uiStore';
@@ -14,6 +14,8 @@ export function AppLayout() {
   const [logoFailed, setLogoFailed] = useState(false);
   const activeTool = useUiStore((s) => s.activeTool);
   const sheetSetupOpen = useUiStore((s) => s.sheetSetupOpen);
+  const guideOpen = useUiStore((s) => s.guideOpen);
+  const setGuideOpen = useUiStore((s) => s.setGuideOpen);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -82,37 +84,41 @@ export function AppLayout() {
           </span>
         )}
 
-        {/* How-to guide, kept in the header so it is easy to find while drawing. It
-            opens in a new tab for the same reason as the logo. The destination is set
-            in externalLinks.ts (a placeholder for now). */}
-        <a
-          href={USER_GUIDE.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`${USER_GUIDE.label} — opens in a new tab`}
+        {/* User Guide, kept in the header so it is easy to find while drawing. It
+            opens the guide over the drawing area (components/guide/) and becomes
+            "Back to drawing" while the guide is open. */}
+        <button
+          type="button"
+          onClick={() => setGuideOpen(!guideOpen)}
+          aria-pressed={guideOpen}
           style={{
             marginLeft: 'auto', marginRight: 20, flexShrink: 0,
             display: 'inline-flex', alignItems: 'center', gap: 6,
             minHeight: 28, padding: '0 12px',
             border: '1px solid rgba(255,255,255,0.6)', borderRadius: 14,
-            color: '#fff', fontSize: 13, fontWeight: 600, textDecoration: 'none',
+            background: guideOpen ? '#fff' : 'transparent',
+            color: guideOpen ? '#1a3a5c' : '#fff',
+            fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
           }}
         >
           <span aria-hidden="true" style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 16, height: 16, borderRadius: '50%',
-            background: '#fff', color: '#1a3a5c', fontSize: 11, fontWeight: 800,
-          }}>?</span>
-          {USER_GUIDE.label}
-        </a>
+            background: guideOpen ? '#1a3a5c' : '#fff',
+            color: guideOpen ? '#fff' : '#1a3a5c', fontSize: 11, fontWeight: 800,
+          }}>{guideOpen ? '←' : '?'}</span>
+          {guideOpen ? 'Back to drawing' : 'User Guide'}
+        </button>
       </div>
 
-      {/* Main content */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      {/* Main content. The User Guide covers it rather than replacing it, so the
+          drawing underneath stays exactly as the user left it. */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
         <CanvasPane
           onSizeChange={(w, h) => setCanvasSize({ width: w, height: h })}
         />
         <ControlPane canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} />
+        {guideOpen && <UserGuide />}
       </div>
 
       {/* Official Government Footer — the last component on the page (DSS TL-4) */}

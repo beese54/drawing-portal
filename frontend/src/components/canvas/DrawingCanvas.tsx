@@ -409,6 +409,10 @@ export function DrawingCanvas({ onSizeChange }: DrawingCanvasProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      // The User Guide covers the canvas but leaves it mounted. Keys pressed while
+      // reading it (Ctrl+C to copy guide text, Delete, Ctrl+Z) must not change a
+      // drawing the user cannot see.
+      if (useUiStore.getState().guideOpen) return;
 
       if (e.key === 'Escape') {
         useUiStore.getState().setPendingSymbol(null);
