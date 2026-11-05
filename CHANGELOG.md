@@ -27,6 +27,36 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-05
+
+### Added
+
+- An in-app User Guide. The header's User Guide button now opens the guide
+  in place of the canvas and tool panel, keeping the header and footer, and
+  becomes "Back to drawing" (Esc also returns). It covers the drawing rather
+  than replacing it, so the drawing, zoom and selection are kept, and canvas
+  shortcuts are ignored while it is open. Sections: an overview, six steps
+  (set up the sheet, fill in the title block, start from a template, draw,
+  evaluate, export) with screenshots, and pilot feedback. Screenshots use
+  made-up project details.
+- A pilot survey prompt before the JSON download, with "Take the survey and
+  download" (opens FormSG in a new tab, with no drawing data in the link),
+  "Skip and download", and "Don't ask me again on this computer". It is
+  **switched off** in this release (`PILOT_SURVEY` is null in
+  `externalLinks.ts`) until the survey's FormSG link is ready; the guide's
+  survey step is hidden while it is off.
+
+### Changed
+
+- The User Guide is no longer an external placeholder link
+  (`USER_GUIDE` removed from `externalLinks.ts`).
+
+### Fixed
+
+- WebP files from the static mount are served as `image/webp` instead of
+  `application/octet-stream`. Python 3.12 has no `.webp` entry, so
+  `app/main.py` registers one.
+
 ## [1.3.1] - 2026-11-04
 
 ### Security
@@ -465,7 +495,8 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/beese54/drawing-portal/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/beese54/drawing-portal/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/beese54/drawing-portal/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/beese54/drawing-portal/compare/v1.1.11...v1.2.0
