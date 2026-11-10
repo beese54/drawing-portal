@@ -1,3 +1,28 @@
+# zlib CVE-2026-4738 → 1.4.1 rebuild (2026-11-10) → 1.4.1 live on non-prod
+
+- [x] Weekly container scan: CVE-2026-4738 (Medium) on Alpine `zlib`
+  1.3.2-r1 in `:1.4.0` (Alpine 3.24.3). The CVE is GDAL's bundled zlib
+  `contrib/infback9` (`inftree9.c`, fixed in GDAL 3.11.0); Alpine's tracker
+  mapped it to zlib, fixed in 1.4-r0, on 2026-11-06 (after 1.4.0 was built).
+  Not exploitable: no GDAL in the image, 1.4.0's `libz.so.1.3.2` has no
+  `inflateBack9` code. Medium, so `container_scanning:gate` stayed green
+- [x] **1.4.1:** rebuild only, no code changes (the uncached `apk upgrade`
+  takes zlib 1.4-r0). PR #10 (changelog) → main `6201ac6` → tag `v1.4.1`;
+  GHA 42742149804 ok
+- [x] **:1.4.1 verified** (`verify_release.sh`, 2026-11-10 02:30 UTC):
+  digest `sha256:8a7dd3c55b01dd8d682aeee554978da584c8abfd96086b2c0890d753b93a02bd`;
+  anonymous pull, uid 10001, health `1.4.1/6201ac6`, headers on `/` and
+  `/api/health`, docs/redoc/openapi 404, no `?token=` in logs, JSON logs,
+  `docker diff` /tmp only: 12/12. Alpine 3.24.4, `zlib-1.4-r0`. Trivy 0 at
+  all severities (first run's DB download from mirror.gcr.io timed out;
+  re-run with `--db-repository ghcr.io/aquasecurity/trivy-db:2` ok)
+- [x] User (2026-11-10): non-prod GovPaaS on `:1.4.1`; GitLab finding
+  updated with cause, exposure and fix
+- [ ] `DAST_APP_IMAGE` → `:1.4.1`, run schedule, finding shows "No longer
+  detected" → Resolved
+- [ ] Dependabot PR #3 (`certifi` 2026.10.18, alert #87 critical): dev/test
+  lock only (`requirements-dev.txt`), not in the image; review and merge
+
 # Stamp upload fix → 1.3.1; in-app User Guide + survey prompt → 1.4.0 (2026-11-04/05) → 1.4.0 live on non-prod
 
 - [x] **1.3.1:** stamp uploads in Sheet Setup checked (real PNG/JPEG/WebP,
