@@ -27,6 +27,19 @@ candidates, but are not releases.
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-10
+
+### Security
+
+- Rebuilt so the image ships zlib 1.4-r0 (was 1.3.2-r1). The weekly
+  container scan reported CVE-2026-4738 as Medium against zlib after
+  Alpine's security tracker marked it fixed in 1.4-r0 on 2026-11-06. The
+  flaw itself is in GDAL's bundled copy of zlib's optional `infback9`
+  add-on (`contrib/infback9/inftree9.c`, fixed in GDAL 3.11.0). The app
+  does not include GDAL and only links the standard zlib library, so it was
+  not exploitable here; the rebuild clears the finding. No code changes:
+  the Dockerfile's uncached `apk upgrade` picks up the new package.
+
 ## [1.4.0] - 2026-11-05
 
 ### Added
@@ -495,7 +508,8 @@ from the upstream portal, whose code reported `1.0.0` but was never tagged.
 - Documentation corrected where it overstated AI use or described features
   that no longer exist.
 
-[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/beese54/drawing-portal/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/beese54/drawing-portal/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/beese54/drawing-portal/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/beese54/drawing-portal/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/beese54/drawing-portal/compare/v1.2.0...v1.3.0
