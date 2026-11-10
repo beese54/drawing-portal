@@ -1,4 +1,4 @@
-# zlib CVE-2026-4738 → 1.4.1 rebuild (2026-11-10) → 1.4.1 live on non-prod
+# zlib CVE-2026-4738 → 1.4.1 rebuild (2026-11-10) → 1.4.1 live on non-prod, schedule on 1.4.1
 
 - [x] Weekly container scan: CVE-2026-4738 (Medium) on Alpine `zlib`
   1.3.2-r1 in `:1.4.0` (Alpine 3.24.3). The CVE is GDAL's bundled zlib
@@ -18,10 +18,13 @@
   re-run with `--db-repository ghcr.io/aquasecurity/trivy-db:2` ok)
 - [x] User (2026-11-10): non-prod GovPaaS on `:1.4.1`; GitLab finding
   updated with cause, exposure and fix
-- [ ] `DAST_APP_IMAGE` → `:1.4.1`, run schedule, finding shows "No longer
-  detected" → Resolved
-- [ ] Dependabot PR #3 (`certifi` 2026.10.18, alert #87 critical): dev/test
-  lock only (`requirements-dev.txt`), not in the image; review and merge
+- [x] User (2026-11-10): `DAST_APP_IMAGE` → `:1.4.1`, schedule run
+- [x] Dependabot PR #3 (`certifi` 2026.10.18, alert #87 critical): dev/test
+  lock only (`requirements-dev.txt`), not in the image. Reviewed: hashes match
+  PyPI, file unchanged on main since the PR opened; in python:3.12-alpine as
+  uid 65533 the hashed lock installs, `pip check` ok, backend 210 passed /
+  7 skipped, gate tests 20 passed, `lock_check` ok. Rebase-merged → main
+  `504c984` (no release: not in the image)
 
 # Stamp upload fix → 1.3.1; in-app User Guide + survey prompt → 1.4.0 (2026-11-04/05) → 1.4.0 live on non-prod
 
